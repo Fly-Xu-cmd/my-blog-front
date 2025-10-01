@@ -23,24 +23,26 @@ const monthNames = [
 ];
 export default function NewBlogs() {
   return (
-    <div className="relative max-w-6xl mx-auto">
+    <div className="w-full">
       {/* 时间轴 */}
-
-      <div className="h-full w-0.5 bg-[#dceafc] absolute top-0 left-31.5 "></div>
-      <ul className="space-y-8">
+      <ul>
         {sortedPosts.map((post) => (
-          <li key={post.id} className="relative flex items-start ">
+          <li key={post.id} className="flex items-start h-50">
             {/* 时间 */}
-            <div className="w-10 !h-full flex items-top justify-end text-nowrap text-[#5e7698]  ">
+            <div className=" !h-full flex items-top justify-end text-nowrap text-[#5e7698] mb-10">
               <span className="text-base ">{`${
                 monthNames[Number(post.date.split("-")[1]) - 1]
               } ${post.date.split("-")[2]}, ${post.date.split("-")[0]}`}</span>
             </div>
+
             {/* 时间轴点 */}
-            <div className="w-3.5 h-3 border-2 border-[#dceafc] rounded-full bg-white mx-20"></div>
+            <div className="w-3.5 h-full mx-20 flex justify-center  items-center flex-col">
+              <div className="w-3 h-3 border-2 border-[#dceafc] rounded-full bg-white "></div>
+              <div className="h-full w-0.5  bg-[#dceafc]  "></div>
+            </div>
 
             {/* 内容卡片 */}
-            <div className="w-full ml-8 p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200">
+            <div className="w-full ml-4 p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200">
               <h2 className="text-xl font-semibold mb-2">
                 <Link
                   href={`/posts/${post.id}`}

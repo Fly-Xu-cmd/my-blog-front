@@ -6,6 +6,13 @@
   "description": "",
   "glyphs": [
     {
+      "icon_id": "5387596",
+      "name": "箭头_左右切换",
+      "font_class": "jiantou_zuoyouqiehuan",
+      "unicode": "eb0d",
+      "unicode_decimal": 60173
+    },
+    {
       "icon_id": "77156",
       "name": "微信",
       "font_class": "weixin",
