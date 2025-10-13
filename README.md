@@ -36,7 +36,7 @@ bun dev
 │   ├── page.tsx        # 博客首页
 │   ├── posts/          # 文章详情页
 │   └── icon/           # 图标字体
-├── composes/           # 可复用组件
+├── components/         # 可复用组件
 │   ├── Contact.tsx     # 联系信息组件
 │   └── Header.tsx      # 顶部导航栏组件
 ├── data/               # 数据文件

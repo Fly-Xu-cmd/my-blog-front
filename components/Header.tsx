@@ -1,5 +1,5 @@
 "use client";
-import Contact from "@/composes/Contact";
+import Contact from "@/components/Contact";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
