@@ -29,18 +29,18 @@ function getItem(
 }
 
 const items: MenuItem[] = [
-  getItem("仪表盘", "admin", <HomeOutlined />),
-  getItem("文章管理", "admin", <FormOutlined />, [
-    getItem("所有文章", "admin/posts"),
-    getItem("新增文章", "admin/new"),
-    getItem("回收站", "admin/recycle"),
-    getItem("草稿箱", "admin/drafts"),
-    getItem("发布文章", "admin/publish"),
+  getItem("仪表盘", "仪表盘", <HomeOutlined />),
+  getItem("文章管理", "文章管理", <FormOutlined />, [
+    getItem("所有文章", "所有文章"),
+    getItem("新增文章", "新增文章"),
+    getItem("回收站", "回收站"),
+    getItem("草稿箱", "草稿箱"),
+    getItem("发布文章", "发布文章"),
   ]),
-  getItem("用户管理", "users", <TeamOutlined />, [
-    getItem("所有用户", "users-all"),
-    getItem("新增用户", "users-new"),
-    getItem("删除用户", "users-delete"),
+  getItem("用户管理", "用户管理", <TeamOutlined />, [
+    getItem("所有用户", "所有用户"),
+    getItem("新增用户", "新增用户"),
+    getItem("删除用户", "删除用户"),
   ]),
   getItem("Files", "9", <FileOutlined />),
 ];
@@ -51,12 +51,10 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [selectedKey, setSelectedKey] = useState("home");
-  const [selectedKeyPath, setSelectedKeyPath] = useState<string[]>(["home"]);
+  const [selectedKey, setSelectedKey] = useState("仪表盘");
+  const [selectedKeyPath, setSelectedKeyPath] = useState<string[]>(["admin"]);
 
-  useEffect(() => {
-
-  }, [selectedKey]);
+  useEffect(() => {}, [selectedKey]);
   const {
     token: { colorBgContainer },
   } = theme.useToken();
@@ -68,7 +66,6 @@ export default function AdminLayout({
         collapsed={collapsed}
         onCollapse={(value) => setCollapsed(value)}
       >
-        {/* <div className="demo-logo-vertical" /> */}
         <Menu
           theme="dark"
           defaultSelectedKeys={[selectedKey]}

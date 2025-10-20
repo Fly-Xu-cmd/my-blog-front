@@ -3,8 +3,12 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Image as ImageIcon } from "lucide-react"; // 用于无封面占位
-import { posts } from "../../data/posts";
+// import { posts } from "../../data/posts";
 import Image from "next/image";
+import { useEffect, useState } from "react";
+import { type Post } from "@/app/frontend/model";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 /**
  * 完整版博客瀑布流页面
@@ -12,10 +16,25 @@ import Image from "next/image";
  * ✅ 封面图 + 动画 + 占位图兼容
  * ✅ 响应式 + 优雅阴影 + 进入动画
  */
+// 获取所有博客
+const fetchAllBlogs = async () => {
+  const res = await fetch("/api/posts");
+  return res.json();
+};
+
 export default function AllBlogs() {
-  // 排序：最新在前
+  // 状态管理：存储从API获取的博客数据
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  // 从API获取所有博客
+  useEffect(() => {
+    fetchAllBlogs().then((blogs) => {
+      setPosts(blogs);
+    });
+  }, []);
+
   const sortedPosts = [...posts].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   // 日期格式化
@@ -88,14 +107,14 @@ export default function AllBlogs() {
                   {/* 日期 */}
                   <div className="mb-2">
                     <span className="inline-block  py-1 text-xs font-medium  text-blue-700 rounded-full">
-                      {formatDate(post.date)}
+                      {formatDate(post.createdAt)}
                     </span>
                   </div>
 
                   {/* 标题 */}
                   <h2 className="text-lg font-semibold mb-2 text-gray-800 line-clamp-2">
                     <Link
-                      href={`/posts/${post.id}`}
+                      href={`posts/${post.slug}`}
                       className="hover:text-blue-600 transition-colors"
                     >
                       {post.title}
@@ -104,12 +123,14 @@ export default function AllBlogs() {
 
                   {/* 摘要 */}
                   <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                    {post.excerpt}
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {post.excerpt}
+                    </ReactMarkdown>
                   </p>
 
                   {/* 阅读更多 */}
                   <Link
-                    href={`/posts/${post.id}`}
+                    href={`posts/${post.slug}`}
                     className="mt-auto inline-flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
                   >
                     阅读更多
