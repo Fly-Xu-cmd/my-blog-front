@@ -7,7 +7,11 @@ const uploadDir = path.join(process.cwd(), "public", "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
-
+/**
+ * 上传图片接口
+ * @param req
+ * @returns 上传成功返回文件访问URL{ok:true,url:"/uploads/filename.jpg"}，失败返回错误信息{ok:false,error:"文件上传失败"}
+ */
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();

@@ -19,3 +19,11 @@ export type Post = {
   category?: Category;
   tags?: Tag[];
 };
+export type Dynamic = {
+  id: number;
+  content: string;
+  excerpt?: string;
+  createdAt: string;
+  updatedAt: string;
+  title?: string;
+};

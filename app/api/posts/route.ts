@@ -12,7 +12,7 @@ export async function GET() {
     ...p,
     tags: p.tags.map((pt) => pt.tag.name),
   }));
-  return NextResponse.json(formatted);
+  return NextResponse.json({ ok: true, formatted });
 }
 
 // 新增文章（后台调用）

@@ -1,14 +1,29 @@
+import { Dynamic } from "@/app/frontend/model";
 import Link from "next/link";
-import { status } from "../../data/status";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+// 从数据库获取所有动态内容
+const getAllStatus = async () => {
+  const res = await fetch(`${baseUrl}/api/dynamics`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch status");
+  }
+  return res.json();
+};
 /**
  * 所有动态展示页面组件
  * 使用时间线布局展示所有动态内容，按日期倒序排列
  */
-export default function AllStatus() {
+export default async function AllStatus() {
   // 对动态内容按日期排序（最新的在前）
-  const sortedStatus = [...status].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  const status = await getAllStatus();
+  if (!status.ok) {
+    throw new Error("Failed to fetch status");
+  }
+  const sortedStatus = [...status.dynamics].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   /**
@@ -126,58 +141,65 @@ export default function AllStatus() {
               {/* 日期标签 - 仅在移动设备上显示 */}
               <div className="md:hidden absolute -left-24 mt-0.5 whitespace-nowrap">
                 <span className="text-xs font-semibold text-gray-500">
-                  {formatShortDate(item.date)}
+                  {formatShortDate(item.createdAt)}
                 </span>
               </div>
 
               {/* 日期标签 - 仅在桌面设备上显示 */}
               <div className="hidden md:block absolute -left-36 top-0 w-28 text-right">
                 <div className="text-sm font-bold text-gray-700">
-                  {getChineseMonth(item.date)}
+                  {getChineseMonth(item.createdAt)}
                 </div>
                 <div className="text-xs font-semibold text-gray-500">
-                  {formatShortDate(item.date)}
+                  {formatShortDate(item.createdAt)}
                 </div>
                 <div className="text-xs font-semibold text-gray-400 mt-1">
-                  {getChineseZodiacYear(new Date(item.date).getFullYear())}
+                  {getChineseZodiacYear(new Date(item.createdAt).getFullYear())}
                 </div>
               </div>
 
               {/* 动态内容卡片 */}
-              <div className="bg-white rounded-xl shadow-lg p-6 transform transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-xl">
+              <div className="bg-white cursor-pointer rounded-xl shadow-lg p-6 transform transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-xl">
                 {/* 动态标题 */}
                 <h2 className="text-2xl font-bold mb-3 text-gray-800">
                   <Link
-                    href={`/status/${item.id}`}
+                    href={`status/${item.id}`}
                     className="inline-block bg-gradient-to-r from-blue-600 to-blue-600 bg-[length:0px_2px] bg-left-bottom bg-no-repeat hover:bg-[length:100%_2px] transition-all duration-300"
                   >
-                    {item.title}
+                    {item.title || "暂无标题"}
                   </Link>
                 </h2>
 
                 {/* 动态日期 - 仅在移动设备上显示 */}
                 <div className="md:hidden mb-3">
                   <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full">
-                    {formatDate(item.date)}
+                    {formatDate(item.createdAt)}
                   </span>
                 </div>
 
                 {/* 动态日期 - 仅在桌面设备上显示 */}
                 <div className="hidden md:block mb-3">
                   <span className="inline-block px-3 py-1 text-sm font-medium bg-blue-50 text-blue-700 rounded-full">
-                    {getYearWithZodiac(item.date)}
+                    {getYearWithZodiac(item.createdAt)}
                   </span>
                 </div>
 
                 {/* 动态摘要 */}
                 <p className="text-gray-600 mb-4 leading-relaxed">
-                  {item.excerpt}
+                  {item.excerpt || "暂无简介"}
                 </p>
+
+                {/* 动态内容 */}
+                <div className="text-gray-700 leading-relaxed">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {item.content}
+                  </ReactMarkdown>
+                </div>
 
                 {/* 阅读更多链接 */}
                 <div className="flex justify-end">
                   <Link
-                    href={`/status/${item.id}`}
+                    href={`status/${item.id}`}
                     className="inline-flex items-center text-blue-500 hover:text-blue-700 text-sm font-medium group"
                   >
                     查看详情

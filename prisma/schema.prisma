@@ -53,6 +53,7 @@ model Dynamic {
   id        Int @id @default(autoincrement())
   content   String // 动态内容,支持markdown
   excerpt   String // 动态简介
+  title     String? // 动态标题
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

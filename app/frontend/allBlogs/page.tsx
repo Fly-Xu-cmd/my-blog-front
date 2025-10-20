@@ -16,6 +16,7 @@ import remarkGfm from "remark-gfm";
  * ✅ 封面图 + 动画 + 占位图兼容
  * ✅ 响应式 + 优雅阴影 + 进入动画
  */
+
 // 获取所有博客
 const fetchAllBlogs = async () => {
   const res = await fetch("/api/posts");
@@ -28,8 +29,10 @@ export default function AllBlogs() {
 
   // 从API获取所有博客
   useEffect(() => {
-    fetchAllBlogs().then((blogs) => {
-      setPosts(blogs);
+    fetchAllBlogs().then((data) => {
+      if (data.ok) {
+        setPosts(data.formatted);
+      }
     });
   }, []);
 

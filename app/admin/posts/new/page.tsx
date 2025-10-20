@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import Image from "next/image";
-import "@uiw/react-md-editor/markdown-editor.css";
-import "@uiw/react-markdown-preview/markdown.css";
 import {
   Checkbox,
   Form,
@@ -17,9 +14,8 @@ import {
 import { LoadingOutlined, PlusOutlined } from "@ant-design/icons";
 import { GetProp, UploadProps, Select } from "antd";
 import React from "react";
+import MarkdownEditor from "@/components/MyEditor";
 type FileType = Parameters<GetProp<UploadProps, "beforeUpload">>[0];
-
-const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
 
 const getBase64 = (img: FileType, callback: (url: string) => void) => {
   const reader = new FileReader();
@@ -55,13 +51,17 @@ export default function AdminPage() {
   const [published, setPublished] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [excerpt, setExcerpt] = useState("");
   const [tags, setTags] = useState<{ id: number; name: string }[]>([]);
+  const [isPost, setIsPost] = useState(true);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [form] = Form.useForm();
 
   // 处理图片上传变化
   const handleChangeUpload: UploadProps["onChange"] = (info) => {
     if (info.file.status === "uploading") {
       setLoading(true);
+      setFileList([...fileList, info.file]);
       return;
     }
     if (info.file.status === "done") {
@@ -110,7 +110,6 @@ export default function AdminPage() {
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     setSaving(true);
 
     const tags = tagsText
@@ -121,15 +120,15 @@ export default function AdminPage() {
     const payload = {
       title,
       slug,
-      excerpt: content.slice(0, 160),
+      excerpt: excerpt || content.slice(0, 160),
       content,
       cover: coverUrl || null,
       published,
       categoryId: categoryId === undefined ? null : Number(categoryId),
       tags,
     };
-
-    const res = await fetch("/api/posts", {
+    const apiPath = isPost ? "/api/posts" : "/api/dynamics";
+    const res = await fetch(apiPath, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -137,8 +136,9 @@ export default function AdminPage() {
 
     setSaving(false);
     if (res.ok) {
-      alert("发布成功");
+      message.success(isPost ? "博客发布成功" : "动态发布成功");
       // 清空表单或跳转
+      form.resetFields();
       setTitle("");
       setSlug("");
       setContent("");
@@ -146,6 +146,7 @@ export default function AdminPage() {
       setTagsText("");
       setCategoryId(undefined);
       setPublished(false);
+      setExcerpt("");
     } else {
       const err = await res.text();
       message.error("发布失败: " + err);
@@ -159,9 +160,31 @@ export default function AdminPage() {
     </button>
   );
 
+  const handleChangePostOrDynamic = () => {
+    // 清空表单或跳转
+    form.resetFields();
+    setTitle("");
+    setSlug("");
+    setContent("");
+    setCoverUrl("");
+    setTagsText("");
+    setCategoryId(undefined);
+    setPublished(false);
+    setExcerpt("");
+    setIsPost((prev) => !prev);
+    console.log("isPost", isPost);
+    console.log("title", title);
+  };
+
   return (
-    <div className="mx-auto py-10 space-y-6 ">
-      <Form name="post" onFinish={handleSubmit} layout="horizontal">
+    <div className="mx-auto  space-y-6 ">
+      <div
+        className="text-2xl font-bold text-center cursor-pointer"
+        onClick={handleChangePostOrDynamic}
+      >
+        {isPost ? "发布新文章" : "发布新动态"}
+      </div>
+      <Form form={form} name="post" onFinish={handleSubmit} layout="horizontal">
         <Form.Item
           label="标题"
           name="title"
@@ -174,71 +197,88 @@ export default function AdminPage() {
             required
           />
         </Form.Item>
-        <Form.Item
-          label="slug"
-          name="slug"
-          rules={[{ required: true, message: "请输入slug" }]}
-        >
-          <Input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            placeholder="请输入文章slug"
-            required
-          />
-        </Form.Item>
-        <Form.Item label="封面" name="cover">
-          <Upload
-            name="file"
-            listType="picture-card"
-            className="avatar-uploader"
-            showUploadList={false}
-            action="/api/upload"
-            beforeUpload={beforeUpload}
-            onChange={handleChangeUpload}
+        {isPost && (
+          <Form.Item
+            label="slug"
+            name="slug"
+            rules={[{ required: true, message: "请输入slug" }]}
           >
-            {coverUrl ? (
-              <Image
-                src={coverUrl}
-                alt="cover"
-                className="w-36 h-24 object-cover rounded"
-                width={36}
-                height={24}
-              />
-            ) : (
-              uploadButton
-            )}
-          </Upload>
-        </Form.Item>
-
-        <Form.Item label="分类" name="categoryId">
-          <div>
-            <Select
-              options={categories.map((c) => ({
-                label: c.name,
-                value: c.id,
-              }))}
-              defaultValue={categoryId}
-              placeholder="请选择分类"
-            ></Select>
-            <div className="mt-2">
-              <small className="text-gray-500">
-                若想新增分类，请调用 /api/categories POST 或手动在后台添加。
-              </small>
+            <Input
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="请输入文章slug"
+              required
+            />
+          </Form.Item>
+        )}
+        {isPost && (
+          <Form.Item label="封面" name="cover">
+            <Upload
+              name="file"
+              listType="picture-card"
+              className="avatar-uploader"
+              accept="image/*"
+              maxCount={1}
+              fileList={fileList}
+              showUploadList={false}
+              action="/api/upload"
+              beforeUpload={beforeUpload}
+              onChange={handleChangeUpload}
+            >
+              {coverUrl ? (
+                <Image
+                  src={coverUrl}
+                  alt="cover"
+                  className="w-36 h-24 object-cover rounded"
+                  width={36}
+                  height={24}
+                />
+              ) : (
+                uploadButton
+              )}
+            </Upload>
+          </Form.Item>
+        )}
+        {isPost && (
+          <Form.Item label="分类" name="categoryId">
+            <div>
+              <Select
+                options={categories.map((c) => ({
+                  label: c.name,
+                  value: c.id,
+                }))}
+                defaultValue={categoryId}
+                placeholder="请选择分类"
+              ></Select>
+              <div className="mt-2">
+                <small className="text-gray-500">
+                  若想新增分类，请调用 /api/categories POST 或手动在后台添加。
+                </small>
+              </div>
             </div>
-          </div>
-        </Form.Item>
-
-        <Form.Item label="标签" name="tags">
-          <Select
-            mode="multiple"
-            allowClear
-            style={{ width: "100%" }}
-            placeholder="请选择标签"
-            onChange={handleChangeTags}
-            options={tags.map((t) => ({
-              label: t.name,
-              value: t.id,
-            }))}
+          </Form.Item>
+        )}
+        {isPost && (
+          <Form.Item label="标签" name="tags">
+            <Select
+              mode="multiple"
+              allowClear
+              style={{ width: "100%" }}
+              placeholder="请选择标签"
+              onChange={handleChangeTags}
+              options={tags.map((t) => ({
+                label: t.name,
+                value: t.id,
+              }))}
+            />
+          </Form.Item>
+        )}
+        <Form.Item label="摘要" name="excerpt">
+          <Input.TextArea
+            value={excerpt}
+            onChange={(e) => setExcerpt(e.target.value)}
+            placeholder="请输入文章摘要"
+            required
           />
         </Form.Item>
         <Form.Item label="已发布" name="published" valuePropName="checked">
@@ -250,11 +290,7 @@ export default function AdminPage() {
           </Checkbox>
         </Form.Item>
         <Form.Item label="内容" name="content" style={{ width: "100%" }}>
-          <MDEditor
-            value={content}
-            onChange={(v) => setContent(v || "")}
-            height={420}
-          />
+          <MarkdownEditor value={content} onChange={setContent} height={500} />
         </Form.Item>
 
         <Form.Item label="" name="submit">
