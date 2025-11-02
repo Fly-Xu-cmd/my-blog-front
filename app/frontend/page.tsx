@@ -1,7 +1,35 @@
 "use client";
 import NewBlogs from "@/components/NewBlogs";
 import NewStatus from "@/components/NewStatus";
-import { useState } from "react";
+import { Spin } from "antd";
+import { useState, useEffect } from "react";
+
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+
+// 获取博客文章的
+const fetchBlogPosts = async (params?: { current?: number; size?: number }) => {
+  const res = await fetch(
+    `${baseUrl}/api/posts${
+      params ? `?current=${params.current || 1}&size=${params.size || 10}` : ""
+    }`
+  );
+  if (!res.ok) {
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+  const data = await res.json();
+  return data;
+};
+
+// 获取动态数据
+const fetchStatus = async (params?: { current?: number; size?: number }) => {
+  const res = await fetch(
+    `${baseUrl}/api/dynamics${
+      params ? `?current=${params.current || 1}&size=${params.size || 10}` : ""
+    }`
+  );
+  const data = await res.json();
+  return data;
+};
 
 /**
  * 博客首页组件
@@ -9,6 +37,24 @@ import { useState } from "react";
  */
 export default function FrontendPage() {
   const [isDynamic, setIsDynamic] = useState(false);
+  const [posts, setPosts] = useState([]);
+  const [status, setStatus] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const postsData = await fetchBlogPosts();
+        setPosts(postsData.data || []);
+        const statusData = await fetchStatus();
+        setStatus(statusData.data || []);
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+    fetchData();
+  }, []);
   return (
     <>
       <div className="w-full p-6 bg-white min-h-screen">
@@ -107,9 +153,19 @@ export default function FrontendPage() {
                 transform: isDynamic ? "rotateY(-90deg)" : "rotateY(0deg)",
               }}
             >
+              {/* 加载中状态 */}
+              {loading && (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Spin></Spin>
+                </div>
+              )}
               {/* 添加一个隐藏的占位元素来反映内容高度 */}
               <div className="opacity-0">
-                {isDynamic ? <NewStatus /> : <NewBlogs />}
+                {isDynamic ? (
+                  <NewStatus status={status} />
+                ) : (
+                  <NewBlogs posts={posts} />
+                )}
               </div>
               {/* 最新博客 - 添加translateZ */}
               <div
@@ -119,7 +175,7 @@ export default function FrontendPage() {
                   backfaceVisibility: "hidden",
                 }}
               >
-                <NewBlogs />
+                <NewBlogs posts={posts} />
               </div>
               {/* 最新动态 - 添加translateZ */}
               <div
@@ -130,7 +186,7 @@ export default function FrontendPage() {
                   backfaceVisibility: "hidden",
                 }}
               >
-                <NewStatus />
+                <NewStatus status={status} />
               </div>
             </div>
           </div>

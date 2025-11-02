@@ -12,7 +12,7 @@ export default function Header() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <header className="sticky top-0 z-50 w-full">
+    <header className="sticky top-0 z-9999 w-full">
       <div className="flex justify-between px-6 h-20 items-center bg-white shadow-sm">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">若木的小世界</h1>

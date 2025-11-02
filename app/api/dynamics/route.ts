@@ -8,7 +8,11 @@ export async function GET() {
         createdAt: "desc",
       },
     });
-    return NextResponse.json({ ok: true, dynamics });
+    return NextResponse.json({
+      ok: true,
+      data: dynamics,
+      total: dynamics.length,
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
@@ -28,7 +32,7 @@ export async function POST(req: Request) {
         title,
       },
     });
-    return NextResponse.json({ ok: true, dynamic });
+    return NextResponse.json({ ok: true, data: dynamic });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
@@ -44,12 +48,12 @@ export async function DELETE(
     if (!Number(id)) {
       return NextResponse.json({ error: "缺少动态ID" }, { status: 400 });
     }
-    await prisma.dynamic.delete({
+    const deletedDynamic = await prisma.dynamic.delete({
       where: {
         id: Number(id),
       },
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, data: deletedDynamic });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
@@ -77,7 +81,7 @@ export async function PUT(
         excerpt,
       },
     });
-    return NextResponse.json({ ok: true, dynamic });
+    return NextResponse.json({ ok: true, data: dynamic });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
@@ -106,7 +110,7 @@ export async function PATCH(
         excerpt,
       },
     });
-    return NextResponse.json({ ok: true, dynamic });
+    return NextResponse.json({ ok: true, data: dynamic });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });

@@ -31,7 +31,7 @@ export default function AllBlogs() {
   useEffect(() => {
     fetchAllBlogs().then((data) => {
       if (data.ok) {
-        setPosts(data.formatted);
+        setPosts(data.data);
       }
     });
   }, []);
@@ -86,7 +86,7 @@ export default function AllBlogs() {
                 "
               >
                 {/* 封面区域 */}
-                {post.cover ? (
+                {post.cover && !post.cover?.startsWith("http") ? (
                   <div className="relative w-full overflow-hidden">
                     <Image
                       src={post.cover}
@@ -125,11 +125,10 @@ export default function AllBlogs() {
                   </h2>
 
                   {/* 摘要 */}
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {post.excerpt}
-                    </ReactMarkdown>
-                  </p>
+
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {post.excerpt}
+                  </ReactMarkdown>
 
                   {/* 阅读更多 */}
                   <Link

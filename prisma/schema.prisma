@@ -10,7 +10,7 @@ datasource db {
 model Post {
   id         Int       @id @default(autoincrement())
   title      String
-  slug       String    @unique
+  slug       String    @unique(map: "post_slug") @default(uuid()) // 确保 slug 唯一
   excerpt    String?
   content    String
   cover      String?

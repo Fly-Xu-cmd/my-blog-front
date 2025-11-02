@@ -1,15 +1,16 @@
+"use client";
 import { type Post } from "@/app/frontend/model";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Empty } from "antd";
+import { Empty, Spin } from "antd";
+import React, {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  Fragment,
+} from "react";
+import MyEditorPreview from "@/components/MyEditorPreview";
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-// api获取文章详情
-const getPostBySlug = async (slug: string) => {
-  const res = await fetch(`${baseUrl}/api/posts/${slug}`);
-  return res.json();
-};
-// 格式化时间
+// 格式化日期
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   const year = date.getFullYear();
@@ -18,11 +19,36 @@ const formatDate = (dateString: string) => {
   return `${year}-${month}-${day}`;
 };
 
-export default async function Post({ params }: { params: { slug: string } }) {
-  const { slug } = await params;
-  const { ok, post }: { ok: boolean; post: Post | undefined } = await getPostBySlug(slug);
+// Post 组件
+export default function Post({ params }: { params: { slug: string } }) {
+  const { slug } = React.use(params as any) as any;
+  const [loading, setLoading] = useState(true);
+  const [post, setPost] = useState<Post | null>(null);
 
-  if (!ok || !post) {
+  useEffect(() => {
+    const fetchPost = async () => {
+      const res = await fetch(`/api/posts/${slug}`);
+      const { data } = await res.json();
+      if (!data) {
+        setLoading(false);
+        return;
+      }
+      setPost(data);
+      setLoading(false);
+    };
+    fetchPost();
+  }, [slug]);
+
+  // 加载中或没有找到文章时的显示
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center flex-1">
+        <Spin></Spin>
+      </div>
+    );
+  }
+
+  if (!post) {
     return (
       <div className="flex justify-center items-center flex-1">
         <Empty />
@@ -30,19 +56,18 @@ export default async function Post({ params }: { params: { slug: string } }) {
     );
   }
 
+  // 渲染文章内容
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow-md">
+    <div className="max-w-5xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h1 className="text-3xl font-bold mb-4">{post.title}</h1>
       <p className="text-sm text-gray-400">
-        {post.category?.name} / {formatDate(post.createdAt)}
+        {post.category?.name || "未分类"} / {formatDate(post.createdAt)}
       </p>
       <p className="text-sm text-gray-400">
-        {post.tags?.map((tag) => tag.name).join(" / ")}
+        {post.tags?.map((tag) => tag.name).join(" / ") || "无标签"}
       </p>
       <div className="mt-6 text-lg leading-relaxed text-gray-800">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {post.content}
-        </ReactMarkdown>
+        <MyEditorPreview source={post.content} />
       </div>
     </div>
   );
