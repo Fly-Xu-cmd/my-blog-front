@@ -32,7 +32,7 @@ export async function GET(
     });
   } catch (err) {
     return new Response(
-      JSON.stringify({ ok: false, error: "服务器内部错误" }),
+      JSON.stringify({ ok: false, error: "服务器内部错误:" + err }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },

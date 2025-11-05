@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import MyEditorPreview from "@/components/MyEditorPreview";
 import { Dynamic } from "@/app/frontend/model";
 
@@ -97,11 +96,6 @@ const getYearWithZodiac = (dateString: string): string => {
 };
 
 export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
-  const [isDetail, setIsDetail] = useState(false);
-  const toggleDetail = () => {
-    setIsDetail(!isDetail);
-  };
-
   return (
     <>
       <div className="flex items-start w-full">
