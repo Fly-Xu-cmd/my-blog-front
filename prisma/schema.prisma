@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  id         Int       @id @default(autoincrement())
+  title      String
+  slug       String    @unique(map: "post_slug") @default(uuid()) // 确保 slug 唯一
+  excerpt    String?
+  content    String
+  cover      String?
+  published  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // 分类（可选）
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId Int?
+
+  // 多对多标签
+  tags PostTag[]
+
+}
+
+model Category {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  posts Post[]
+}
+
+model Tag {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  posts PostTag[]
+}
+
+model PostTag {
+  post   Post @relation(fields: [postId], references: [id])
+  postId Int
+
+  tag    Tag  @relation(fields: [tagId], references: [id])
+  tagId  Int
+
+  @@id([postId, tagId])
+}
+
+model Dynamic {
+  id        Int @id @default(autoincrement())
+  content   String // 动态内容,支持markdown
+  excerpt   String // 动态简介
+  title     String? // 动态标题
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -25,10 +25,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <meta name="referrer" content="no-referrer" />
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased `}
       >
-        {children}
+        <div className="w-full min-h-screen flex flex-col">{children}</div>
       </body>
     </html>
   );

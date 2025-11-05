@@ -1,10 +1,17 @@
 import Link from "next/link";
-import { posts } from "../data/posts";
 
-// 对博客文章按日期排序（最新的在前）
-const sortedPosts = [...posts].sort(
-  (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-);
+type Post = {
+  id: string;
+  title?: string;
+  content?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  excerpt?: string;
+  slug?: string;
+  category?: string;
+  tags?: string[];
+  cover?: string;
+};
 
 // 月份元组
 const monthNames = [
@@ -21,18 +28,35 @@ const monthNames = [
   "November",
   "December",
 ];
-export default function NewBlogs() {
+
+// 格式化日期函数
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = monthNames[date.getMonth()] || "-";
+  const day = date.getDate() || "-";
+  return `${month} ${day}, ${year}`;
+};
+
+// Server Component：加载并传递数据
+export default function NewBlogs({ posts }: { posts: Post[] }) {
+  // 对博客文章按日期排序（最新的在前）
+  const sortedPosts = posts.sort(
+    (a: Post, b: Post) =>
+      Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")
+  );
+
   return (
     <div className="w-full">
       {/* 时间轴 */}
       <ul>
-        {sortedPosts.map((post) => (
-          <li key={post.id} className="flex items-start h-50">
+        {sortedPosts.map((post: Post) => (
+          <li key={`post-${post.slug}`} className="flex items-start h-50">
             {/* 时间 */}
             <div className=" !h-full flex items-top justify-end text-nowrap text-[#5e7698] mb-10">
-              <span className="text-base ">{`${
-                monthNames[Number(post.date.split("-")[1]) - 1]
-              } ${post.date.split("-")[2]}, ${post.date.split("-")[0]}`}</span>
+              <span className="text-base ">
+                {formatDate(post.createdAt || "")}
+              </span>
             </div>
 
             {/* 时间轴点 */}
@@ -45,7 +69,7 @@ export default function NewBlogs() {
             <div className="w-full ml-4 p-6 bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200">
               <h2 className="text-xl font-semibold mb-2">
                 <Link
-                  href={`/posts/${post.id}`}
+                  href={`/frontend/posts/${post.slug}`}
                   className="text-gray-800 hover:text-blue-600 transition-colors"
                 >
                   {post.title}
@@ -53,7 +77,7 @@ export default function NewBlogs() {
               </h2>
               <p className="text-gray-600 mb-4">{post.excerpt}</p>
               <Link
-                href={`/posts/${post.id}`}
+                href={`/frontend/posts/${post.slug}`}
                 className="inline-flex items-center text-blue-500 hover:text-blue-700 transition-colors text-sm font-medium"
               >
                 阅读更多
