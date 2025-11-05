@@ -33,10 +33,12 @@ export async function GET(req: Request) {
       orderBy: { createdAt: "desc" },
       include: { category: true, tags: { include: { tag: true } } },
     });
-    const formatted = posts.map((p) => ({
-      ...p,
-      tags: p.tags.map((pt) => pt.tag.name),
-    }));
+    const formatted = posts.map(
+      (p: { tags?: { tag: { name: string } }[] }) => ({
+        ...p,
+        tags: p.tags?.map((pt: { tag: { name: string } }) => pt.tag.name),
+      })
+    );
     return NextResponse.json({
       ok: true,
       data: formatted,

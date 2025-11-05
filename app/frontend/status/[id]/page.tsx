@@ -2,10 +2,10 @@ import { Dynamic } from "@/app/frontend/model";
 import { Empty } from "antd";
 import MyEditorPreview from "@/components/MyEditorPreview";
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
 const fetchAllDynamics = async (id: string) => {
-  const res = await fetch(`${baseUrl}/api/dynamics/${id}`);
+  const res = await fetch(`/api/dynamics/${id}`);
+
   return res.json();
 };
 

@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
  * @param req 请求对象
  * @returns 登出结果
  */
-export async function POST(req: Request) {
+export async function POST() {
   try {
     return NextResponse.json({
       ok: true,
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("登出接口错误:", error);
     return NextResponse.json(
-      { ok: false, error: "服务器内部错误" },
+      { ok: false, error: "服务器内部错误:" + error },
       { status: 500 }
     );
   }

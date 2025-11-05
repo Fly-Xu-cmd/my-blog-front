@@ -13,7 +13,7 @@ export async function GET() {
     });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, error: "服务器内部错误" },
+      { ok: false, error: "服务器内部错误:" + err },
       { status: 500 }
     );
   }
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, data: cat });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, error: "服务器内部错误" },
+      { ok: false, error: "服务器内部错误:" + err },
       { status: 500 }
     );
   }
@@ -55,7 +55,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ ok: true, data: cat });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, error: "服务器内部错误" },
+      { ok: false, error: "服务器内部错误:" + err },
       { status: 500 }
     );
   }
@@ -76,7 +76,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ ok: true, data: cat });
   } catch (err) {
     return NextResponse.json(
-      { ok: false, error: "服务器内部错误" },
+      { ok: false, error: "服务器内部错误:" + err },
       { status: 500 }
     );
   }

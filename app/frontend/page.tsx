@@ -4,12 +4,10 @@ import NewStatus from "@/components/NewStatus";
 import { Spin } from "antd";
 import { useState, useEffect } from "react";
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
 // 获取博客文章的
 const fetchBlogPosts = async (params?: { current?: number; size?: number }) => {
   const res = await fetch(
-    `${baseUrl}/api/posts${
+    `/api/posts${
       params ? `?current=${params.current || 1}&size=${params.size || 10}` : ""
     }`
   );
@@ -23,7 +21,7 @@ const fetchBlogPosts = async (params?: { current?: number; size?: number }) => {
 // 获取动态数据
 const fetchStatus = async (params?: { current?: number; size?: number }) => {
   const res = await fetch(
-    `${baseUrl}/api/dynamics${
+    `/api/dynamics${
       params ? `?current=${params.current || 1}&size=${params.size || 10}` : ""
     }`
   );
