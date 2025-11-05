@@ -1,5 +1,3 @@
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Dynamic } from "@/app/frontend/model";
 import { Empty } from "antd";
 import MyEditorPreview from "@/components/MyEditorPreview";

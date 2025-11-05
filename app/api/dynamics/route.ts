@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -39,12 +39,9 @@ export async function POST(req: Request) {
   }
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: { id: number } }
-) {
+export async function DELETE(req: Request) {
   try {
-    const { id } = params;
+    const { id } = await req.json(); // ✅ 注意这里要 await
     if (!Number(id)) {
       return NextResponse.json({ error: "缺少动态ID" }, { status: 400 });
     }
@@ -59,13 +56,9 @@ export async function DELETE(
     return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
   }
 }
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: number } }
-) {
+export async function PUT(req: NextRequest) {
   try {
-    const { content, excerpt } = await req.json();
-    const { id } = params;
+    const { id, content, excerpt } = await req.json();
     if (!Number(id) || !content || !excerpt) {
       return NextResponse.json(
         { error: "缺少动态ID或内容或简介" },
@@ -88,13 +81,9 @@ export async function PUT(
   }
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: number } }
-) {
+export async function PATCH(req: NextRequest) {
   try {
-    const { content, excerpt } = await req.json();
-    const { id } = params;
+    const { content, excerpt, id } = await req.json();
     if (!Number(id) || (!content && !excerpt)) {
       return NextResponse.json(
         { error: "缺少动态ID或内容或简介" },

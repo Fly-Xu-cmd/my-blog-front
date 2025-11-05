@@ -1,17 +1,19 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import context from "antd/es/app/context";
+import { NextRequest, NextResponse } from "next/server";
 /**
  * 获取单条动态内容
  * @param req
  * @param param1
  * @returns
  */
+
 export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  if (!id) {
+  const { id } = await context.params; // ✅ 注意这里要 await
+  if (!Number(id)) {
     return NextResponse.json(
       { ok: false, error: "动态ID不能为空" },
       { status: 400 }
@@ -40,9 +42,9 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id } = await context.params; // ✅ 注意这里要 await
   if (!id) {
     return NextResponse.json(
       { ok: false, error: "动态ID不能为空" },
@@ -83,9 +85,9 @@ export async function PUT(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id } = await context.params; // ✅ 注意这里要 await
   if (!id) {
     return NextResponse.json(
       { ok: false, error: "动态ID不能为空" },

@@ -4,9 +4,9 @@ import jwt from "jsonwebtoken";
 // 校验token
 export async function POST(
   req: Request,
-  { params }: { params: { token: string } }
+  context: { params: Promise<{ token: string }> }
 ) {
-  const { token } = await params;
+  const { token } = await context.params;
   if (!token) {
     return NextResponse.json(
       { ok: false, error: "token不能为空" },

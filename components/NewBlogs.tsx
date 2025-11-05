@@ -42,7 +42,7 @@ const formatDate = (dateString: string) => {
 export default function NewBlogs({ posts }: { posts: Post[] }) {
   // 对博客文章按日期排序（最新的在前）
   const sortedPosts = posts.sort(
-    (a: any, b: any) =>
+    (a: Post, b: Post) =>
       Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")
   );
 

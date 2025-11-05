@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 // 获取单篇文章
-export async function GET(req: Request, context: { params: { slug: string } }) {
-  const { params } = await context;
-  const { slug } = await params; // ✅ await 访问
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await context.params; // ✅ await 访问
 
   if (!slug) {
     return new Response(JSON.stringify({ error: "缺少 slug 参数" }), {
@@ -40,11 +42,10 @@ export async function GET(req: Request, context: { params: { slug: string } }) {
 }
 // 删除文章
 export async function DELETE(
-  req: Request,
-  context: { params: { slug: string } }
+  req: NextRequest,
+  context: { params: Promise<{ slug: string }> }
 ) {
-  const { params } = context;
-  const slug = await params.slug; // ✅ await 访问
+  const { slug } = await context.params; // ✅ await 访问
 
   if (!slug) {
     return new Response(
@@ -58,9 +59,9 @@ export async function DELETE(
   try {
     // 先删除文章与标签的关联关系（PostTag记录），保留标签本身
     await prisma.postTag.deleteMany({
-      where: { post: { slug } }
+      where: { post: { slug } },
     });
-    
+
     const post = await prisma.post.delete({
       where: { slug },
     });
@@ -68,7 +69,11 @@ export async function DELETE(
   } catch (err) {
     console.error("DELETE /api/posts/[slug] 错误:", err);
     return NextResponse.json(
-      { ok: false, error: "服务器内部错误", details: err instanceof Error ? err.message : String(err) },
+      {
+        ok: false,
+        error: "服务器内部错误",
+        details: err instanceof Error ? err.message : String(err),
+      },
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
@@ -77,9 +82,11 @@ export async function DELETE(
   }
 }
 // 更新文章
-export async function PUT(req: Request, context: { params: { slug: string } }) {
-  const { params } = await context;
-  const { slug } = await params; // ✅ await 访问
+export async function PUT(
+  req: NextRequest,
+  context: { params: Promise<{ slug: string }> }
+) {
+  const { slug } = await context.params; // ✅ await 访问
 
   if (!slug) {
     return new Response(
