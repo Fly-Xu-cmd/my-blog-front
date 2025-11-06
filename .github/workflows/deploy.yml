@@ -1,100 +1,71 @@
-name: Build and Deploy Next.js (Fullstack)
+name: Deploy Next.js Blog to Aliyun
 
 on:
   push:
     branches:
-      - main
-  workflow_dispatch:
+      - main # 每次推送到 main 分支时触发
 
 jobs:
-  # === 构建阶段 ===
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      # 1️⃣ 拉取代码
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ 设置 Node 环境
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: "pnpm"
 
+      # 3️⃣ 安装 pnpm
       - name: Install pnpm
         run: npm install -g pnpm
 
+      # 4️⃣ 安装依赖
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Prisma generate
-        run: pnpm prisma generate
+      # 5️⃣ 构建项目（在 GitHub 服务器上完成）
+      - name: Build project
+        run: pnpm build
 
-      - name: Build Next.js project
-        run: pnpm run build
-
+      # 6️⃣ 打包需要上传的文件
       - name: Prepare deploy files
         run: |
-          echo "Checking if .next exists..."
-          ls -la
           mkdir -p deploy
-          echo "Copying files..."
-          cp -r .next package.json pnpm-lock.yaml deploy/ || { echo "Failed to copy .next"; exit 1; }
-          # 如果有 public 目录，也要复制
-          [ -d public ] && cp -r public deploy/public || { echo "Failed to copy public directory"; exit 1; }
-          # 如果你在项目根目录有 server.js 或 ecosystem.config.js 也一起打包
-          [ -f server.js ] && cp server.js deploy/ || { echo "Failed to copy server.js"; exit 1; }
-          [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/ || { echo "Failed to copy ecosystem.config.js"; exit 1; }
-        shell: /usr/bin/bash -e {0}
+          cp -r .next package.json pnpm-lock.yaml deploy/
+          [ -d public ] && cp -r public deploy/public
+          echo "✅ Build files prepared successfully"
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: deploy
-
-  # === 部署阶段 ===
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-output
-          path: deploy
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "$ALIYUN_SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo -e "Host *\n\tStrictHostKeyChecking no\n\tServerAliveInterval 60\n" > ~/.ssh/config
-
-      - name: Deploy to Aliyun server
-        run: |
-          # 服务器部署路径
-          DEPLOY_PATH="/home/www/my-blog"
-
-          echo "===> Clean old files on server"
-          ssh root@$ALIYUN_SERVER_IP "mkdir -p $DEPLOY_PATH && rm -rf $DEPLOY_PATH/*"
-
-          echo "===> Upload new build files"
-          scp -r deploy/* root@$ALIYUN_SERVER_IP:$DEPLOY_PATH/
-
-          echo "===> Install production dependencies"
-          ssh root@$ALIYUN_SERVER_IP "cd $DEPLOY_PATH && pnpm install --prod"
-
-          echo "===> Restart PM2 service"
-          ssh root@$ALIYUN_SERVER_IP "
-            cd $DEPLOY_PATH
-            if pm2 describe next-blog >/dev/null 2>&1; then
-              pm2 restart next-blog
-            else
-              pm2 start npm --name next-blog -- run start
-            fi
-            pm2 save
-          "
+      # 7️⃣ 上传到阿里云服务器
+      - name: Deploy to Aliyun Server
         env:
           ALIYUN_SERVER_IP: ${{ secrets.ALIYUN_SERVER_IP }}
           ALIYUN_SSH_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+        run: |
+          echo "🔑 Setting up SSH key..."
+          mkdir -p ~/.ssh
+          echo "$ALIYUN_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          echo "🚀 Deploying to $ALIYUN_SERVER_IP..."
+          # 复制构建结果到服务器目录（例如 /home/www/my-blog）
+          rsync -avz --delete deploy/ root@$ALIYUN_SERVER_IP:/home/www/my-blog
+
+      # 8️⃣ 在服务器上重启服务
+      - name: Restart Next.js Service
+        env:
+          ALIYUN_SERVER_IP: ${{ secrets.ALIYUN_SERVER_IP }}
+          ALIYUN_SSH_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+        run: |
+          echo "🔁 Restarting Next.js service on server..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa root@$ALIYUN_SERVER_IP "
+            cd /home/www/my-blog &&
+            pnpm install --prod &&
+            pm2 delete my-blog || true &&
+            pm2 start pnpm --name my-blog -- start
+          "
