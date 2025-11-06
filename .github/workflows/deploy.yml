@@ -3,7 +3,7 @@ name: Deploy Next.js to Aliyun Server
 on:
   push:
     branches:
-      - main # 监听主分支的推送，也可以根据需要更改为其他分支
+      - main
 
 jobs:
   build:
@@ -18,21 +18,21 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "18" # 选择合适的 Node.js 版本
+          node-version: "18"
 
       # 3. 安装依赖
       - name: Install dependencies
         run: |
           npm install -g pnpm
-          pnpm install  # 或者使用 npm install
+          pnpm install
 
-      # 4.创建prisma client
+      # 4. 创建 Prisma Client
       - name: Create Prisma Client
         run: pnpm prisma generate
 
       # 5. 构建项目
       - name: Build Next.js project
-        run: pnpm run build # 根据你的构建命令修改
+        run: pnpm run build
 
       # 6. 部署到阿里云
       - name: Deploy to Aliyun
@@ -41,18 +41,21 @@ jobs:
           ALIYUN_SSH_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
         run: |
           # 安装 SSH 客户端
-          sudo apt-get install openssh-client
+          sudo apt-get install -y openssh-client
 
           # 设置 SSH 密钥
           mkdir -p ~/.ssh
           echo "$ALIYUN_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # 通过 SSH 连接阿里云服务器，执行部署命令
-          ssh -o StrictHostKeyChecking=no root@$ALIYUN_SERVER_IP << 'EOF'
-            cd /home/www/my-blog-front  # 进入你的项目目录
-            git pull origin main   # 拉取最新的代码
-            pnpm install           # 安装依赖
-            pnpm run build          # 构建项目
-            pm2 restart my-blog-front     # 使用 pm2 重启服务（如果使用 pm2 启动）
+          # 配置 SSH
+          echo -e "Host $ALIYUN_SERVER_IP\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+
+          # 连接到阿里云服务器并部署
+          ssh -T root@$ALIYUN_SERVER_IP << 'EOF'
+            cd /home/www/my-blog-front
+            git pull origin main
+            pnpm install
+            pnpm run build
+            pm2 restart my-blog-front || pm2 start npm --name "my-blog-front" -- start
           EOF
