@@ -48,6 +48,12 @@ jobs:
           echo "$ALIYUN_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
+          # 检查 ALIYUN_SERVER_IP 是否存在
+          if [ -z "$ALIYUN_SERVER_IP" ]; then
+            echo "Error: ALIYUN_SERVER_IP is not set."
+            exit 1
+          fi
+
           # 配置 SSH
           echo -e "Host $ALIYUN_SERVER_IP\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
 
