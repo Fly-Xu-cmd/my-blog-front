@@ -32,15 +32,19 @@ jobs:
       - name: Build Next.js project
         run: pnpm run build
 
-      - name: Prepare deployment files
+      - name: Prepare deploy files
         run: |
-          mkdir deploy
-          cp -r .next package.json pnpm-lock.yaml deploy/
+          echo "Checking if .next exists..."
+          ls -la
+          mkdir -p deploy
+          echo "Copying files..."
+          cp -r .next package.json pnpm-lock.yaml deploy/ || { echo "Failed to copy .next"; exit 1; }
           # 如果有 public 目录，也要复制
-          [ -d public ] && cp -r public deploy/public
+          [ -d public ] && cp -r public deploy/public || { echo "Failed to copy public directory"; exit 1; }
           # 如果你在项目根目录有 server.js 或 ecosystem.config.js 也一起打包
-          [ -f server.js ] && cp server.js deploy/
-          [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/
+          [ -f server.js ] && cp server.js deploy/ || { echo "Failed to copy server.js"; exit 1; }
+          [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/ || { echo "Failed to copy ecosystem.config.js"; exit 1; }
+        shell: /usr/bin/bash -e {0}
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
