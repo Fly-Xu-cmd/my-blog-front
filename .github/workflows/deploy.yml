@@ -1,88 +1,93 @@
-name: Deploy Next.js to Aliyun Server
+name: Build and Deploy Next.js (Fullstack)
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
+  # === 构建阶段 ===
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 检出代码
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      # 2. 设置 Node.js 环境
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: 20
 
-      # 3. 安装依赖
+      - name: Install pnpm
+        run: npm install -g pnpm
+
       - name: Install dependencies
-        run: |
-          npm install -g pnpm
-          pnpm install
+        run: pnpm install
 
-      # 4. 创建 Prisma Client
-      - name: Create Prisma Client
-        run: pnpm prisma generate
-
-      # 5. 构建 Next.js 项目
       - name: Build Next.js project
         run: pnpm run build
 
-      # 6. 调试环境变量
-      - name: Debug environment variables
+      - name: Prepare deployment files
         run: |
-          echo "ALIYUN_SERVER_IP is $ALIYUN_SERVER_IP"
-          echo "ALIYUN_SSH_KEY is $ALIYUN_SSH_KEY"  # 注意这里不要输出完整的私钥，只是为了调试
+          mkdir deploy
+          cp -r .next package.json pnpm-lock.yaml next.config.mjs deploy/
+          # 如果有 public 目录，也要复制
+          [ -d public ] && cp -r public deploy/public
+          # 如果你在项目根目录有 server.js 或 ecosystem.config.js 也一起打包
+          [ -f server.js ] && cp server.js deploy/
+          [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/
 
-      # 7. 配置 SSH 和部署
-      - name: Deploy to Aliyun
-        env:
-          ALIYUN_SERVER_IP: ${{ secrets.ALIYUN_SERVER_IP }}
-          ALIYUN_SSH_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: deploy
+
+  # === 部署阶段 ===
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: deploy
+
+      - name: Setup SSH
         run: |
-          # 安装 SSH 客户端
-          sudo apt-get install -y openssh-client
-
-          # 设置 SSH 密钥
           mkdir -p ~/.ssh
           echo "$ALIYUN_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          echo -e "Host *\n\tStrictHostKeyChecking no\n\tServerAliveInterval 60\n" > ~/.ssh/config
 
-          # 配置 SSH 客户端
-          echo -e "Host $ALIYUN_SERVER_IP\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+      - name: Deploy to Aliyun server
+        run: |
+          # 服务器部署路径
+          DEPLOY_PATH="/home/www/my-blog"
 
-          # 添加目标主机的 SSH 密钥到 known_hosts
-          ssh-keyscan -H $ALIYUN_SERVER_IP >> ~/.ssh/known_hosts
+          echo "===> Clean old files on server"
+          ssh root@$ALIYUN_SERVER_IP "mkdir -p $DEPLOY_PATH && rm -rf $DEPLOY_PATH/*"
 
-          # 连接到阿里云服务器并部署
-          ssh -v -T root@$ALIYUN_SERVER_IP << 'EOF'
-            echo "Starting deployment process on Aliyun server..."
+          echo "===> Upload new build files"
+          scp -r deploy/* root@$ALIYUN_SERVER_IP:$DEPLOY_PATH/
 
-            # 检查目录是否存在
-            cd /home/www/my-blog-front || { echo "Directory not found!"; exit 1; }
+          echo "===> Install production dependencies"
+          ssh root@$ALIYUN_SERVER_IP "cd $DEPLOY_PATH && pnpm install --prod"
 
-            # 确保是一个 git 仓库
-            if [ ! -d ".git" ]; then
-              echo "Not a git repository. Exiting."
-              exit 1
+          echo "===> Restart PM2 service"
+          ssh root@$ALIYUN_SERVER_IP "
+            cd $DEPLOY_PATH
+            if pm2 describe next-blog >/dev/null 2>&1; then
+              pm2 restart next-blog
+            else
+              pm2 start npm --name next-blog -- run start
             fi
-
-            # 拉取最新代码
-            git pull origin main
-
-            # 安装依赖并构建项目
-            pnpm install
-            pnpm run build
-
-            # 确保 pm2 已安装
-            which pm2 || { echo "PM2 not installed!"; exit 1; }
-
-            # 重启或启动 pm2 服务
-            pm2 restart my-blog-front || pm2 start npm --name "my-blog-front" -- start
-          EOF
+            pm2 save
+          "
+        env:
+          ALIYUN_SERVER_IP: ${{ secrets.ALIYUN_SERVER_IP }}
+          ALIYUN_SSH_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
