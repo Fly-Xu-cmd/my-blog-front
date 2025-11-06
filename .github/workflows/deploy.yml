@@ -26,11 +26,15 @@ jobs:
           npm install -g pnpm
           pnpm install  # 或者使用 npm install
 
-      # 4. 构建项目
+      # 4.创建prisma client
+      - name: Create Prisma Client
+        run: pnpm prisma generate
+
+      # 5. 构建项目
       - name: Build Next.js project
         run: pnpm run build # 根据你的构建命令修改
 
-      # 5. 部署到阿里云
+      # 6. 部署到阿里云
       - name: Deploy to Aliyun
         env:
           ALIYUN_SERVER_IP: ${{ secrets.ALIYUN_SERVER_IP }}
