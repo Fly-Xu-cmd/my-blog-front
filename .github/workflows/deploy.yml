@@ -30,11 +30,17 @@ jobs:
       - name: Create Prisma Client
         run: pnpm prisma generate
 
-      # 5. 构建项目
+      # 5. 构建 Next.js 项目
       - name: Build Next.js project
         run: pnpm run build
 
-      # 6. 部署到阿里云
+      # 6. 调试环境变量
+      - name: Debug environment variables
+        run: |
+          echo "ALIYUN_SERVER_IP is $ALIYUN_SERVER_IP"
+          echo "ALIYUN_SSH_KEY is $ALIYUN_SSH_KEY"  # 注意这里不要输出完整的私钥，只是为了调试
+
+      # 7. 配置 SSH 和部署
       - name: Deploy to Aliyun
         env:
           ALIYUN_SERVER_IP: ${{ secrets.ALIYUN_SERVER_IP }}
@@ -48,21 +54,35 @@ jobs:
           echo "$ALIYUN_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # 检查 ALIYUN_SERVER_IP 是否存在
-          if [ -z "$ALIYUN_SERVER_IP" ]; then
-            echo "Error: ALIYUN_SERVER_IP is not set."
-            exit 1
-          fi
-
-          # 配置 SSH
+          # 配置 SSH 客户端
           echo -e "Host $ALIYUN_SERVER_IP\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
+
+          # 添加目标主机的 SSH 密钥到 known_hosts
+          ssh-keyscan -H $ALIYUN_SERVER_IP >> ~/.ssh/known_hosts
 
           # 连接到阿里云服务器并部署
           ssh -v -T root@$ALIYUN_SERVER_IP << 'EOF'
             echo "Starting deployment process on Aliyun server..."
+
+            # 检查目录是否存在
             cd /home/www/my-blog-front || { echo "Directory not found!"; exit 1; }
+
+            # 确保是一个 git 仓库
+            if [ ! -d ".git" ]; then
+              echo "Not a git repository. Exiting."
+              exit 1
+            fi
+
+            # 拉取最新代码
             git pull origin main
+
+            # 安装依赖并构建项目
             pnpm install
             pnpm run build
+
+            # 确保 pm2 已安装
+            which pm2 || { echo "PM2 not installed!"; exit 1; }
+
+            # 重启或启动 pm2 服务
             pm2 restart my-blog-front || pm2 start npm --name "my-blog-front" -- start
           EOF
