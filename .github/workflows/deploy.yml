@@ -39,6 +39,8 @@ jobs:
           [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/
           [ -f .env.production ] && cp .env.production deploy/.env
           echo "✅ Deploy package prepared successfully."
+          echo "📁 Deploy package contents:"
+          ls -R deploy/
 
       - name: 📤 Upload build to server
         uses: appleboy/scp-action@v0.1.7
@@ -47,7 +49,7 @@ jobs:
           username: root
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           source: "deploy/*"
-          target: "/root/my-blog"
+          target: "/home/www/my-blog"
           strip_components: 1
 
       - name: 🚀 Deploy on server
@@ -58,29 +60,26 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           script: |
             echo "🚀 Starting deployment..."
-            mkdir -p /root/my-blog
-            cd /root/my-blog
+            mkdir -p /home/www/my-blog
+            cd /home/www/my-blog
 
-            echo "🧹 Cleaning old files..."
-            find . -mindepth 1 -maxdepth 1 ! -name 'prisma' -exec rm -rf {} +
+            echo "🧹 Cleaning old files (excluding prisma directory)..."
+            # 只清理旧文件，保留prisma目录
+            find . -mindepth 1 -maxdepth 1 ! -name 'prisma' ! -name '.next' ! -name 'package.json' ! -name 'pnpm-lock.yaml' ! -name 'public' -exec rm -rf {} + 2>/dev/null || true
 
-            echo "📦 Updating project files..."
-            # GitHub 已经上传过 deploy 文件，这里确保文件到位
+            echo "📦 Checking uploaded files..."
             if [ ! -f package.json ]; then
               echo "❌ package.json missing, aborting."
               exit 1
             fi
 
-            echo "📦 Installing pnpm..."
+            echo "📦 Installing pnpm (if not installed)..."
             if ! command -v pnpm >/dev/null 2>&1; then
               npm install -g pnpm
             fi
 
-            echo "📦 Installing dependencies..."
-            pnpm install --prod
-
-            echo "🧩 Running Prisma generate..."
-            pnpm prisma generate
+            echo "📦 Installing production dependencies..."
+            pnpm install --prod --frozen-lockfile
 
             echo "✅ Restarting app with PM2..."
             if ! command -v pm2 >/dev/null 2>&1; then
