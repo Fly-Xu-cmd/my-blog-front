@@ -37,7 +37,6 @@ jobs:
           cp -r .next package.json pnpm-lock.yaml prisma deploy/
           [ -d public ] && cp -r public deploy/public
           [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/
-          [ -f .env.production ] && cp .env.production deploy/.env
           echo "✅ Deploy package prepared successfully."
           echo "📁 Deploy package contents:"
           ls -R deploy/
@@ -63,9 +62,9 @@ jobs:
             mkdir -p /home/www/my-blog
             cd /home/www/my-blog
 
-            echo "🧹 Cleaning old files (excluding prisma directory)..."
-            # 只清理旧文件，保留prisma目录
-            find . -mindepth 1 -maxdepth 1 ! -name 'prisma' ! -name '.next' ! -name 'package.json' ! -name 'pnpm-lock.yaml' ! -name 'public' -exec rm -rf {} + 2>/dev/null || true
+            echo "🧹 Cleaning old files (excluding prisma and .env files)..."
+            # 只清理旧文件，保留prisma目录和.env文件
+            find . -mindepth 1 -maxdepth 1 ! -name 'prisma' ! -name '.next' ! -name 'package.json' ! -name 'pnpm-lock.yaml' ! -name 'public' ! -name '.env' -exec rm -rf {} + 2>/dev/null || true
 
             echo "📦 Checking uploaded files..."
             if [ ! -f package.json ]; then
