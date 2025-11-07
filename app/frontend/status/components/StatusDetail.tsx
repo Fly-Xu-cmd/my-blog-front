@@ -55,7 +55,7 @@ export default function PostDetail({ id }: Params) {
 
   // 渲染文章内容
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white rounded-lg shadow-md">
+    <div className="w-5xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h1 className="text-3xl font-bold mb-4">{dynamic.title}</h1>
       <div className="mt-6 text-lg leading-relaxed text-gray-800">
         <MyEditorPreview source={dynamic.content} />
