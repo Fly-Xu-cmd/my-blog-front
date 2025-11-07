@@ -81,6 +81,9 @@ jobs:
             echo "📦 Installing production dependencies..."
             pnpm install --prod --frozen-lockfile
 
+            echo "🔧 Generating Prisma client for production..."
+            pnpm prisma generate
+
             echo "✅ Restarting app with PM2..."
             if ! command -v pm2 >/dev/null 2>&1; then
               npm install -g pm2
