@@ -55,7 +55,7 @@ export default function PostDetail({ slug }: Params) {
 
   // 渲染文章内容
   return (
-    <div className="max-w-5xl mx-auto p-6 bg-white rounded-lg shadow-md">
+    <div className="w-5xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h1 className="text-3xl font-bold mb-4">{post.title}</h1>
       <p className="text-sm text-gray-400">
         {post.category?.name || "未分类"} / {formatDate(post.createdAt)}
