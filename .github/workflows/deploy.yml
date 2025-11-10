@@ -13,6 +13,12 @@ jobs:
       - name: 🛠️ Checkout code
         uses: actions/checkout@v4
 
+      - name: 📥 Install system dependencies (MySQL client)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmysqlclient-dev  # Prisma MySQL 驱动依赖
+          echo "✅ System dependencies installed"
+
       - name: 📦 Install pnpm
         run: npm install -g pnpm
 
@@ -22,26 +28,38 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: 🧩 Install dependencies
+      - name: 🧩 Install project dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          # 安装时忽略生产环境变量，避免本地配置干扰
+          NODE_ENV: development
 
-      - name: 🧱 Generate Prisma client
+      - name: 🧱 Generate Prisma client (build stage)
         run: pnpm prisma generate
+        env:
+          # 构建阶段无需真实数据库连接，仅生成客户端
+          DATABASE_URL: "mysql://placeholder:placeholder@localhost:3306/placeholder"
 
-      - name: 🏗️ Build project
+      - name: 🏗️ Build Next.js project
         run: pnpm build
+        env:
+          # 构建时可能需要的环境变量（根据你的项目需求添加）
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
 
       - name: 📁 Prepare deploy package
         run: |
           mkdir -p deploy
+          # 复制必要的部署文件
           cp -r .next package.json pnpm-lock.yaml prisma deploy/
           [ -d public ] && cp -r public deploy/public
           [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/
-          echo "✅ Deploy package prepared successfully."
-          echo "📁 Deploy package contents:"
-          ls -R deploy/
+          # 检查打包结果
+          echo "✅ Deploy package structure:"
+          ls -la deploy/
+          echo "📦 .next directory check:"
+          ls -la deploy/.next/
 
-      - name: 📤 Upload build to server
+      - name: 📤 Upload build to Aliyun server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
@@ -49,45 +67,67 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           source: "deploy/*"
           target: "/home/www/my-blog"
-          strip_components: 1
+          strip_components: 1 # 移除 deploy 外层目录
+          timeout: 60s # 延长超时时间，避免大文件传输失败
 
-      - name: 🚀 Deploy on server
+      - name: 🚀 Deploy and start application on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
           username: root
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           script: |
-            echo "🚀 Starting deployment..."
-            mkdir -p /home/www/my-blog
-            cd /home/www/my-blog
+            echo "🚀 Starting deployment process on server"
+            cd /home/www/my-blog || { echo "❌ Directory not found"; exit 1; }
 
-            echo "🧹 Cleaning old files (excluding prisma and .env files)..."
-            # 只清理旧文件，保留prisma目录和.env文件
-            find . -mindepth 1 -maxdepth 1 ! -name 'prisma' ! -name '.next' ! -name 'package.json' ! -name 'pnpm-lock.yaml' ! -name 'public' ! -name '.env' -exec rm -rf {} + 2>/dev/null || true
+            echo "🧹 Cleaning obsolete files"
+            # 保留关键文件，删除其他冗余内容
+            find . -mindepth 1 -maxdepth 1 \
+              ! -name 'prisma' \
+              ! -name '.next' \
+              ! -name 'package.json' \
+              ! -name 'pnpm-lock.yaml' \
+              ! -name 'public' \
+              ! -name '.env' \
+              -exec rm -rf {} + 2>/dev/null || true
 
-            echo "📦 Checking uploaded files..."
-            if [ ! -f package.json ]; then
-              echo "❌ package.json missing, aborting."
+            echo "📦 Verifying deployment files"
+            if [ ! -f "package.json" ] || [ ! -d ".next" ]; then
+              echo "❌ Critical files missing (package.json or .next)"
               exit 1
             fi
 
-            echo "📦 Installing pnpm (if not installed)..."
-            if ! command -v pnpm >/dev/null 2>&1; then
+            echo "🔧 Ensuring pnpm is installed"
+            if ! command -v pnpm &> /dev/null; then
+              echo "Installing pnpm..."
               npm install -g pnpm
             fi
 
-            echo "📦 Installing production dependencies..."
-            pnpm install --prod --frozen-lockfile
+            echo "📦 Installing production dependencies"
+            pnpm install --prod --frozen-lockfile --silent || { echo "❌ Dependency install failed"; exit 1; }
 
-            echo "🔧 Generating Prisma client for production..."
-            pnpm prisma generate
+            echo "🔄 Generating Prisma client (production)"
+            pnpm prisma generate || { echo "❌ Prisma client generation failed"; exit 1; }
 
-            echo "✅ Restarting app with PM2..."
-            if ! command -v pm2 >/dev/null 2>&1; then
+            echo "🗄️ Applying database migrations"
+            pnpm prisma migrate deploy || { echo "❌ Migration failed"; exit 1; }
+
+            echo "🔍 Testing database connection"
+            if ! pnpm prisma db pull --dry-run &> /dev/null; then
+              echo "❌ Database connection failed"
+              exit 1
+            fi
+
+            echo "✅ Restarting application with PM2"
+            if ! command -v pm2 &> /dev/null; then
+              echo "Installing PM2..."
               npm install -g pm2
             fi
+            pm2 stop my-blog || true
             pm2 delete my-blog || true
-            pm2 start "pnpm start" --name my-blog
+            pm2 start "pnpm start" --name my-blog || { echo "❌ App start failed"; exit 1; }
 
-            echo "🎉 Deployment complete!"
+            echo "📊 Application status"
+            pm2 list
+
+            echo "🎉 Deployment completed successfully!"

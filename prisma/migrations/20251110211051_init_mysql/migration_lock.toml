@@ -1,0 +1,5 @@
+[Database]
+provider = "mysql"
+
+[Migration]
+version = "3.0.0"
