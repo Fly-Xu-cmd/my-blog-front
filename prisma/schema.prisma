@@ -1,58 +1,68 @@
 generator client {
   provider = "prisma-client-js"
 }
+
+// 1. 数据源改为 MySQL（兼容 MariaDB）
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "mysql"  // 从 sqlite 改为 mysql
+  url      = env("DATABASE_URL")  // 环境变量保持不变，但值需改为 MySQL 连接地址
+  relationMode = "prisma"  // 显式指定关系模式（MySQL 推荐）
 }
 
 model Post {
   id         Int       @id @default(autoincrement())
-  title      String
-  slug       String    @unique(map: "post_slug") @default(uuid()) // 确保 slug 唯一
-  excerpt    String?
-  content    String
-  cover      String?
+  title      String    @db.VarChar(255)  // MySQL 推荐显式指定字符串长度
+  slug       String    @unique @db.VarChar(255)  // 移除默认 uuid()，由后端生成唯一 slug
+  excerpt    String?   @db.Text  // 摘要可能较长，用 Text 类型
+  content    String    @db.Text  // 文章内容用 Text 类型（支持长文本）
+  cover      String?   @db.VarChar(512)  // 封面图 URL 可能较长
   published  Boolean   @default(false)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime  @default(now()) @db.DateTime(0)  // 精确到秒级
+  updatedAt  DateTime  @updatedAt @db.DateTime(0)
 
-  // 分类（可选）
+  // 分类关联
   category   Category? @relation(fields: [categoryId], references: [id])
+  @@index([categoryId])  // 手动为外键字段添加索引，避免 relationMode = "prisma" 下的性能问题
   categoryId Int?
 
   // 多对多标签
   tags PostTag[]
 
+  // 新增索引：优化按发布状态、创建时间的查询（如博客列表页）
+  @@index([published, createdAt])
 }
 
 model Category {
   id    Int    @id @default(autoincrement())
-  name  String @unique
+  name  String @unique @db.VarChar(100)  // 分类名长度限制
   posts Post[]
 }
 
 model Tag {
   id    Int    @id @default(autoincrement())
-  name  String @unique
+  name  String @unique @db.VarChar(100)  // 标签名长度限制
   posts PostTag[]
 }
 
 model PostTag {
-  post   Post @relation(fields: [postId], references: [id])
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)  // 帖子删除时，关联记录也删除
   postId Int
 
-  tag    Tag  @relation(fields: [tagId], references: [id])
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)  // 标签删除时，关联记录也删除
+  @@index([tagId])  // 手动为外键字段添加索引，避免 relationMode = "prisma" 下的性能问题
   tagId  Int
 
-  @@id([postId, tagId])
+  @@id([postId, tagId])  // 复合主键确保唯一性
 }
 
 model Dynamic {
-  id        Int @id @default(autoincrement())
-  content   String // 动态内容,支持markdown
-  excerpt   String // 动态简介
-  title     String? // 动态标题
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        Int       @id @default(autoincrement())
+  content   String    @db.Text  // 动态内容用 Text
+  excerpt   String    @db.VarChar(512)  // 简介长度限制
+  title     String?   @db.VarChar(255)
+  createdAt DateTime  @default(now()) @db.DateTime(0)
+  updatedAt DateTime  @updatedAt @db.DateTime(0)
+
+  // 新增索引：优化按时间排序查询动态
+  @@index([createdAt])
 }
