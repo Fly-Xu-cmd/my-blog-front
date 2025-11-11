@@ -70,17 +70,17 @@ jobs:
           strip_components: 1 # 移除 deploy 外层目录
           timeout: 60s # 延长超时时间，避免大文件传输失败
 
-      - name: 🚀 Deploy and start application on server
+      - name: 🚀 Deploy on server
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
           username: root
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           script: |
-            echo "🚀 Starting deployment process on server"
+            echo "🚀 Starting deployment"
             cd /home/www/my-blog || { echo "❌ Directory not found"; exit 1; }
 
-            echo "🧹 Cleaning obsolete files (including SQLite Prisma residues)"
+            echo "🧹 Cleaning obsolete files"
             find . -mindepth 1 -maxdepth 1 \
               ! -name 'prisma' \
               ! -name '.next' \
@@ -91,37 +91,31 @@ jobs:
               -exec rm -rf {} + 2>/dev/null || true
             rm -rf prisma/*.db prisma/*.db-* 2>/dev/null || true
 
-            echo "📦 Verifying deployment files"
+            echo "📦 Verifying files"
             if [ ! -f "package.json" ] || [ ! -d ".next" ]; then
-              echo "❌ Critical files missing (package.json or .next)"
+              echo "❌ Critical files missing"
               exit 1
             fi
 
             echo "🔧 Ensuring pnpm is installed"
             if ! command -v pnpm &> /dev/null; then
-              echo "Installing pnpm..."
               npm install -g pnpm
             fi
 
             echo "📦 Installing production dependencies"
             pnpm install --prod --frozen-lockfile --silent || { echo "❌ Dependency install failed"; exit 1; }
 
-            echo "🔄 Generating Prisma client (production)"
+            echo "🔄 Generating Prisma client"
             pnpm prisma generate || { echo "❌ Prisma client generation failed"; exit 1; }
 
-            echo "🗄️ Applying database migrations (if any)"
+            echo "🗄️ Applying migrations"
             pnpm prisma migrate deploy || { echo "❌ Migration failed"; exit 1; }
 
-            echo "🔍 Testing database connection"
-            # 使用轻量查询测试连接（仅验证连接，不执行实际操作）
-            if ! pnpm prisma db execute --sql "SELECT 1;" --skip-exec &> /dev/null; then
-              echo "❌ Database connection failed"
-              exit 1
-            fi
+            # 移除连接测试步骤（因 migrate 已验证连接正常）
+            echo "✅ Skipping redundant connection test (migrations succeeded)"
 
-            echo "✅ Restarting application with PM2"
+            echo "✅ Restarting with PM2"
             if ! command -v pm2 &> /dev/null; then
-              echo "Installing PM2..."
               npm install -g pm2
             fi
             pm2 stop my-blog || true
