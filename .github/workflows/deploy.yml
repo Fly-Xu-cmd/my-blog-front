@@ -13,10 +13,10 @@ jobs:
       - name: 🛠️ Checkout code
         uses: actions/checkout@v4
 
-      - name: 📥 Install system dependencies (MySQL client + openssl)
+      - name: 📥 Install system dependencies (MySQL client)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libmysqlclient-dev openssl
+          sudo apt-get install -y libmysqlclient-dev  # Prisma MySQL 驱动依赖
           echo "✅ System dependencies installed"
 
       - name: 📦 Install pnpm
@@ -31,36 +31,33 @@ jobs:
       - name: 🧩 Install project dependencies
         run: pnpm install --frozen-lockfile
         env:
+          # 安装时忽略生产环境变量，避免本地配置干扰
           NODE_ENV: development
 
       - name: 🧱 Generate Prisma client (build stage)
-        run: |
-          for i in {1..3}; do
-            pnpm prisma generate --timeout 60000 && break
-            echo "Retrying Prisma generate (attempt $i)..."
-            sleep 5
-          done
-          if [ $i -eq 3 ]; then
-            echo "❌ Prisma generate failed after 3 attempts"
-            exit 1
-          fi
+        run: pnpm prisma generate
         env:
+          # 构建阶段无需真实数据库连接，仅生成客户端
           DATABASE_URL: "mysql://placeholder:placeholder@localhost:3306/placeholder"
-          PRISMA_BINARIES_MIRROR: "https://r.cnpmjs.org/prisma-binaries/"
 
       - name: 🏗️ Build Next.js project
         run: pnpm build
         env:
+          # 构建时可能需要的环境变量（根据你的项目需求添加）
           NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
 
       - name: 📁 Prepare deploy package
         run: |
           mkdir -p deploy
+          # 复制必要的部署文件
           cp -r .next package.json pnpm-lock.yaml prisma deploy/
           [ -d public ] && cp -r public deploy/public
           [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/
+          # 检查打包结果
           echo "✅ Deploy package structure:"
           ls -la deploy/
+          echo "📦 .next directory check:"
+          ls -la deploy/.next/
 
       - name: 📤 Upload build to Aliyun server
         uses: appleboy/scp-action@v0.1.7
@@ -70,8 +67,8 @@ jobs:
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           source: "deploy/*"
           target: "/home/www/my-blog"
-          strip_components: 1
-          timeout: 60s
+          strip_components: 1 # 移除 deploy 外层目录
+          timeout: 60s # 延长超时时间，避免大文件传输失败
 
       - name: 🚀 Deploy and start application on server
         uses: appleboy/ssh-action@v1.2.0
