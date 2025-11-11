@@ -80,8 +80,8 @@ jobs:
             echo "🚀 Starting deployment process on server"
             cd /home/www/my-blog || { echo "❌ Directory not found"; exit 1; }
 
-            echo "🧹 Cleaning obsolete files"
-            # 保留关键文件，删除其他冗余内容
+            echo "🧹 Cleaning obsolete files (including SQLite Prisma residues)"
+            # 清理外层冗余文件
             find . -mindepth 1 -maxdepth 1 \
               ! -name 'prisma' \
               ! -name '.next' \
@@ -90,6 +90,9 @@ jobs:
               ! -name 'public' \
               ! -name '.env' \
               -exec rm -rf {} + 2>/dev/null || true
+
+            # 清理 SQLite 残留
+            rm -rf prisma/*.db prisma/*.db-* 2>/dev/null || true
 
             echo "📦 Verifying deployment files"
             if [ ! -f "package.json" ] || [ ! -d ".next" ]; then
@@ -109,7 +112,7 @@ jobs:
             echo "🔄 Generating Prisma client (production)"
             pnpm prisma generate || { echo "❌ Prisma client generation failed"; exit 1; }
 
-            echo "🗄️ Applying database migrations"
+            echo "🗄️ Applying database migrations (if any)"
             pnpm prisma migrate deploy || { echo "❌ Migration failed"; exit 1; }
 
             echo "🔍 Testing database connection"
