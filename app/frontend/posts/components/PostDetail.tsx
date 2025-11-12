@@ -1,6 +1,6 @@
 "use client";
 import { type Post } from "@/app/frontend/model";
-import { Empty, Spin } from "antd";
+import { Empty, Space, Spin, Tooltip } from "antd";
 import React, { useEffect, useState } from "react";
 import MyEditorPreview from "@/components/MyEditorPreview";
 
@@ -57,12 +57,21 @@ export default function PostDetail({ slug }: Params) {
   return (
     <div className="w-5xl mx-auto p-6 bg-white rounded-lg shadow-md">
       <h1 className="text-3xl font-bold mb-4">{post.title}</h1>
-      <p className="text-sm text-gray-400">
-        {post.category?.name || "未分类"} / {formatDate(post.createdAt)}
-      </p>
-      <p className="text-sm text-gray-400">
-        {post.tags?.map((tag) => tag.name).join(" / ") || "无标签"}
-      </p>
+      <Space size={4} direction="vertical">
+        <Tooltip title={"分类/创建时间"}>
+          <span className="text-base text-gray-500">
+            {post.category?.name || "未分类"} / {formatDate(post.createdAt)}
+          </span>
+        </Tooltip>
+
+        <Tooltip title={"标签"}>
+          <span className="text-sm text-gray-400">
+            {post.tags?.map((tagPost) => tagPost.tag.name).join(" / ") ||
+              "无标签"}
+          </span>
+        </Tooltip>
+      </Space>
+
       <div className="mt-6 text-lg leading-relaxed text-gray-800">
         <MyEditorPreview source={post.content} />
       </div>

@@ -1,3 +1,4 @@
+import { Empty } from "antd";
 import Link from "next/link";
 
 // 定义动态类型
@@ -39,6 +40,9 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
   const sortedStatus = [...status].sort(
     (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
   );
+  if (sortedStatus.length === 0) {
+    return <Empty></Empty>;
+  }
 
   return (
     <div className="w-full">
@@ -94,14 +98,16 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
       </ul>
 
       {/* 查看全部按钮 */}
-      <div className="text-center mt-8">
-        <Link
-          href="/frontend/allStatus"
-          className="inline-block px-6 py-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors text-sm font-medium"
-        >
-          查看全部动态
-        </Link>
-      </div>
+      {sortedStatus.length > 0 && (
+        <div className="text-center mt-8">
+          <Link
+            href="/frontend/allStatus"
+            className="inline-block px-6 py-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors text-sm font-medium"
+          >
+            查看全部动态
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,11 @@ export type Tag = {
   id: number;
   name: string;
 };
+export type TagPost = {
+  postId: number;
+  tag: Tag;
+  tagId: number;
+};
 export type Category = {
   id: number;
   name: string;
@@ -17,7 +22,7 @@ export type Post = {
   createdAt: string;
   updatedAt: string;
   category?: Category;
-  tags?: Tag[];
+  tags?: TagPost[];
 };
 export type Dynamic = {
   id: number;
