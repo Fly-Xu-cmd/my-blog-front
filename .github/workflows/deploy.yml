@@ -59,17 +59,6 @@ jobs:
           echo "📦 .next directory check:"
           ls -la deploy/.next/
 
-      - name: 📤 Upload build to Aliyun server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: appuser
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          source: "deploy/*"
-          target: "/home/www/my-blog"
-          strip_components: 1 # 移除 deploy 外层目录
-          timeout: 60s # 延长超时时间，避免大文件传输失败
-
       - name: 🚀 Setup application user and permissions
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -107,6 +96,17 @@ jobs:
             chmod -R 755 $GLOBAL_PREFIX/bin/ 2>/dev/null || true
 
             echo "✅ User and directory setup completed"
+
+      - name: 📤 Upload build to Aliyun server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: appuser
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          source: "deploy/*"
+          target: "/home/www/my-blog"
+          strip_components: 1 # 移除 deploy 外层目录
+          timeout: 60s # 延长超时时间，避免大文件传输失败
 
       - name: 🚀 Deploy application with appuser
         uses: appleboy/ssh-action@v1.2.0
