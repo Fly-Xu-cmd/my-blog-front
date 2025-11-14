@@ -55,7 +55,7 @@ export default function AllStatusLayout() {
     );
   }
 
-  if (!status || !status.ok) {
+  if (!status || status.data.length === 0) {
     return (
       <div className="pl-8 md:pl-16 space-y-12">
         <div className="text-center py-8">暂无动态内容</div>

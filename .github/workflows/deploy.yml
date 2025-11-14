@@ -63,22 +63,69 @@ jobs:
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: root
+          username: appuser
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           source: "deploy/*"
           target: "/home/www/my-blog"
           strip_components: 1 # 移除 deploy 外层目录
           timeout: 60s # 延长超时时间，避免大文件传输失败
 
-      - name: 🚀 Deploy on server
+      - name: 🚀 Setup application user and permissions
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
           username: root
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           script: |
-            echo "🚀 Starting deployment"
+            echo "🚀 Setting up application user and permissions"
+
+            # 创建应用用户和组
+            echo "👥 Creating appuser"
+            groupadd -f appuser || true
+            useradd -g appuser -m -s /bin/bash appuser || true
+
+            # 创建应用目录（如果不存在）
+            echo "📁 Creating application directory"
+            mkdir -p /home/www/my-blog
+
+            # 设置目录所有权
+            echo "👤 Setting ownership to appuser"
+            chown -R appuser:appuser /home/www/my-blog
+
+            # 确保appuser能够访问全局包
+            echo "🔧 Setting up global package access for appuser"
+            # 获取全局包路径
+            GLOBAL_PREFIX=$(npm config get prefix)
+            echo "📍 Global prefix: $GLOBAL_PREFIX"
+
+            # 设置appuser的PATH环境变量
+            usermod -a -G sudo appuser 2>/dev/null || true
+            echo 'export PATH=$GLOBAL_PREFIX/bin:$PATH' >> /home/appuser/.bashrc
+            echo 'export PATH=$GLOBAL_PREFIX/bin:$PATH' >> /home/appuser/.profile
+
+            # 确保全局包的执行权限
+            chmod -R 755 $GLOBAL_PREFIX/bin/ 2>/dev/null || true
+
+            echo "✅ User and directory setup completed"
+
+      - name: 🚀 Deploy application with appuser
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: appuser
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          script: |
+            echo "🚀 Starting deployment with appuser"
             cd /home/www/my-blog || { echo "❌ Directory not found"; exit 1; }
+
+            # 确保目录和文件权限正确
+            echo "🔧 Setting proper permissions"
+            chmod -R 755 .next public prisma
+
+            # 确保上传目录存在且可写
+            echo "📁 Creating and configuring upload directory"
+            mkdir -p public/uploads
+            chmod -R 775 public/uploads
 
             echo "🧹 Cleaning obsolete files"
             find . -mindepth 1 -maxdepth 1 \
@@ -97,9 +144,22 @@ jobs:
               exit 1
             fi
 
-            echo "🔧 Ensuring pnpm is installed"
+            echo "🔧 Verifying pnpm availability"
+            # 加载全局包路径
+            source ~/.bashrc || true
+            source ~/.profile || true
+
             if ! command -v pnpm &> /dev/null; then
-              npm install -g pnpm
+              echo "❌ pnpm not found, checking global prefix"
+              # 尝试使用绝对路径
+              NPM_PREFIX=$(npm config get prefix 2>/dev/null)
+              if [ -n "$NPM_PREFIX" ] && [ -f "$NPM_PREFIX/bin/pnpm" ]; then
+                echo "📍 Found pnpm at: $NPM_PREFIX/bin/pnpm"
+                export PATH="$NPM_PREFIX/bin:$PATH"
+              else
+                echo "❌ pnpm not available in global packages"
+                exit 1
+              fi
             fi
 
             echo "📦 Installing production dependencies"
@@ -114,15 +174,48 @@ jobs:
             # 移除连接测试步骤（因 migrate 已验证连接正常）
             echo "✅ Skipping redundant connection test (migrations succeeded)"
 
-            echo "✅ Restarting with PM2"
+            # 验证环境权限设置
+            echo "🔐 Verifying environment permissions"
+            echo "Current user: $(whoami)"
+            echo "Directory permissions: $(ls -la | head -n 1)"
+
+            echo "✅ Restarting with PM2 as non-root user"
+            # 验证PM2是否可用
             if ! command -v pm2 &> /dev/null; then
-              npm install -g pm2
+              echo "❌ PM2 not found, checking global prefix"
+              # 尝试使用绝对路径
+              NPM_PREFIX=$(npm config get prefix 2>/dev/null)
+              if [ -n "$NPM_PREFIX" ] && [ -f "$NPM_PREFIX/bin/pm2" ]; then
+                echo "📍 Found PM2 at: $NPM_PREFIX/bin/pm2"
+                export PATH="$NPM_PREFIX/bin:$PATH"
+              else
+                echo "❌ PM2 not available in global packages"
+                exit 1
+              fi
             fi
+
+            # 确保PM2目录权限正确
+            mkdir -p ~/.pm2
+            chmod -R 755 ~/.pm2
+
+            echo "🛑 Stopping previous instance"
             pm2 stop my-blog || true
             pm2 delete my-blog || true
+
+            echo "🚀 Starting application"
             pm2 start "pnpm start" --name my-blog || { echo "❌ App start failed"; exit 1; }
 
             echo "📊 Application status"
             pm2 list
+
+            # 验证应用是否正常启动
+            sleep 5
+            if ! pm2 status my-blog | grep -q "online"; then
+              echo "⚠️  Warning: Application might not be running properly"
+              echo "Latest logs:" 
+              pm2 logs my-blog --lines 20 || true
+            else
+              echo "✅ Application successfully started"
+            fi
 
             echo "🎉 Deployment completed successfully!"
