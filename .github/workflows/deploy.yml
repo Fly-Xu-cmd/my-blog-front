@@ -50,11 +50,11 @@ jobs:
           echo "Deploy package contents:"
           ls -la deploy
 
-      - name: Upload deploy package to server (as DEPLOY_USER)
+      - name: Upload deploy package to server (as root)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: ${{ env.DEPLOY_USER }}
+          username: root
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           port: 22
           source: "deploy/*"
