@@ -1,4 +1,4 @@
-name: Deploy Next.js to Aliyun (pnpm + pm2)
+name: Deploy Next.js App to Aliyun
 
 on:
   push:
@@ -6,184 +6,115 @@ on:
       - main
 
 env:
-  # 可根据需要改动
   DEPLOY_USER: appuser
   DEPLOY_DIR: /home/www/my-blog
-  NODE_VERSION: 20
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
-      - name: Checkout code
+      - name: 🧱 Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node on runner & install pnpm
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install pnpm on runner
+      - name: 📦 Install pnpm
         run: npm install -g pnpm
 
-      - name: Install dependencies (CI) and build
-        env:
-          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm prisma generate || echo "no prisma or generate skipped"
-          pnpm build
-
-      - name: Prepare deploy package
-        run: |
-          rm -rf deploy || true
-          mkdir -p deploy
-          # 必要部署文件：.next, package.json, pnpm-lock.yaml, prisma, public (静态资源)
-          cp -r .next package.json pnpm-lock.yaml prisma deploy/ 2>/dev/null || true
-          [ -d public ] && cp -r public deploy/public
-          # 可选：复制 ecosystem config (如果有)
-          [ -f ecosystem.config.js ] && cp ecosystem.config.js deploy/
-          echo "Deploy package contents:"
-          ls -la deploy
-
-      - name: Upload deploy package to server (as root)
-        uses: appleboy/scp-action@v0.1.7
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: root
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          port: 22
-          source: "deploy/*"
-          target: "${{ env.DEPLOY_DIR }}/tmp-deploy"
-          strip_components: 1
-          timeout: 120s
+          node-version: 20
+          cache: pnpm
 
-      - name: Server-side install (ensure Node/pnpm/pm2) and atomic deploy
+      - name: 📥 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔧 Generate Prisma client
+        run: pnpm prisma generate
+        env:
+          DATABASE_URL: "mysql://placeholder:placeholder@localhost:3306/placeholder"
+
+      - name: 🏗️ Build Next.js project
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://${{ secrets.ALIYUN_SERVER_IP }}
+
+      - name: 📁 Prepare deploy package
+        run: |
+          mkdir -p deploy
+          cp -r .next package.json pnpm-lock.yaml prisma public deploy/
+          echo "Done packaging."
+
+      - name: ✨ Ensure appuser exists & directories ready (root)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
           username: root
           key: ${{ secrets.ALIYUN_SSH_KEY }}
-          port: 22
           script: |
-            set -euo pipefail
+            echo "🔧 Ensuring deploy user and dirs..."
 
-            DEPLOY_USER="${{ env.DEPLOY_USER }}"
-            DEPLOY_DIR="${{ env.DEPLOY_DIR }}"
-            NODE_VERSION="${{ env.NODE_VERSION }}"
+            id appuser || useradd -m -s /bin/bash appuser
+            mkdir -p /home/www/my-blog
+            mkdir -p /home/www/my-blog/shared/upload
 
-            echo "=== Ensure system directories ==="
-            mkdir -p "$DEPLOY_DIR"
-            chown -R "$DEPLOY_USER":"$DEPLOY_USER" "$DEPLOY_DIR" || true
-            chmod 755 "$DEPLOY_DIR"
+            chown -R appuser:appuser /home/www/my-blog
 
-            echo "=== Install Node & global tools if missing (Node $NODE_VERSION) ==="
-            if ! command -v node >/dev/null 2>&1; then
-              echo "Node not found — installing Node $NODE_VERSION via NodeSource..."
-              curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
-              apt-get update && apt-get install -y nodejs build-essential
-            else
-              echo "node found: $(node -v)"
-            fi
+            echo "Root stage complete."
 
-            if ! command -v pnpm >/dev/null 2>&1; then
-              echo "pnpm not found — installing globally"
-              npm install -g pnpm
-            else
-              echo "pnpm found: $(pnpm -v)"
-            fi
+      - name: 📤 Upload build to server (as appuser)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: appuser
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          source: "deploy/*"
+          target: "${{ env.DEPLOY_DIR }}/tmp-deploy"
+          strip_components: 1
+          timeout: 120s
 
-            if ! command -v pm2 >/dev/null 2>&1; then
-              echo "pm2 not found — installing globally"
-              npm install -g pm2
-            else
-              echo "pm2 found: $(pm2 -v)"
-            fi
+      - name: 🚀 Deploy application with PM2 (appuser)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: appuser
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          script: |
+            cd /home/www/my-blog
 
-            echo "=== Create shared directories (for uploads, logs, shared prisma, etc.) ==="
-            # shared path that persists across releases
-            SHARED_DIR="$DEPLOY_DIR/shared"
-            mkdir -p "$SHARED_DIR/public/uploads"
-            mkdir -p "$SHARED_DIR/.pm2"
-            chown -R "$DEPLOY_USER":"$DEPLOY_USER" "$SHARED_DIR"
-            chmod -R 775 "$SHARED_DIR"
+            echo "🧹 Cleaning old build"
+            rm -rf .next prisma public tmp || true
 
-            echo "=== Switch to DEPLOY_USER to perform atomic deploy ==="
-            # run the deploy steps as app user
-            sudo -i -u "$DEPLOY_USER" bash <<'EODE'
-              set -euo pipefail
-              DEPLOY_DIR="$DEPLOY_DIR"
-              RELEASES_DIR="$DEPLOY_DIR/releases"
-              TMP_DEPLOY="$DEPLOY_DIR/tmp-deploy"
-              CURRENT_SYMLINK="$DEPLOY_DIR/current"
-              TIMESTAMP=$(date +%Y%m%d%H%M%S)
-              NEW_RELEASE_DIR="$RELEASES_DIR/$TIMESTAMP"
+            echo "📦 Moving new build"
+            mv tmp-deploy/.next .
+            mv tmp-deploy/prisma .
+            mv tmp-deploy/public .
+            mv tmp-deploy/package.json .
+            mv tmp-deploy/pnpm-lock.yaml .
 
-              mkdir -p "$RELEASES_DIR"
-              # move uploaded package into a new release dir
-              mv "$TMP_DEPLOY" "$NEW_RELEASE_DIR"
+            echo "🔧 Ensuring shared/upload exists"
+            mkdir -p shared/upload
+            chmod -R 775 shared/upload
 
-              cd "$NEW_RELEASE_DIR"
+            echo "🔗 Recreate symlink public/upload → shared/upload"
+            rm -rf public/upload
+            ln -s /home/www/my-blog/shared/upload /home/www/my-blog/public/upload
 
-              # create symlink from shared uploads to this release's public/uploads
-              mkdir -p public || true
-              rm -rf public/uploads || true
-              ln -s "$DEPLOY_DIR/shared/public/uploads" public/uploads
+            echo "📦 Installing production deps"
+            pnpm install --prod --frozen-lockfile --silent
 
-              # install only production deps (assumes network access)
-              # use store-dir to avoid permission issues if needed
-              if ! command -v pnpm >/dev/null 2>&1; then
-                echo "pnpm not available for appuser - aborting"
-                exit 1
-              fi
+            echo "🔧 Prisma generate"
+            pnpm prisma generate
 
-              pnpm install --prod --frozen-lockfile
+            echo "🗄️ Prisma migrate"
+            pnpm prisma migrate deploy
 
-              # prisma generate only if prisma schema exists
-              if [ -d "prisma" ] && [ -f "prisma/schema.prisma" ]; then
-                pnpm prisma generate || true
-              fi
+            echo "🔥 Restarting PM2"
+            pm2 stop my-blog || true
+            pm2 delete my-blog || true
+            pm2 start "pnpm start" --name my-blog --time
 
-              # run migrations if DATABASE_URL present and migrations folder exists
-              if [ -n "${DATABASE_URL:-}" ] 2>/dev/null && [ -d "prisma/migrations" ]; then
-                echo "Applying prisma migrations (if any)"
-                pnpm prisma migrate deploy || true
-              fi
+            echo "📊 PM2 Status"
+            pm2 list
 
-              # update symlink atomic switch
-              ln -sfn "$NEW_RELEASE_DIR" "$CURRENT_SYMLINK"
-
-              # keep only last 5 releases
-              cd "$RELEASES_DIR"
-              ls -1tr | head -n -5 | xargs -r -I {} rm -rf {}
-
-              echo "Release prepared at $NEW_RELEASE_DIR"
-            EODE
-
-            echo "=== Start / Reload app with PM2 ==="
-            # Try to use ecosystem.config.js if exists, otherwise start via pnpm start
-            sudo -i -u "$DEPLOY_USER" bash <<'EODE'
-              set -euo pipefail
-              CURRENT="$DEPLOY_DIR/current"
-              cd "$CURRENT"
-
-              if [ -f "ecosystem.config.js" ]; then
-                pm2 reload ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
-              else
-                # Stop existing
-                pm2 stop my-blog || true
-                pm2 delete my-blog || true
-                # Start using pnpm start (assumes package.json scripts.start = "next start")
-                pm2 start "pnpm start" --name my-blog --cwd "$CURRENT"
-              fi
-
-              sleep 3
-              pm2 save || true
-              pm2 list
-            EODE
-
-            echo "=== Done deployment steps as root wrapper ==="
+            echo "🎉 Deployment completed!"
