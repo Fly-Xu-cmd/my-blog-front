@@ -76,7 +76,7 @@ const generateUniqueSlug = async (baseSlug: string): Promise<string> => {
   }
 
   // 提取已有序号，找到最大序号
-  const slugs = existingPosts.map((p) => p.slug);
+  const slugs = existingPosts.map((p: { slug: string }) => p.slug);
   const maxIndex = slugs.reduce((max, slug) => {
     if (slug === baseSlug) return Math.max(max, 1); // 基础 slug 算序号 1
     const match = slug.match(new RegExp(`^${baseSlug}-(\\d+)$`));

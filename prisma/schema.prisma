@@ -5,7 +5,7 @@ generator client {
 // 1. 数据源改为 MySQL（兼容 MariaDB）
 datasource db {
   provider = "mysql"  // 从 sqlite 改为 mysql
-  url      = env("DATABASE_URL")  // 环境变量保持不变，但值需改为 MySQL 连接地址
+  url = env("DATABASE_URL")  // 环境变量保持不变，但值需改为 MySQL 连接地址
   relationMode = "prisma"  // 显式指定关系模式（MySQL 推荐）
 }
 
@@ -66,3 +66,4 @@ model Dynamic {
   // 新增索引：优化按时间排序查询动态
   @@index([createdAt])
 }
+
