@@ -7,7 +7,7 @@ on:
 
 env:
   DEPLOY_USER: appuser
-  DEPLOY_DIR: /home/www/my-blog
+  DEPLOY_PATH: /home/www/my-blog
 
 jobs:
   build-and-deploy:
@@ -32,6 +32,7 @@ jobs:
       - name: 🔧 Generate Prisma client
         run: pnpm prisma generate
         env:
+          # 只要 schema.prisma 不需要连接真实 DB，这里可以用假的 URL
           DATABASE_URL: "mysql://placeholder:placeholder@localhost:3306/placeholder"
 
       - name: 🏗️ Build Next.js project
@@ -39,11 +40,9 @@ jobs:
         env:
           NEXT_PUBLIC_SITE_URL: https://${{ secrets.ALIYUN_SERVER_IP }}
 
-      - name: 📁 Prepare deploy package
-        run: |
-          mkdir -p deploy
-          cp -r .next package.json pnpm-lock.yaml prisma public deploy/
-          echo "Done packaging."
+      # ----------------------------------------------------------------
+      # 优化点 1: 准备阶段，不进行复制，直接在传输阶段处理
+      # ----------------------------------------------------------------
 
       - name: ✨ Ensure appuser exists & directories ready (root)
         uses: appleboy/ssh-action@v1.2.0
@@ -52,69 +51,82 @@ jobs:
           username: root
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           script: |
-            echo "🔧 Ensuring deploy user and dirs..."
-
             id appuser || useradd -m -s /bin/bash appuser
-            mkdir -p /home/www/my-blog
-            mkdir -p /home/www/my-blog/shared/upload
+            mkdir -p ${{ env.DEPLOY_PATH }}
+            mkdir -p ${{ env.DEPLOY_PATH }}/shared/upload
+            chown -R appuser:appuser ${{ env.DEPLOY_PATH }}
 
-            chown -R appuser:appuser /home/www/my-blog
+      # ----------------------------------------------------------------
+      # 优化点 2: 使用 rsync 替代 scp-action (解决 137 内存溢出)
+      # ----------------------------------------------------------------
+      - name: 📤 Sync files via Rsync
+        run: |
+          # 1. 设置 SSH 私钥
+          echo "${{ secrets.ALIYUN_SSH_KEY }}" > private_key
+          chmod 600 private_key
 
-            echo "Root stage complete."
+          # 2. 准备需要排除的文件列表 (减少传输体积)
+          # .next/cache 非常大且非必须，建议排除
 
-      - name: 📤 Upload build to server (as appuser)
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: appuser
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          source: "deploy/*"
-          target: "${{ env.DEPLOY_DIR }}/tmp-deploy"
-          strip_components: 1
-          timeout: 120s
+          # 3. 执行 Rsync 增量传输
+          # -a: 归档模式 (保留权限、时间等)
+          # -v: 显示过程
+          # -z: 压缩传输
+          # --delete: 删除目标目录中源目录没有的文件 (保持同步)
+          # --exclude: 排除不需要上传的大文件
 
+          rsync -avz --delete \
+            -e "ssh -i private_key -o StrictHostKeyChecking=no" \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude '.next/cache' \
+            --exclude '.env*' \
+            ./.next ./package.json ./pnpm-lock.yaml ./prisma ./public \
+            ${{ env.DEPLOY_USER }}@${{ secrets.ALIYUN_SERVER_IP }}:${{ env.DEPLOY_PATH }}/tmp-deploy
+
+          # 清理私钥
+          rm private_key
+
+      # ----------------------------------------------------------------
+      # 优化点 3: 部署逻辑优化
+      # ----------------------------------------------------------------
       - name: 🚀 Deploy application with PM2 (appuser)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: appuser
+          username: ${{ env.DEPLOY_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           script: |
-            cd /home/www/my-blog
+            cd ${{ env.DEPLOY_PATH }}
 
-            echo "🧹 Cleaning old build"
-            rm -rf .next prisma public tmp || true
+            echo "📦 Update files from tmp-deploy"
+            # 使用 rsync 在服务器本地同步，比 rm && mv 更安全、更快
+            # 这样如果 mv 失败，不会导致文件丢失
+            rsync -a tmp-deploy/ .
 
-            echo "📦 Moving new build"
-            mv tmp-deploy/.next .
-            mv tmp-deploy/prisma .
-            mv tmp-deploy/public .
-            mv tmp-deploy/package.json .
-            mv tmp-deploy/pnpm-lock.yaml .
+            # 清理临时目录
+            rm -rf tmp-deploy
 
-            echo "🔧 Ensuring shared/upload exists"
+            echo "🔗 Linking uploads"
             mkdir -p shared/upload
-            chmod -R 775 shared/upload
-
-            echo "🔗 Recreate symlink public/upload → shared/upload"
             rm -rf public/upload
-            ln -s /home/www/my-blog/shared/upload /home/www/my-blog/public/upload
+            ln -s ${{ env.DEPLOY_PATH }}/shared/upload ${{ env.DEPLOY_PATH }}/public/upload
 
             echo "📦 Installing production deps"
-            pnpm install --prod --frozen-lockfile --silent
+            # 忽略脚本以加快速度，且只安装生产依赖
+            pnpm install --prod --frozen-lockfile --ignore-scripts
 
-            echo "🔧 Prisma generate"
+            echo "🔧 Prisma & Database"
             pnpm prisma generate
-
-            echo "🗄️ Prisma migrate"
             pnpm prisma migrate deploy
 
-            echo "🔥 Restarting PM2"
-            pm2 stop my-blog || true
-            pm2 delete my-blog || true
-            pm2 start "pnpm start" --name my-blog --time
+            echo "🔥 Reloading PM2"
+            # 使用 reload 而不是 restart，实现零停机部署 (如果应用支持)
+            # 或者使用 startOrReload
+            if pm2 list | grep -q "my-blog"; then
+              pm2 reload my-blog --update-env
+            else
+              pm2 start "pnpm start" --name my-blog --time
+            fi
 
-            echo "📊 PM2 Status"
-            pm2 list
-
-            echo "🎉 Deployment completed!"
+            echo "🎉 Deployment Success!"
