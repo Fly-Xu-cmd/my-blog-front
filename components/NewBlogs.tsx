@@ -1,3 +1,4 @@
+import { Empty } from "antd";
 import Link from "next/link";
 
 type Post = {
@@ -45,6 +46,9 @@ export default function NewBlogs({ posts }: { posts: Post[] }) {
     (a: Post, b: Post) =>
       Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")
   );
+  if (sortedPosts.length === 0) {
+    return <Empty description="暂无最新博客"></Empty>;
+  }
 
   return (
     <div className="w-full">
@@ -53,7 +57,7 @@ export default function NewBlogs({ posts }: { posts: Post[] }) {
         {sortedPosts.map((post: Post) => (
           <li key={`post-${post.slug}`} className="flex items-start h-50">
             {/* 时间 */}
-            <div className=" !h-full flex items-top justify-end text-nowrap text-[#5e7698] mb-10">
+            <div className=" w-50 !h-full flex items-top justify-end text-nowrap text-[#5e7698]">
               <span className="text-base ">
                 {formatDate(post.createdAt || "")}
               </span>
