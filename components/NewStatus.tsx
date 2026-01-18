@@ -41,7 +41,7 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
     (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
   );
   if (sortedStatus.length === 0) {
-    return <Empty></Empty>;
+    return <Empty description="暂无最新动态"></Empty>;
   }
 
   return (

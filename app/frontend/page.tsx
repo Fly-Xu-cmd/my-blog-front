@@ -157,13 +157,9 @@ export default function FrontendPage() {
                   <Spin></Spin>
                 </div>
               )}
-              {/* 添加一个隐藏的占位元素来反映内容高度 */}
+              {/* 添加一个隐藏的占位元素来反映内容高度 - 使用较高的NewBlogs组件作为固定占位符 */}
               <div className="opacity-0">
-                {isDynamic ? (
-                  <NewStatus status={status} />
-                ) : (
-                  <NewBlogs posts={posts} />
-                )}
+                <NewBlogs posts={posts} />
               </div>
               {/* 最新博客 - 添加translateZ */}
               <div
