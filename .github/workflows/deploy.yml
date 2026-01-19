@@ -96,15 +96,13 @@ jobs:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
           username: ${{ env.DEPLOY_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
+          # 1. 必须加：延长超时时间到 30分钟 (解决 Run Command Timeout)
+          command_timeout: 30m
           script: |
             cd ${{ env.DEPLOY_PATH }}
 
             echo "📦 Update files from tmp-deploy"
-            # 使用 rsync 在服务器本地同步，比 rm && mv 更安全、更快
-            # 这样如果 mv 失败，不会导致文件丢失
             rsync -a tmp-deploy/ .
-
-            # 清理临时目录
             rm -rf tmp-deploy
 
             echo "🔗 Linking uploads"
@@ -113,17 +111,18 @@ jobs:
             ln -s ${{ env.DEPLOY_PATH }}/shared/upload ${{ env.DEPLOY_PATH }}/public/upload
 
             echo "📦 Installing production deps"
-            # 忽略脚本以加快速度，且只安装生产依赖
+            # 2. 必须加：使用淘宝/阿里云镜像源 (解决下载速度只有几KB/s的问题)
+            pnpm config set registry https://registry.npmmirror.com
             pnpm install --prod --frozen-lockfile --ignore-scripts
 
             echo "🔧 Prisma & Database"
+            # 既然目录下已有 .env，Prisma 会自动读取它，不需要额外配置 export
             pnpm prisma generate
             pnpm prisma migrate deploy
 
             echo "🔥 Reloading PM2"
-            # 使用 reload 而不是 restart，实现零停机部署 (如果应用支持)
-            # 或者使用 startOrReload
             if pm2 list | grep -q "my-blog"; then
+              # 如果你的 .env 有变动，Next.js 重启时会自动重新加载文件
               pm2 reload my-blog --update-env
             else
               pm2 start "pnpm start" --name my-blog --time
