@@ -1,17 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const title = searchParams.get("title");
+  const current = parseInt(searchParams.get("current") || "1");
+  const size = parseInt(searchParams.get("size") || "10");
+
   try {
+    // 先获取总数（用于分页计算）
+    const total = await prisma.dynamic.count({
+      where: {
+        title: title ? { contains: title } : undefined,
+      },
+    });
+
+    // 获取分页数据
     const dynamics = await prisma.dynamic.findMany({
+      where: {
+        title: title ? { contains: title } : undefined,
+      },
       orderBy: {
         createdAt: "desc",
       },
+      skip: (current - 1) * size,
+      take: size,
     });
     return NextResponse.json({
       ok: true,
       data: dynamics,
-      total: dynamics.length,
+      total,
+      current,
+      size,
+      pages: Math.ceil(total / size),
     });
   } catch (err) {
     console.error(err);
@@ -62,7 +83,7 @@ export async function PUT(req: NextRequest) {
     if (!Number(id) || !content || !excerpt) {
       return NextResponse.json(
         { error: "缺少动态ID或内容或简介" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const dynamic = await prisma.dynamic.update({
@@ -87,7 +108,7 @@ export async function PATCH(req: NextRequest) {
     if (!Number(id) || (!content && !excerpt)) {
       return NextResponse.json(
         { error: "缺少动态ID或内容或简介" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const dynamic = await prisma.dynamic.update({
