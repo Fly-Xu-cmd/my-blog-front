@@ -44,7 +44,7 @@ export default function NewBlogs({ posts }: { posts: Post[] }) {
   // 对博客文章按日期排序（最新的在前）
   const sortedPosts = posts.sort(
     (a: Post, b: Post) =>
-      Date.parse(b.createdAt || "") - Date.parse(a.createdAt || "")
+      Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""),
   );
   if (sortedPosts.length === 0) {
     return <Empty description="暂无最新博客"></Empty>;
@@ -53,20 +53,25 @@ export default function NewBlogs({ posts }: { posts: Post[] }) {
   return (
     <div className="w-full">
       {/* 时间轴 */}
-      <ul>
-        {sortedPosts.map((post: Post) => (
-          <li key={`post-${post.slug}`} className="flex items-start h-50">
-            {/* 时间 */}
-            <div className=" w-50 !h-full flex items-top justify-end text-nowrap text-[#5e7698]">
-              <span className="text-base ">
-                {formatDate(post.createdAt || "")}
-              </span>
-            </div>
+      <ul className="relative">
+        {/* 统一的时间轴线 - 调整位置，确保点在轴上 */}
+        <div className="absolute left-[16.7rem] top-0 bottom-0 w-0.5 bg-[#dceafc]"></div>
 
-            {/* 时间轴点 */}
-            <div className="w-3.5 h-full mx-20 flex justify-center  items-center flex-col">
-              <div className="w-3 h-3 border-2 border-[#dceafc] rounded-full bg-white "></div>
-              <div className="h-full w-0.5  bg-[#dceafc]  "></div>
+        {sortedPosts.map((post: Post) => (
+          <li key={`post-${post.slug}`} className="flex items-start mb-6">
+            {/* 时间和时间轴点容器 - 使用固定宽度确保对齐 */}
+            <div className="flex-shrink-0 flex items-start">
+              {/* 时间 */}
+              <div className="w-48 text-right pr-6 text-[#5e7698]">
+                <span className="text-base whitespace-nowrap">
+                  {formatDate(post.createdAt || "")}
+                </span>
+              </div>
+
+              {/* 时间轴点 - 调整位置，确保正好在轴上 */}
+              <div className="relative z-10 ml-20 mr-20">
+                <div className="absolute -left-2.5 w-3 h-3 border-2 border-[#dceafc] rounded-full bg-white"></div>
+              </div>
             </div>
 
             {/* 内容卡片 */}
