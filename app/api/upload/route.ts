@@ -17,14 +17,11 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 // 使用外部目录存储上传文件，提高安全性
 // 可以根据服务器环境配置不同的路径
-const uploadDir = path.join(
-  process.env.UPLOAD_DIR || path.join(process.cwd(), "..", "uploads"),
-);
-
-// 确保目录存在
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const getUploadDir = () => {
+  return path.join(
+    process.env.UPLOAD_DIR || path.join(process.cwd(), "..", "uploads"),
+  );
+};
 
 export async function POST(req: Request) {
   try {
@@ -72,6 +69,14 @@ export async function POST(req: Request) {
         { ok: false, error: "非法的文件后缀" },
         { status: 403 },
       );
+    }
+
+    // 获取上传目录
+    const uploadDir = getUploadDir();
+
+    // 确保目录存在
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
     }
 
     // 生成纯随机文件名，比如：550e8400-e29b-41d4-a716-446655440000.png
