@@ -40,7 +40,7 @@ jobs:
         run: pnpm build
         env:
           NEXT_PUBLIC_SITE_URL: https://${{ secrets.ALIYUN_SERVER_IP }}
-          NEXT_PUBLIC_BASE_URL: http://${{ secrets.ALIYUN_SERVER_IP }}
+          NEXT_PUBLIC_BASE_URL: http://${{ secrets.ALIYUN_SERVER_ADDRESS }}
 
       # ----------------------------------------------------------------
       # 优化点 1: 准备阶段，不进行复制，直接在传输阶段处理
