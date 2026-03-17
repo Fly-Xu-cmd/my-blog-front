@@ -40,6 +40,13 @@ export default function AllBlogs() {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
+  const getImageUrl = (post: Post) => {
+    if (post.cover && post.cover.startsWith("http")) {
+      return post.cover;
+    }
+    return `${process.env.NEXT_PUBLIC_API_URL}${post.cover}`;
+  };
+
   // 日期格式化
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -89,7 +96,7 @@ export default function AllBlogs() {
                 {post.cover && !post.cover?.startsWith("http") ? (
                   <div className="relative w-full overflow-hidden">
                     <Image
-                      src={post.cover}
+                      src={getImageUrl(post)}
                       alt={post.title}
                       className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                       width={400}
