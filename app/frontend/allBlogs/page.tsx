@@ -37,14 +37,15 @@ export default function AllBlogs() {
   }, []);
 
   const sortedPosts = [...posts].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
   const getImageUrl = (post: Post) => {
     if (post.cover && post.cover.startsWith("http")) {
       return post.cover;
     }
-    return `${process.env.NEXT_PUBLIC_API_URL}${post.cover}`;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://101.132.178.33";
+    return `${baseUrl}${post.cover}`;
   };
 
   // 日期格式化
