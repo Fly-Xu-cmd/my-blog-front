@@ -15,7 +15,11 @@ const ALLOWED_MIME_TYPES = [
 // 2. 定义文件大小限制 (例如 5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-const uploadDir = path.join(process.cwd(), "public", "uploads");
+// 使用外部目录存储上传文件，提高安全性
+// 可以根据服务器环境配置不同的路径
+const uploadDir = path.join(
+  process.env.UPLOAD_DIR || path.join(process.cwd(), "..", "uploads"),
+);
 
 // 确保目录存在
 if (!fs.existsSync(uploadDir)) {
