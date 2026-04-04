@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:tunnel": "pnpm tunnel && next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "tunnel": "ssh -L 3307:localhost:3306 -N my-blog-db"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

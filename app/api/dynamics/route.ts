@@ -8,24 +8,24 @@ export async function GET(req: Request) {
   const size = parseInt(searchParams.get("size") || "10");
 
   try {
-    // 先获取总数（用于分页计算）
-    const total = await prisma.dynamic.count({
-      where: {
-        title: title ? { contains: title } : undefined,
-      },
-    });
-
-    // 获取分页数据
-    const dynamics = await prisma.dynamic.findMany({
-      where: {
-        title: title ? { contains: title } : undefined,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      skip: (current - 1) * size,
-      take: size,
-    });
+    // 使用 $transaction 并行执行查询，减少数据库连接占用时间
+    const [total, dynamics] = await prisma.$transaction([
+      prisma.dynamic.count({
+        where: {
+          title: title ? { contains: title } : undefined,
+        },
+      }),
+      prisma.dynamic.findMany({
+        where: {
+          title: title ? { contains: title } : undefined,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip: (current - 1) * size,
+        take: size,
+      }),
+    ]);
     return NextResponse.json({
       ok: true,
       data: dynamics,
