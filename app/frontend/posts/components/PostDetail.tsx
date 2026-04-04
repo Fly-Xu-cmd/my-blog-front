@@ -70,9 +70,6 @@ export default function PostDetail({ slug }: Params) {
         const res = await fetch(`/api/posts/${slug}`);
         const { data } = await res.json();
 
-        // 增加少量延迟以显示骨架屏过渡
-        await new Promise((resolve) => setTimeout(resolve, 400));
-
         if (isMounted) {
           if (data) {
             setPost(data);
