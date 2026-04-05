@@ -1,4 +1,4 @@
-"use client";
+import React, { useState } from "react";
 import MyEditorPreview from "@/components/MyEditorPreview";
 import { Dynamic } from "@/app/frontend/model";
 
@@ -36,7 +36,6 @@ const getChineseZodiacYear = (year: number): string => {
   ];
 
   // 正确计算：以公元4年为甲子年，需要使用正确的偏移计算
-  // 修正索引计算方式，确保结果正确
   const stemIndex = (year - 4) % 10;
   const branchIndex = (year - 4) % 12;
 
@@ -96,51 +95,80 @@ const getYearWithZodiac = (dateString: string): string => {
 };
 
 export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   return (
-    <>
-      <div className="flex items-start w-full">
-        {/* 日期 */}
-        <div className="w-16 whitespace-nowrap mr-4 pt-2">
-          <div className="text-sm text-gray-500">
-            {getChineseMonth(dynamic.createdAt)}
-          </div>
-          <div className="text-sm text-gray-500">
-            {formatShortDate(dynamic.createdAt)}
-          </div>
+    <div className="flex items-start w-full group relative">
+      {/* 日期 - 在大屏下独立显示，小屏下隐藏 */}
+      <div className="hidden md:flex flex-col items-center w-24 flex-shrink-0 mr-8 pt-2">
+        <div className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">
+          {getChineseMonth(dynamic.createdAt)}
         </div>
-        {/* 动态内容 */}
-        <div className="flex-1 overflow-hidden bg-white cursor-pointer rounded-xl shadow-lg p-6 transform transition-all duration-500 group-hover:-translate-y-1 group-hover:shadow-xl">
-          {/* 动态标题 */}
-          <h2 className="text-2xl font-bold mb-3 text-gray-800">
-            {dynamic.title || "暂无标题"}
-          </h2>
-
-          {/* 动态日期 - 仅在移动设备上显示 */}
-          <div className="md:hidden mb-3">
-            <span className="inline-block px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full">
-              {formatDate(dynamic.createdAt)}
-            </span>
-          </div>
-
-          {/* 动态日期 - 仅在桌面设备上显示 */}
-
-          <div className="hidden md:block mb-3">
-            <span className="inline-block px-3 py-1 text-sm font-medium bg-blue-50 text-blue-700 rounded-full">
-              {getYearWithZodiac(dynamic.createdAt)}
-            </span>
-          </div>
-
-          {/* 动态摘要 */}
-          <p className="text-gray-600 mb-4 leading-relaxed">
-            {dynamic.excerpt || "暂无简介"}
-          </p>
-
-          {/* 动态内容 */}
-          <div className="text-gray-700 leading-relaxed overflow-hidden ">
-            <MyEditorPreview source={dynamic.content || "暂无内容"} />
-          </div>
+        <div className="text-3xl font-black text-gray-900 mb-1 leading-none">
+          {new Date(dynamic.createdAt).getDate()}
+        </div>
+        <div className="text-[10px] text-gray-400 font-medium">
+          {new Date(dynamic.createdAt).getFullYear()}
         </div>
       </div>
-    </>
+
+      {/* 动态内容主体 */}
+      <div className="flex-1 min-w-0 bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-5 sm:p-10 transition-all duration-500 hover:shadow-[0_10px_40px_rgba(0,0,0,0.06)] hover:border-blue-100 overflow-hidden">
+        <header className="mb-6">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight mb-3 group-hover:text-blue-600 transition-colors break-words">
+            {dynamic.title || "记录此时此刻"}
+          </h2>
+          
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 text-gray-500 rounded-full border border-gray-100 font-medium">
+              <i className="iconfont text-xs">&#xe606;</i>
+              {formatDate(dynamic.createdAt)}
+            </div>
+          </div>
+        </header>
+
+        {/* 动态内容容器 - 限制高度以实现截断效果 */}
+        <div 
+          className={`relative transition-all duration-700 ease-in-out overflow-hidden ${
+            isExpanded ? "max-h-[5000px]" : "max-h-[300px]"
+          }`}
+        >
+          <div className="text-gray-700 leading-relaxed text-base sm:text-lg">
+            <MyEditorPreview source={dynamic.content || "暂无详情..."} />
+          </div>
+
+          {/* 底部渐变渐变 - 仅在未展开且内容可能较长时显示 */}
+          {!isExpanded && (
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none transition-opacity duration-500"></div>
+          )}
+        </div>
+
+        {/* 展示更多 / 收起内容 交互按钮 */}
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="group/btn relative px-8 py-3 bg-blue-50 text-blue-600 rounded-full font-bold text-sm transition-all duration-300 hover:bg-blue-600 hover:text-white hover:shadow-[0_10px_20px_rgba(59,130,246,0.2)] focus:outline-none overflow-hidden"
+          >
+            <span className="relative z-10 flex items-center gap-2">
+              {isExpanded ? (
+                <>
+                  收起内容
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  展示更多
+                  <svg className="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </>
+              )}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

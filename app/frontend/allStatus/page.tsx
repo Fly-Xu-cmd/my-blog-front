@@ -69,7 +69,7 @@ export default function AllStatusLayout() {
   );
 
   return (
-    <div className="pl-8 md:pl-16 space-y-12">
+    <div className="px-4 sm:px-8 md:px-16 py-8 space-y-12 w-full max-w-7xl mx-auto">
       {sortedStatus.map((dynamic) => (
         <Dynamics key={dynamic.id} dynamic={dynamic} />
       ))}

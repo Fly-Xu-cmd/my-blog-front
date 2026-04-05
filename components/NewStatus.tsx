@@ -72,7 +72,7 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
 
             {/* 动态内容 */}
             <div className="p-4">
-              <p className="text-gray-600 mb-3">{status.excerpt}</p>
+              <p className="text-gray-600 mb-3 line-clamp-3 text-sm">{status.excerpt}</p>
               <Link
                 href={`/frontend/status/${status.id}`}
                 className="inline-flex items-center text-blue-500 hover:text-blue-700 transition-colors text-sm font-medium"
