@@ -1,5 +1,5 @@
 "use client";
-import { type Post } from "@/app/frontend/model";
+import { type Dynamic } from "@/app/frontend/model";
 import { Empty, Spin } from "antd";
 import React, { useEffect, useState } from "react";
 import MyEditorPreview from "@/components/MyEditorPreview";
@@ -17,20 +17,20 @@ type Params = {
   id: string;
 };
 
-// Post 组件
+// Post 组件 (用于动态内容展示)
 export default function PostDetail({ id }: Params) {
   const [loading, setLoading] = useState(true);
-  const [dynamic, setDynamic] = useState<Post | null>(null);
+  const [dynamic, setDynamic] = useState<Dynamic | null>(null);
 
   useEffect(() => {
     const fetchPost = async () => {
       const res = await fetch(`/api/dynamics/${id}`);
-      const { data } = await res.json();
-      if (!data) {
+      const result = await res.json();
+      if (!result.data) {
         setLoading(false);
         return;
       }
-      setDynamic(data);
+      setDynamic(result.data);
       setLoading(false);
     };
     fetchPost();
@@ -56,7 +56,10 @@ export default function PostDetail({ id }: Params) {
   // 渲染文章内容
   return (
     <div className="w-5xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-3xl font-bold mb-4">{dynamic.title}</h1>
+      <h1 className="text-3xl font-bold mb-2">{dynamic.title || 'Dynamic Status'}</h1>
+      <div className="mb-6 text-sm text-gray-500 font-mono">
+        Published at: {formatDate(dynamic.createdAt)}
+      </div>
       <div className="mt-6 text-lg leading-relaxed text-gray-800">
         <MyEditorPreview source={dynamic.content} />
       </div>
