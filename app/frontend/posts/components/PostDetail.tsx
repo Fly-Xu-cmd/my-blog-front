@@ -1,6 +1,7 @@
 "use client";
 import { type Post } from "@/app/frontend/model";
-import { Anchor, Empty, Space, ConfigProvider, Skeleton } from "antd";
+import { Anchor, Empty, Space, ConfigProvider, Skeleton, Drawer, FloatButton } from "antd";
+import { MenuOutlined } from "@ant-design/icons";
 import React, { useEffect, useState, useRef } from "react";
 import MyEditorPreview from "@/components/MyEditorPreview";
 import { motion, AnimatePresence } from "framer-motion";
@@ -61,6 +62,7 @@ export default function PostDetail({ slug }: Params) {
   const [loading, setLoading] = useState(true);
   const [post, setPost] = useState<Post | null>(null);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const [drawerVisible, setDrawerVisible] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,7 +116,7 @@ export default function PostDetail({ slug }: Params) {
     return (
       <div className="max-w-[1240px] mx-auto flex flex-col lg:flex-row gap-8 px-4 py-8 w-full">
         {/* 左侧文章主体骨架屏 - 强制铺满可用宽度 */}
-        <div className="w-full lg:flex-1 bg-white p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 min-h-[700px] block">
+        <div className="w-full lg:flex-1 bg-white p-4 sm:p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 min-h-[700px] block">
           <div className="animate-pulse mb-10 w-full block">
             <div className="h-10 bg-gray-100 rounded-md w-3/4 mb-4 min-w-[280px]"></div>
             <div className="h-4 bg-gray-50 rounded-md w-1/4 min-w-[120px]"></div>
@@ -180,7 +182,7 @@ export default function PostDetail({ slug }: Params) {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="flex-1 w-full min-w-0 bg-white p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 min-h-[700px]"
+          className="flex-1 w-full min-w-0 bg-white p-4 sm:p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 min-h-[700px] break-words overflow-x-hidden"
         >
           <header className="mb-8 border-b pb-6">
             <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
@@ -212,7 +214,7 @@ export default function PostDetail({ slug }: Params) {
 
           <div
             ref={containerRef}
-            className="prose prose-lg max-w-none text-gray-800 leading-relaxed"
+            className="w-full text-gray-800 leading-relaxed"
           >
             <MyEditorPreview source={post.content} />
           </div>
@@ -224,14 +226,14 @@ export default function PostDetail({ slug }: Params) {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.2 }}
-              className="hidden lg:block w-72 shrink-0 sticky top-24 max-h-[calc(100vh-120px)] overflow-hidden flex flex-col"
+              className="hidden lg:block w-72 shrink-0 sticky top-24 z-10"
             >
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col h-full">
-                <div className="flex items-center gap-2 font-bold text-gray-800 mb-4 pb-2 border-b">
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
+                <div className="flex items-center gap-2 font-bold text-gray-800 mb-4 pb-2 border-b shrink-0">
                   <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
                   文章目录
                 </div>
-                <div className="overflow-y-auto custom-scrollbar pr-2">
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
                   <Anchor
                     affix={false}
                     bounds={100}
@@ -256,6 +258,53 @@ export default function PostDetail({ slug }: Params) {
           )}
         </AnimatePresence>
       </div>
+
+      <div className="lg:hidden">
+        <FloatButton
+          icon={<MenuOutlined />}
+          onClick={() => setDrawerVisible(true)}
+          tooltip="文章目录"
+          style={{ right: 24, bottom: 24, zIndex: 1001 }}
+        />
+      </div>
+
+      <Drawer
+        title="文章目录"
+        placement="bottom"
+        onClose={() => setDrawerVisible(false)}
+        open={drawerVisible}
+        height="70%"
+        className="lg:hidden"
+        styles={{ 
+          body: { padding: 0 },
+          content: { 
+            borderRadius: '20px 20px 0 0',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <div className="p-4 h-full overflow-y-auto custom-scrollbar">
+          <Anchor
+            affix={false}
+            bounds={100}
+            items={outline}
+            targetOffset={80}
+            onClick={(e, link) => {
+              e.preventDefault();
+              const target = document.getElementById(
+                link.href.replace("#", ""),
+              );
+              if (target) {
+                window.scrollTo({
+                  top: target.offsetTop - 80,
+                  behavior: "smooth",
+                });
+                setDrawerVisible(false);
+              }
+            }}
+          />
+        </div>
+      </Drawer>
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {

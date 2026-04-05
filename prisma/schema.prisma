@@ -75,7 +75,7 @@ model Note {
   syncId      String    @unique @db.VarChar(512) // 本地文件的唯一标识(如文件相对路径)，专供后端增量同步对账使用
   slug        String    @unique @db.VarChar(255) // 用于前端生成优雅的 URL 短链接路由
   title       String    @db.VarChar(255)         // 笔记标题
-  content     String    @db.Text                 // Markdown 原始内容
+  content     String    @db.LongText                 // Markdown 原始内容
   hash        String?   @db.VarChar(128)         // 文件内容的 Hash 值(如 MD5)，用于快速比对内容变化，减少不必要的全量更新
   published   Boolean   @default(false)          // 是否公开展示在前端页面
   createdAt   DateTime  @default(now()) @db.DateTime(0)

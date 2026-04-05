@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { syncId, slug, title, content, hash, categoryId, tagIds } = body;
+    const { syncId, slug, title, content, hash, categoryId, tagIds, createdAt, updatedAt } = body;
 
     // 参数校验
     if (!syncId || !slug || !title || !content || !hash) {
@@ -20,6 +20,10 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+
+    // 将物理时间字符串实例化为 Date 对象
+    const localCreatedAt = createdAt ? new Date(createdAt) : undefined;
+    const localUpdatedAt = updatedAt ? new Date(updatedAt) : undefined;
 
     // 1. 【双重查找】
     const existingNote = await prisma.note.findFirst({
@@ -46,6 +50,8 @@ export async function POST(req: Request) {
       content,
       hash,
       categoryId: categoryId || null,
+      createdAt: localCreatedAt, // 显式覆盖物理创建时间
+      updatedAt: localUpdatedAt, // 显式覆盖物理更新时间
     };
 
     // 3. 【更新 (Update)】 4. 【新建 (Create)】 5. 【显式关联处理】

@@ -24,34 +24,48 @@
   }
 }
 
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-}
-
-body {
-  font-family: "Arial", sans-serif;
-  background-color: #f4f4f9;
-  color: #333;
-}
-
-h1,
-h2 {
-  color: #2c3e50;
-}
-
-ul {
-  list-style: none;
+  margin: 0;
   padding: 0;
 }
 
-a {
-  text-decoration: none;
+/* 强制 Markdown 容器内容不溢出 */
+.wmde-markdown, 
+.markdown-body {
+  max-width: 100% !important;
+  overflow-wrap: break-word !important;
+  word-wrap: break-word !important;
+  word-break: break-all !important;
 }
 
-a:hover {
-  color: #3498db;
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 代码块：强制折行显示，不产生横向滚动 */
+pre, code {
+  max-width: 100% !important;
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  overflow-wrap: break-word !important;
+}
+
+/* 表格适配：允许内部滚动但容器不撑大 */
+table {
+  display: block !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: nowrap;
 }
 
 .active {

@@ -9,7 +9,7 @@ const fetchBlogPosts = async (params?: { current?: number; size?: number }) => {
   const res = await fetch(
     `/api/posts${
       params ? `?current=${params.current || 1}&size=${params.size || 10}` : ""
-    }`
+    }`,
   );
   if (!res.ok) {
     throw new Error(`HTTP error! status: ${res.status}`);
@@ -23,7 +23,7 @@ const fetchStatus = async (params?: { current?: number; size?: number }) => {
   const res = await fetch(
     `/api/dynamics${
       params ? `?current=${params.current || 1}&size=${params.size || 10}` : ""
-    }`
+    }`,
   );
   const data = await res.json();
   return data;
@@ -129,29 +129,28 @@ export default function FrontendPage() {
           </div>
         </div>
 
-        <div className="relative w-[var(--cube-size-w)] overflow-hidden">
+        <div className="relative w-full overflow-hidden py-4">
           {/* 立方体3D场景容器 */}
           <div
-            className="w-[var(--cube-size-w)] h-full mx-auto"
+            className="w-[85vw] md:w-[70vw] h-[65vh] md:h-[70vh] mx-auto [--cube-size-w:85vw] [--cube-size-h:65vh] md:[--cube-size-w:70vw] md:[--cube-size-h:70vh]"
             style={
               {
-                "--cube-size-w": "70vw", // 设置宽度的自定义属性
-                "--cube-size-h": "70vh", // 设置高度的自定义属性
-                perspective: "1000000px", // 设置透视效果
-                perspectiveOrigin: "50% 50%", // 设置透视原点
+                perspective: "5000px", // 显著增加透视值，减少因 translateZ 导致的近大远小过度膨胀
+                perspectiveOrigin: "50% 50%", 
               } as React.CSSProperties
             }
           >
             {/* 立方体容器 - 根据isDynamic状态旋转 */}
             <div
-              className="relative w-full h-full cursor-pointer"
+              className="relative w-full h-full cursor-pointer transition-transform duration-1000 ease-in-out"
               style={{
                 transformStyle: "preserve-3d",
-                transition: "transform 1s ease-in-out",
-                transform: isDynamic ? "rotateY(-90deg)" : "rotateY(0deg)",
+                transform: `
+                  ${isDynamic ? "rotateY(-90deg)" : "rotateY(0deg)"} 
+                  ${typeof window !== 'undefined' && window.innerWidth < 768 ? 'scale(0.95)' : 'scale(1)'}
+                `,
               }}
-            >
-              {/* 加载中状态 */}
+            >              {/* 加载中状态 */}
               {loading && (
                 <div className="w-full h-full flex items-center justify-center">
                   <Spin></Spin>
@@ -163,28 +162,47 @@ export default function FrontendPage() {
               </div>
               {/* 最新博客 - 添加translateZ */}
               <div
-                className="absolute w-full top-0"
+                className="absolute w-full h-full top-0 overflow-y-auto custom-scrollbar bg-white/50 backdrop-blur-sm rounded-2xl"
                 style={{
                   transform: "translateZ(calc(var(--cube-size-w) / 2))",
                   backfaceVisibility: "hidden",
+                  padding: "20px",
                 }}
               >
-                <NewBlogs posts={posts} />
+                <div className="pb-10">
+                  <NewBlogs posts={posts} />
+                </div>
               </div>
               {/* 最新动态 - 添加translateZ */}
               <div
-                className="absolute w-full top-0"
+                className="absolute w-full h-full top-0 overflow-y-auto custom-scrollbar bg-white/50 backdrop-blur-sm rounded-2xl"
                 style={{
                   transform:
                     "rotateY(90deg) translateZ(calc(var(--cube-size-w) / 2))",
                   backfaceVisibility: "hidden",
+                  padding: "20px",
                 }}
               >
-                <NewStatus status={status} />
+                <div className="pb-10">
+                  <NewStatus status={status} />
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        <style jsx global>{`
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #cbd5e1;
+          }
+        `}</style>
       </div>
     </>
   );

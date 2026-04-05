@@ -1,52 +1,169 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import { motion } from "framer-motion";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "next/navigation";
 import { type Note } from "@/app/frontend/model";
-import { Calendar, Tag, ChevronLeft, FolderOpen, Clock } from "lucide-react";
+import { Anchor, Empty, Space, ConfigProvider, Skeleton, Drawer, FloatButton } from "antd";
+import { MenuOutlined } from "@ant-design/icons";
+import MyEditorPreview from "@/components/MyEditorPreview";
+import { motion, AnimatePresence } from "framer-motion";
 
-// 获取单篇笔记
-const fetchNote = async (slug: string) => {
-  const res = await fetch(`/api/notes/${slug}`);
-  return res.json();
+const formatDate = (dateString: string) => {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+interface OutlineItem {
+  key: string;
+  href: string;
+  title: React.ReactNode;
+  level: number;
+}
+
+const parseMarkdownHeadings = (content: string): OutlineItem[] => {
+  if (!content) return [];
+  const lines = content.split("\n");
+  const headings: OutlineItem[] = [];
+  let index = 0;
+
+  lines.forEach((line) => {
+    const match = line.match(/^(#{1,6})\s+(.+)$/);
+    if (match) {
+      const level = match[1].length;
+      const title = match[2].trim().replace(/[*_~`]/g, "");
+      const id = `anchor-pre-${index}-${title.slice(0, 10).replace(/\s+/g, "-")}`;
+      headings.push({
+        key: id,
+        href: `#${id}`,
+        level: level,
+        title: (
+          <span
+            className="truncate block text-sm"
+            style={{ paddingLeft: `${(level - 1) * 12}px` }}
+            title={title}
+          >
+            {title}
+          </span>
+        ),
+      });
+      index++;
+    }
+  });
+  return headings;
 };
 
 export default function NoteDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const slug = params?.slug as string;
 
   const [note, setNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!slug) return;
-    fetchNote(slug).then((data) => {
-      if (data.ok) {
-        setNote(data.data);
-      } else {
-        setError(data.error || "无法加载笔记内容");
+    let isMounted = true;
+    
+    const fetchNote = async () => {
+      try {
+        const res = await fetch(`/api/notes/${slug}`);
+        const { ok, data, error: apiError } = await res.json();
+        
+        if (isMounted) {
+          if (ok && data) {
+            setNote(data);
+            setOutline(parseMarkdownHeadings(data.content));
+          } else {
+            setError(apiError || "无法加载笔记内容");
+          }
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Failed to fetch note:", err);
+        if (isMounted) {
+          setError("网络请求错误");
+          setLoading(false);
+        }
       }
-      setLoading(false);
-    });
+    };
+    
+    fetchNote();
+    return () => {
+      isMounted = false;
+    };
   }, [slug]);
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
-  };
+  useEffect(() => {
+    if (!loading && note) {
+      const timer = setTimeout(() => {
+        const contentDom =
+          containerRef.current?.querySelector(".wmde-markdown") ||
+          containerRef.current?.querySelector(".markdown-body") ||
+          containerRef.current;
+        if (contentDom) {
+          const headings = contentDom.querySelectorAll(
+            "h1, h2, h3, h4, h5, h6",
+          );
+          headings.forEach((heading, index) => {
+            const text = heading.textContent?.trim() || "";
+            heading.id = `anchor-pre-${index}-${text.slice(0, 10).replace(/\s+/g, "-")}`;
+          });
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, note]);
 
+  // 加载状态下的 UI - 仿 PostDetail
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex justify-center items-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin"></div>
-          <span className="text-gray-400 text-sm">正在加载中...</span>
+      <div className="max-w-[1240px] mx-auto flex flex-col lg:flex-row gap-8 px-4 py-8 w-full">
+        <div className="w-full lg:flex-1 bg-white p-4 sm:p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 min-h-[700px] block">
+          <div className="animate-pulse mb-10 w-full block">
+            <div className="h-10 bg-gray-100 rounded-md w-3/4 mb-4 min-w-[280px]"></div>
+            <div className="h-4 bg-gray-50 rounded-md w-1/4 min-w-[120px]"></div>
+          </div>
+
+          <hr className="my-8 border-gray-50 w-full" />
+
+          <div className="w-full space-y-8 block">
+            <Skeleton
+              active
+              title={false}
+              paragraph={{ rows: 4, width: "100%" }}
+            />
+            <div className="animate-pulse space-y-4 w-full block">
+              <div className="h-4 bg-gray-50 rounded w-full"></div>
+              <div className="h-4 bg-gray-50 rounded w-full"></div>
+              <div className="h-4 bg-gray-50 rounded w-11/12"></div>
+              <div className="h-4 bg-gray-50 rounded w-10/12"></div>
+            </div>
+            <Skeleton
+              active
+              title={false}
+              paragraph={{ rows: 6, width: "100%" }}
+            />
+          </div>
+        </div>
+
+        <div className="hidden lg:block w-72 shrink-0 bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
+          <div className="h-6 bg-gray-100 rounded w-1/2 mb-6 animate-pulse"></div>
+          <div className="space-y-4 w-full">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="h-3 bg-gray-50 rounded w-full animate-pulse"
+                style={{ opacity: 1 - i * 0.1 }}
+              ></div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -54,103 +171,161 @@ export default function NoteDetailPage() {
 
   if (error || !note) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
-        <div className="bg-white p-10 rounded-3xl shadow-sm border border-gray-100 text-center max-w-md w-full">
-          <div className="text-red-400 mb-4 text-5xl">!</div>
-          <h1 className="text-2xl font-bold mb-2 text-gray-800">未找到相关内容</h1>
-          <p className="text-gray-500 mb-8">{error || "该笔记可能已被移除或地址有误"}</p>
-          <button 
-            onClick={() => router.push('/frontend/notes')}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-2xl transition-all shadow-lg shadow-blue-100"
-          >
-            返回列表
-          </button>
-        </div>
+      <div className="flex justify-center items-center min-h-[400px]">
+        <Empty description={error || "未找到内容"} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full bg-white text-gray-900 py-12 px-4">
-      <div className="max-w-3xl mx-auto">
-        {/* 顶部导航 */}
-        <nav className="mb-10">
-          <Link 
-            href="/frontend/notes"
-            className="inline-flex items-center gap-2 text-gray-400 hover:text-blue-600 transition-colors font-medium"
-          >
-            <ChevronLeft size={20} />
-            <span>返回笔记列表</span>
-          </Link>
-        </nav>
-
+    <ConfigProvider
+      theme={{
+        components: {
+          Anchor: { linkPaddingBlock: 4, fontSize: 13 },
+        },
+      }}
+    >
+      <div className="max-w-[1240px] mx-auto flex flex-col lg:flex-row items-start gap-8 px-4 py-8">
         <motion.article
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.4 }}
+          className="flex-1 w-full min-w-0 bg-white p-4 sm:p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 min-h-[700px] break-words overflow-x-hidden"
         >
-          {/* 文章头部 */}
-          <header className="mb-12">
-            <h1 className="text-4xl font-bold tracking-tight mb-8 text-gray-900 leading-tight">
+          <header className="mb-8 border-b pb-6">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
               {note.title}
             </h1>
-            
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-400">
-              <div className="flex items-center gap-2">
-                <Calendar size={16} className="text-gray-300" />
+            <div className="flex flex-wrap gap-4 text-gray-500 text-sm">
+              <Space split={<span className="text-gray-300">|</span>}>
+                <span>分类：{note.category?.name || "未分类"}</span>
                 <span>最后修改：{formatDate(note.updatedAt)}</span>
-              </div>
-              
-              <div className="flex flex-wrap gap-2 items-center">
-                {note.category && (
-                  <div className="flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
-                    <FolderOpen size={14} />
-                    {note.category.name}
-                  </div>
-                )}
-                {(note.tags as string[])?.map((tag) => (
-                  <span 
-                    key={tag} 
-                    className="flex items-center gap-1 bg-gray-50 text-gray-500 px-3 py-1 rounded-full text-xs border border-gray-100"
-                  >
-                    <Tag size={12} />
-                    {tag}
-                  </span>
-                ))}
-              </div>
+              </Space>
+              {note.tags && Array.isArray(note.tags) && note.tags.length > 0 && (
+                <div className="flex gap-2">
+                  {note.tags.map((tagObj: { tag?: { name: string } } | string | unknown, idx) => {
+                    const tag = typeof tagObj === 'string' ? tagObj : (tagObj as { tag?: { name: string } }).tag?.name;
+                    if (!tag) return null;
+                    return (
+                      <span
+                        key={idx}
+                        className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md text-xs"
+                      >
+                        #{tag}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </header>
 
-          <hr className="mb-12 border-gray-100" />
-
-          {/* 内容展示 */}
-          <div className="prose prose-blue max-w-none 
-                          prose-headings:font-bold prose-headings:text-gray-800
-                          prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-6
-                          prose-a:text-blue-600 prose-a:underline-offset-4 hover:prose-a:text-blue-700
-                          prose-strong:text-gray-900 prose-blockquote:border-blue-500 prose-blockquote:bg-blue-50/30 prose-blockquote:py-1 prose-blockquote:rounded-r-lg
-                          prose-code:text-indigo-600 prose-code:bg-indigo-50 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
-                          prose-pre:bg-gray-900 prose-pre:rounded-2xl prose-pre:shadow-xl
-                          prose-img:rounded-3xl prose-img:shadow-lg prose-li:text-gray-700"
+          <div
+            ref={containerRef}
+            className="w-full text-gray-800 leading-relaxed"
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {note.content}
-            </ReactMarkdown>
-          </div>
-          
-          <div className="mt-20 pt-10 border-t border-gray-50 flex justify-center">
-            <button 
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="text-gray-300 hover:text-blue-500 transition-colors flex flex-col items-center gap-2"
-            >
-              <div className="p-3 rounded-full border border-gray-100 hover:border-blue-100 hover:bg-blue-50 transition-all">
-                <ChevronLeft className="rotate-90" />
-              </div>
-              <span className="text-xs font-medium uppercase tracking-widest">回到顶部</span>
-            </button>
+            <MyEditorPreview source={note.content} />
           </div>
         </motion.article>
+
+        <AnimatePresence>
+          {outline.length > 0 && (
+            <motion.aside
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="hidden lg:block w-72 shrink-0 sticky top-24 z-10"
+            >
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
+                <div className="flex items-center gap-2 font-bold text-gray-800 mb-4 pb-2 border-b shrink-0">
+                  <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
+                  笔记目录
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+                  <Anchor
+                    affix={false}
+                    bounds={100}
+                    items={outline}
+                    targetOffset={80}
+                    onClick={(e, link) => {
+                      e.preventDefault();
+                      const target = document.getElementById(
+                        link.href.replace("#", ""),
+                      );
+                      if (target) {
+                        window.scrollTo({
+                          top: target.offsetTop - 80,
+                          behavior: "smooth",
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+
+      <div className="lg:hidden">
+        <FloatButton
+          icon={<MenuOutlined />}
+          onClick={() => setDrawerVisible(true)}
+          tooltip="笔记目录"
+          style={{ right: 24, bottom: 24, zIndex: 1001 }}
+        />
+      </div>
+
+      <Drawer
+        title="笔记目录"
+        placement="bottom"
+        onClose={() => setDrawerVisible(false)}
+        open={drawerVisible}
+        height="70%"
+        className="lg:hidden"
+        styles={{ 
+          body: { padding: 0 },
+          content: { 
+            borderRadius: '20px 20px 0 0',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <div className="p-4 h-full overflow-y-auto custom-scrollbar">
+          <Anchor
+            affix={false}
+            bounds={100}
+            items={outline}
+            targetOffset={80}
+            onClick={(e, link) => {
+              e.preventDefault();
+              const target = document.getElementById(
+                link.href.replace("#", ""),
+              );
+              if (target) {
+                window.scrollTo({
+                  top: target.offsetTop - 80,
+                  behavior: "smooth",
+                });
+                setDrawerVisible(false);
+              }
+            }}
+          />
+        </div>
+      </Drawer>
+
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #e5e7eb;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #d1d5db;
+        }
+      `}</style>
+    </ConfigProvider>
   );
 }
