@@ -193,17 +193,18 @@ export default function PostDetail({ slug }: Params) {
               </Space>
               {post.tags && post.tags.length > 0 && (
                 <div className="flex gap-2">
-                  {post.tags.map(
-                    (tagPost, idx) =>
-                      tagPost.tag && (
-                        <span
-                          key={idx}
-                          className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md text-xs"
-                        >
-                          #{tagPost.tag.name}
-                        </span>
-                      ),
-                  )}
+                  {post.tags.map((tag, idx) => {
+                    const tagName = typeof tag === "string" ? tag : tag.tag?.name;
+                    if (!tagName) return null;
+                    return (
+                      <span
+                        key={idx}
+                        className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md text-xs"
+                      >
+                        #{tagName}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>

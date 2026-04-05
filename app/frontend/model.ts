@@ -22,7 +22,7 @@ export type Post = {
   createdAt: string;
   updatedAt: string;
   category?: Category;
-  tags?: TagPost[];
+  tags?: string[] | TagPost[]; // API often returns string[] after mapping, but DB returns TagPost[]
 };
 export type Dynamic = {
   id: number;
@@ -31,4 +31,24 @@ export type Dynamic = {
   createdAt: string;
   updatedAt: string;
   title?: string;
+};
+
+export type NoteTag = {
+  noteId: number;
+  tag: Tag;
+  tagId: number;
+};
+
+export type Note = {
+  id: number;
+  syncId: string;
+  slug: string;
+  title: string;
+  content: string;
+  hash?: string;
+  published: boolean;
+  createdAt: string;
+  updatedAt: string;
+  category?: Category;
+  tags?: string[] | NoteTag[]; // API returns string[] for convenience, but db returns NoteTag[]
 };

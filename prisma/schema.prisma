@@ -36,12 +36,14 @@ model Category {
   id    Int    @id @default(autoincrement())
   name  String @unique @db.VarChar(100)  // 分类名长度限制
   posts Post[]
+  notes Note[]
 }
 
 model Tag {
   id    Int    @id @default(autoincrement())
   name  String @unique @db.VarChar(100)  // 标签名长度限制
   posts PostTag[]
+  notes NoteTag[]
 }
 
 model PostTag {
@@ -65,5 +67,41 @@ model Dynamic {
 
   // 新增索引：优化按时间排序查询动态
   @@index([createdAt])
+}
+
+// 笔记表
+model Note {
+  id          Int       @id @default(autoincrement())
+  syncId      String    @unique @db.VarChar(512) // 本地文件的唯一标识(如文件相对路径)，专供后端增量同步对账使用
+  slug        String    @unique @db.VarChar(255) // 用于前端生成优雅的 URL 短链接路由
+  title       String    @db.VarChar(255)         // 笔记标题
+  content     String    @db.Text                 // Markdown 原始内容
+  hash        String?   @db.VarChar(128)         // 文件内容的 Hash 值(如 MD5)，用于快速比对内容变化，减少不必要的全量更新
+  published   Boolean   @default(false)          // 是否公开展示在前端页面
+  createdAt   DateTime  @default(now()) @db.DateTime(0)
+  updatedAt   DateTime  @updatedAt @db.DateTime(0)
+
+  // 关联现有的分类表（替代单纯的 folder 字符串）
+  category    Category? @relation(fields: [categoryId], references: [id])
+  categoryId  Int?
+
+  // 关联标签（复用现有的 Tag 模型，建立显式的多对多关系中间表）
+  tags        NoteTag[]
+
+  // 建立索引，优化前端列表查询以及外键约束查询
+  @@index([categoryId])
+  @@index([published, createdAt])
+}
+
+// 笔记与标签的中间表
+model NoteTag {
+  note   Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  noteId Int
+
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId  Int
+
+  @@id([noteId, tagId])  // 复合主键确保唯一性
+  @@index([tagId])       // 针对 relationMode = "prisma" 的外键索引优化
 }
 

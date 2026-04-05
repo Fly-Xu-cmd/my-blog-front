@@ -54,6 +54,18 @@ export default function Header() {
             </li>
             <li
               className={`h-full px-2 flex items-center ${
+                isActive("frontend/notes") ? "active" : ""
+              } text-lg font-medium mr-5 text-gray-700 hover:text-gray-900 transition-colors cursor-pointer`}
+            >
+              <Link
+                href="/frontend/notes"
+                className="flex h-full items-center"
+              >
+                笔记
+              </Link>
+            </li>
+            <li
+              className={`h-full px-2 flex items-center ${
                 isActive("frontend/about") ? "active" : ""
               } text-lg font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer`}
             >
