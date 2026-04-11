@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import MyEditorPreview from "@/components/MyEditorPreview";
 import { Dynamic } from "@/app/frontend/model";
 
@@ -96,7 +96,24 @@ const getYearWithZodiac = (dateString: string): string => {
 
 export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+  const [needsTruncation, setNeedsTruncation] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // 检测内容是否超过截断高度
+    const checkContentHeight = () => {
+      if (measureRef.current) {
+        const isOverflowing = measureRef.current.scrollHeight > 300;
+        setNeedsTruncation(isOverflowing);
+      }
+    };
+
+    // 延迟检查，确保内容已渲染
+    const timer = setTimeout(checkContentHeight, 100);
+    return () => clearTimeout(timer);
+  }, [dynamic.content]);
+
   return (
     <div className="flex items-start w-full group relative">
       {/* 日期 - 在大屏下独立显示，小屏下隐藏 */}
@@ -113,12 +130,12 @@ export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
       </div>
 
       {/* 动态内容主体 */}
-      <div className="flex-1 min-w-0 bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-5 sm:p-10 transition-all duration-500 hover:shadow-[0_10px_40px_rgba(0,0,0,0.06)] hover:border-blue-100 overflow-hidden">
+      <div className="flex-1 min-w-0 relative bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-5 sm:p-10 transition-all duration-500 hover:shadow-[0_10px_40px_rgba(0,0,0,0.06)] hover:border-blue-100 overflow-hidden">
         <header className="mb-6">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight mb-3 group-hover:text-blue-600 transition-colors break-words">
             {dynamic.title || "记录此时此刻"}
           </h2>
-          
+
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 text-gray-500 rounded-full border border-gray-100 font-medium">
               <i className="iconfont text-xs">&#xe606;</i>
@@ -128,7 +145,8 @@ export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
         </header>
 
         {/* 动态内容容器 - 限制高度以实现截断效果 */}
-        <div 
+        <div
+          ref={contentRef}
           className={`relative transition-all duration-700 ease-in-out overflow-hidden ${
             isExpanded ? "max-h-[5000px]" : "max-h-[300px]"
           }`}
@@ -137,37 +155,70 @@ export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
             <MyEditorPreview source={dynamic.content || "暂无详情..."} />
           </div>
 
-          {/* 底部渐变渐变 - 仅在未展开且内容可能较长时显示 */}
-          {!isExpanded && (
+          {/* 底部渐变 - 仅在未展开且内容超过限制时显示 */}
+          {!isExpanded && needsTruncation && (
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none transition-opacity duration-500"></div>
           )}
         </div>
 
-        {/* 展示更多 / 收起内容 交互按钮 */}
-        <div className="mt-8 flex justify-center">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="group/btn relative px-8 py-3 bg-blue-50 text-blue-600 rounded-full font-bold text-sm transition-all duration-300 hover:bg-blue-600 hover:text-white hover:shadow-[0_10px_20px_rgba(59,130,246,0.2)] focus:outline-none overflow-hidden"
-          >
-            <span className="relative z-10 flex items-center gap-2">
-              {isExpanded ? (
-                <>
-                  收起内容
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
-                  </svg>
-                </>
-              ) : (
-                <>
-                  展示更多
-                  <svg className="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </>
-              )}
-            </span>
-          </button>
+        {/* 隐藏的测量容器 - 用于检测内容是否需要截断 */}
+        <div
+          ref={measureRef}
+          className="absolute invisible"
+          style={{ visibility: "hidden", pointerEvents: "none" }}
+        >
+          <div className="text-gray-700 leading-relaxed text-base sm:text-lg">
+            <MyEditorPreview source={dynamic.content || "暂无详情..."} />
+          </div>
         </div>
+
+        {/* 展示更多 / 收起内容 交互按钮 - 仅在内容需要截断时显示 */}
+        {needsTruncation && (
+          <div className="mt-8 flex justify-center">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="group/btn relative px-8 py-3 bg-blue-50 text-blue-600 rounded-full font-bold text-sm transition-all duration-300 hover:bg-blue-600 hover:text-white hover:shadow-[0_10px_20px_rgba(59,130,246,0.2)] focus:outline-none overflow-hidden"
+            >
+              <span className="relative z-10 flex items-center gap-2">
+                {isExpanded ? (
+                  <>
+                    收起内容
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M5 15l7-7 7 7"
+                      />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    展示更多
+                    <svg
+                      className="w-4 h-4 animate-bounce"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </>
+                )}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

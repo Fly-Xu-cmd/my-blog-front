@@ -6,9 +6,9 @@ export default function FrontendLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
+    <div className="w-full flex flex-col">
       <Header />
-      <div className="w-full h-full flex-1 flex">{children}</div>
-    </>
+      <div className="w-full flex">{children}</div>
+    </div>
   );
 }

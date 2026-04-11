@@ -55,7 +55,7 @@ export default function AllBlogs() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-blue-50 via-white to-gray-50 py-10 px-4">
+    <div className=" w-full bg-gradient-to-b from-blue-50 via-white to-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto">
         {/* 页面标题 */}
         <div className="text-center mb-12">
@@ -133,10 +133,11 @@ export default function AllBlogs() {
                   </h2>
 
                   {/* 摘要 */}
-
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {post.excerpt}
-                  </ReactMarkdown>
+                  <div className="overflow-x-hidden break-words text-sm text-gray/80 leading-relaxed">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {post.excerpt}
+                    </ReactMarkdown>
+                  </div>
 
                   {/* 阅读更多 */}
                   <Link

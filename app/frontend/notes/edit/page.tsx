@@ -43,7 +43,10 @@ function NoteEditor() {
     }
 
     setSaving(true);
-    const tagArray = tags.split(",").map(t => t.trim()).filter(Boolean);
+    const tagArray = tags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
 
     const payload = {
       title,
@@ -62,7 +65,7 @@ function NoteEditor() {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      
+
       if (data.ok) {
         router.push(`/frontend/notes/${data.data.slug}`);
       } else {
@@ -78,7 +81,7 @@ function NoteEditor() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
+      <div className="  bg-gray-50 flex justify-center items-center">
         <div className="flex items-center gap-3 text-gray-400">
           <div className="w-5 h-5 border-2 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
           <span className="font-medium">正在初始化编辑器...</span>
@@ -88,12 +91,12 @@ function NoteEditor() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-white text-gray-900 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto h-full flex flex-col">
+    <div className="  w-full bg-white text-gray-900 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto min-h-screen flex flex-col">
         {/* 顶部工具栏 */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 border-b border-gray-100 pb-6">
           <div className="flex items-center gap-4">
-            <Link 
+            <Link
               href="/frontend/notes"
               className="p-2 hover:bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-all"
             >
@@ -101,38 +104,40 @@ function NoteEditor() {
             </Link>
             <div>
               <h1 className="text-xl font-bold text-gray-800">
-                {slug ? '编辑笔记' : '创作新笔记'}
+                {slug ? "编辑笔记" : "创作新笔记"}
               </h1>
-              <p className="text-xs text-gray-400">所有的改动都会在点击保存后生效</p>
+              <p className="text-xs text-gray-400">
+                所有的改动都会在点击保存后生效
+              </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3 w-full md:w-auto">
             <button
               onClick={() => setPublished(!published)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border ${
-                published 
-                  ? 'bg-green-50 text-green-600 border-green-100' 
-                  : 'bg-gray-50 text-gray-500 border-gray-100'
+                published
+                  ? "bg-green-50 text-green-600 border-green-100"
+                  : "bg-gray-50 text-gray-500 border-gray-100"
               }`}
             >
               {published ? <Globe size={16} /> : <Lock size={16} />}
-              {published ? '公开展示' : '仅自己可见'}
+              {published ? "公开展示" : "仅自己可见"}
             </button>
-            
+
             <button
               onClick={handleSave}
               disabled={saving}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold text-sm px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-100"
             >
               <Save size={18} />
-              {saving ? '正在保存...' : '立即保存'}
+              {saving ? "正在保存..." : "立即保存"}
             </button>
           </div>
         </header>
 
         {/* 内容输入区 */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex-1 flex flex-col gap-6"
@@ -149,7 +154,7 @@ function NoteEditor() {
               className="w-full text-3xl font-bold bg-transparent border-none outline-none placeholder-gray-200 focus:ring-0 pl-10"
             />
           </div>
-          
+
           <div className="relative group">
             <div className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-blue-500 transition-colors">
               <Hash size={18} />
@@ -178,7 +183,13 @@ function NoteEditor() {
 
 export default function NoteEditPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex justify-center items-center text-gray-400">正在进入创作空间...</div>}>
+    <Suspense
+      fallback={
+        <div className="  flex justify-center items-center text-gray-400">
+          正在进入创作空间...
+        </div>
+      }
+    >
       <NoteEditor />
     </Suspense>
   );

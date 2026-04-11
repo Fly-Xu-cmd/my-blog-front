@@ -1,6 +1,14 @@
 "use client";
 import { type Post } from "@/app/frontend/model";
-import { Anchor, Empty, Space, ConfigProvider, Skeleton, Drawer, FloatButton } from "antd";
+import {
+  Anchor,
+  Empty,
+  Space,
+  ConfigProvider,
+  Skeleton,
+  Drawer,
+  FloatButton,
+} from "antd";
 import { MenuOutlined } from "@ant-design/icons";
 import React, { useEffect, useState, useRef } from "react";
 import MyEditorPreview from "@/components/MyEditorPreview";
@@ -31,8 +39,16 @@ const parseMarkdownHeadings = (content: string): OutlineItem[] => {
   const lines = content.split("\n");
   const headings: OutlineItem[] = [];
   let index = 0;
+  let inCodeBlock = false;
 
   lines.forEach((line) => {
+    // Track code block state
+    if (line.match(/^```/)) {
+      inCodeBlock = !inCodeBlock;
+      return;
+    }
+    if (inCodeBlock) return;
+
     const match = line.match(/^(#{1,6})\s+(.+)$/);
     if (match) {
       const level = match[1].length;
@@ -103,7 +119,8 @@ export default function PostDetail({ slug }: Params) {
           );
           headings.forEach((heading, index) => {
             const text = heading.textContent?.trim() || "";
-            heading.id = `anchor-pre-${index}-${text.slice(0, 10).replace(/\s+/g, "-")}`;
+            const cleanText = text.replace(/[*_~`]/g, "");
+            heading.id = `anchor-pre-${index}-${cleanText.slice(0, 10).replace(/\s+/g, "-")}`;
           });
         }
       }, 400);
@@ -177,7 +194,7 @@ export default function PostDetail({ slug }: Params) {
         },
       }}
     >
-      <div className="max-w-[1240px] mx-auto flex flex-col lg:flex-row items-start gap-8 px-4 py-8">
+      <div className="max-w-[1240px] mx-auto flex flex-col lg:flex-row items-start gap-8 px-4 py-8 w-full">
         <motion.article
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -196,7 +213,8 @@ export default function PostDetail({ slug }: Params) {
               {post.tags && post.tags.length > 0 && (
                 <div className="flex gap-2">
                   {post.tags.map((tag, idx) => {
-                    const tagName = typeof tag === "string" ? tag : tag.tag?.name;
+                    const tagName =
+                      typeof tag === "string" ? tag : tag.tag?.name;
                     if (!tagName) return null;
                     return (
                       <span
@@ -214,7 +232,7 @@ export default function PostDetail({ slug }: Params) {
 
           <div
             ref={containerRef}
-            className="w-full text-gray-800 leading-relaxed"
+            className="w-full text-gray-800 leading-relaxed overflow-x-hidden"
           >
             <MyEditorPreview source={post.content} />
           </div>
@@ -275,12 +293,12 @@ export default function PostDetail({ slug }: Params) {
         open={drawerVisible}
         height="70%"
         className="lg:hidden"
-        styles={{ 
+        styles={{
           body: { padding: 0 },
-          content: { 
-            borderRadius: '20px 20px 0 0',
-            overflow: 'hidden'
-          }
+          content: {
+            borderRadius: "20px 20px 0 0",
+            overflow: "hidden",
+          },
         }}
       >
         <div className="p-4 h-full overflow-y-auto custom-scrollbar">
@@ -305,19 +323,6 @@ export default function PostDetail({ slug }: Params) {
           />
         </div>
       </Drawer>
-
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #e5e7eb;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #d1d5db;
-        }
-      `}</style>
     </ConfigProvider>
   );
 }

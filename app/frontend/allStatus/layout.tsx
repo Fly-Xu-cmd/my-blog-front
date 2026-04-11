@@ -10,7 +10,7 @@ export default async function AllStatusLayout({
   children: ReactNode;
 }) {
   return (
-    <div className=" relative w-full min-h-screen p-6 bg-gradient-to-br from-slate-50 to-gray-100">
+    <div className=" relative w-full  p-6 bg-gradient-to-br from-slate-50 to-gray-100">
       <div className="max-w-4xl mx-auto">
         {/* 页面标题 */}
         <div className="text-center mb-16 pt-8">
