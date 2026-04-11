@@ -33,7 +33,7 @@ export default function NotesPage() {
   // Extract unique categories and tags
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    notes.forEach(note => {
+    notes.forEach((note) => {
       if (note.category?.name) cats.add(note.category.name);
     });
     return Array.from(cats);
@@ -41,10 +41,10 @@ export default function NotesPage() {
 
   const tags = useMemo(() => {
     const t = new Set<string>();
-    notes.forEach(note => {
+    notes.forEach((note) => {
       if (note.tags && Array.isArray(note.tags)) {
-        note.tags.forEach(tag => {
-          if (typeof tag === 'string') {
+        note.tags.forEach((tag) => {
+          if (typeof tag === "string") {
             t.add(tag);
           } else if (tag && (tag as { tag?: { name: string } }).tag?.name) {
             t.add((tag as { tag?: { name: string } }).tag!.name);
@@ -58,25 +58,36 @@ export default function NotesPage() {
   // Sort and filter notes
   const filteredNotes = useMemo(() => {
     return notes
-      .filter(note => {
-        const matchesSearch = searchTerm === "" || 
-          note.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-          (note.content && note.content.toLowerCase().includes(searchTerm.toLowerCase()));
-        
-        const matchesCategory = selectedCategory === null || 
-          note.category?.name === selectedCategory;
+      .filter((note) => {
+        const matchesSearch =
+          searchTerm === "" ||
+          note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (note.content &&
+            note.content.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        const matchesCategory =
+          selectedCategory === null || note.category?.name === selectedCategory;
 
         let noteTags: string[] = [];
         if (note.tags && Array.isArray(note.tags)) {
-          noteTags = note.tags.map(t => typeof t === 'string' ? t : (t as { tag?: { name: string } }).tag?.name).filter((t): t is string => !!t);
+          noteTags = note.tags
+            .map((t) =>
+              typeof t === "string"
+                ? t
+                : (t as { tag?: { name: string } }).tag?.name,
+            )
+            .filter((t): t is string => !!t);
         }
-        
-        const matchesTag = selectedTag === null || 
-          noteTags.includes(selectedTag);
+
+        const matchesTag =
+          selectedTag === null || noteTags.includes(selectedTag);
 
         return matchesSearch && matchesCategory && matchesTag;
       })
-      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
   }, [notes, searchTerm, selectedCategory, selectedTag]);
 
   const formatDate = (dateString: string) => {
@@ -85,18 +96,18 @@ export default function NotesPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-indigo-50/50 via-white to-white py-12 px-4">
+    <div className="  w-full bg-gradient-to-b from-indigo-50/50 via-white to-white py-12 px-4">
       <div className="max-w-6xl mx-auto">
         {/* 页面标题 */}
         <div className="text-center mb-12">
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent"
           >
             随心笔记
           </motion.h1>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
@@ -107,7 +118,7 @@ export default function NotesPage() {
         </div>
 
         {/* 筛选与搜索 */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
@@ -115,10 +126,13 @@ export default function NotesPage() {
         >
           {/* 搜索框 */}
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-            <input 
-              type="text" 
-              placeholder="搜索笔记标题或内容..." 
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+              size={20}
+            />
+            <input
+              type="text"
+              placeholder="搜索笔记标题或内容..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-12 pr-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all outline-none"
@@ -129,17 +143,17 @@ export default function NotesPage() {
           {categories.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <FolderOpen size={16} className="text-gray-400 mr-2" />
-              <button 
+              <button
                 onClick={() => setSelectedCategory(null)}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${selectedCategory === null ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${selectedCategory === null ? "bg-blue-600 text-white shadow-md" : "bg-gray-50 text-gray-600 hover:bg-gray-100"}`}
               >
                 全部
               </button>
-              {categories.map(cat => (
-                <button 
+              {categories.map((cat) => (
+                <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-all ${selectedCategory === cat ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-all ${selectedCategory === cat ? "bg-blue-600 text-white shadow-md" : "bg-gray-50 text-gray-600 hover:bg-gray-100"}`}
                 >
                   {cat}
                 </button>
@@ -151,17 +165,17 @@ export default function NotesPage() {
           {tags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <Tag size={16} className="text-gray-400 mr-2" />
-              <button 
+              <button
                 onClick={() => setSelectedTag(null)}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${selectedTag === null ? 'bg-indigo-500 text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                className={`px-3 py-1.5 rounded-lg text-sm transition-all ${selectedTag === null ? "bg-indigo-500 text-white shadow-md" : "bg-gray-50 text-gray-600 hover:bg-gray-100"}`}
               >
                 全部
               </button>
-              {tags.map(tag => (
-                <button 
+              {tags.map((tag) => (
+                <button
                   key={tag}
                   onClick={() => setSelectedTag(tag)}
-                  className={`px-3 py-1.5 rounded-lg text-sm transition-all ${selectedTag === tag ? 'bg-indigo-500 text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-all ${selectedTag === tag ? "bg-indigo-500 text-white shadow-md" : "bg-gray-50 text-gray-600 hover:bg-gray-100"}`}
                 >
                   #{tag}
                 </button>
@@ -188,7 +202,13 @@ export default function NotesPage() {
             {filteredNotes.map((note) => {
               let noteTags: string[] = [];
               if (note.tags && Array.isArray(note.tags)) {
-                noteTags = note.tags.map(t => typeof t === 'string' ? t : (t as { tag?: { name: string } }).tag?.name).filter((t): t is string => !!t);
+                noteTags = note.tags
+                  .map((t) =>
+                    typeof t === "string"
+                      ? t
+                      : (t as { tag?: { name: string } }).tag?.name,
+                  )
+                  .filter((t): t is string => !!t);
               }
 
               return (
@@ -200,15 +220,21 @@ export default function NotesPage() {
                   exit={{ opacity: 0, scale: 0.9 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <Link href={`/frontend/notes/${note.slug}`} className="block h-full group">
-                    <div className="h-full flex flex-col bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300">
+                  <Link
+                    href={`/frontend/notes/${note.slug}`}
+                    className="block h-full group"
+                  >
+                    <div className="min-h-[200px] flex flex-col bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300">
                       <div className="flex-1">
                         <h2 className="text-xl font-semibold text-gray-800 group-hover:text-blue-600 transition-colors mb-3 line-clamp-2">
                           {note.title}
                         </h2>
-                        
+
                         <div className="text-gray-500 text-sm mb-4 line-clamp-3">
-                          {note.content.replace(/[#*`_\[\]()]/g, '').substring(0, 100)}...
+                          {note.content
+                            .replace(/[#*`_\[\]()]/g, "")
+                            .substring(0, 100)}
+                          ...
                         </div>
                       </div>
 
@@ -229,13 +255,18 @@ export default function NotesPage() {
                           <div className="flex items-center gap-2">
                             <Tag size={12} className="text-gray-300" />
                             <div className="flex flex-wrap gap-1">
-                              {noteTags.slice(0, 3).map(tag => (
-                                <span key={tag} className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md">
+                              {noteTags.slice(0, 3).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-md"
+                                >
                                   {tag}
                                 </span>
                               ))}
                               {noteTags.length > 3 && (
-                                <span className="text-xs text-gray-400">+{noteTags.length - 3}</span>
+                                <span className="text-xs text-gray-400">
+                                  +{noteTags.length - 3}
+                                </span>
                               )}
                             </div>
                           </div>

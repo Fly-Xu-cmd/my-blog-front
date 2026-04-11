@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
  */
 export default function AllStatusLayout() {
   const [status, setStatus] = useState<{ ok: boolean; data: Dynamic[] } | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export default function AllStatusLayout() {
 
   if (loading) {
     return (
-      <div className="pl-8 md:pl-16 space-y-12">
+      <div className="pl-8 md:pl-16 space-y-12 w-full text-center">
         <Spin></Spin>
       </div>
     );
@@ -65,7 +65,7 @@ export default function AllStatusLayout() {
 
   // 对动态内容按日期排序（最新的在前）
   const sortedStatus = [...status.data].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
 
   return (

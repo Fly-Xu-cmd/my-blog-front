@@ -38,7 +38,7 @@ const formatDate = (dateString: string) => {
 export default function NewStatus({ status }: { status: Dynamic[] }) {
   // 对动态按日期排序（最新的在前）
   const sortedStatus = [...status].sort(
-    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)
+    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
   );
   if (sortedStatus.length === 0) {
     return <Empty description="暂无最新动态"></Empty>;
@@ -47,11 +47,11 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
   return (
     <div className="w-full">
       {/* 动态列表 */}
-      <ul className="space-y-6">
+      <ul>
         {sortedStatus.map((status) => (
           <li
             key={`status-${status.id}`}
-            className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden"
+            className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden mb-10"
           >
             {/* 动态头部 */}
             <div className="p-4 border-b border-gray-100 bg-gray-50">
@@ -72,7 +72,9 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
 
             {/* 动态内容 */}
             <div className="p-4">
-              <p className="text-gray-600 mb-3 line-clamp-3 text-sm">{status.excerpt}</p>
+              <p className="text-gray-600 mb-3 line-clamp-3 text-sm">
+                {status.excerpt}
+              </p>
               <Link
                 href={`/frontend/status/${status.id}`}
                 className="inline-flex items-center text-blue-500 hover:text-blue-700 transition-colors text-sm font-medium"

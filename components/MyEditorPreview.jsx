@@ -56,7 +56,7 @@ const Code = ({ inline, children = [], className, ...props }) => {
 
 export default function MyEditorPreview({ source }) {
   return (
-    <div className="w-full max-w-full break-words overflow-x-hidden [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_img]:max-w-full [&_img]:h-auto [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto">
+    <div className="w-full max-w-full break-words overflow-x-hidden [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_img]:max-w-full [&_img]:h-auto [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:break-words [&_code]:break-words [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_td]:break-words [&_th]:break-words">
       <MarkdownPreview
         source={source}
         style={{ padding: 10, backgroundColor: 'transparent' }}

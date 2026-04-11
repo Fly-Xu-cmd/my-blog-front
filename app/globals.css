@@ -24,7 +24,8 @@
   }
 }
 
-html, body {
+html,
+body {
   max-width: 100%;
   overflow-x: hidden;
   position: relative;
@@ -36,10 +37,11 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   margin: 0;
   padding: 0;
+  overflow: visible;
 }
 
 /* 强制 Markdown 容器内容不溢出 */
-.wmde-markdown, 
+.wmde-markdown,
 .markdown-body {
   max-width: 100% !important;
   overflow-wrap: break-word !important;
@@ -53,7 +55,8 @@ img {
 }
 
 /* 代码块：强制折行显示，不产生横向滚动 */
-pre, code {
+pre,
+code {
   max-width: 100% !important;
   white-space: pre-wrap !important;
   word-break: break-all !important;
@@ -65,7 +68,7 @@ table {
   display: block !important;
   max-width: 100% !important;
   overflow-x: auto !important;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .active {
@@ -73,4 +76,43 @@ table {
   border-bottom: 2px solid #3498db;
   padding-bottom: 2px;
   transition: border-bottom 0.3s ease;
+}
+
+/* 全局自定义滚动条样式 - 主题一致 */
+html::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+html::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 8px;
+}
+html::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+html::-webkit-scrollbar-corner {
+  background: #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
 }

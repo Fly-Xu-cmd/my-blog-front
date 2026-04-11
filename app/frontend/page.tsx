@@ -2,7 +2,7 @@
 import NewBlogs from "@/components/NewBlogs";
 import NewStatus from "@/components/NewStatus";
 import { Spin } from "antd";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // 获取博客文章的
 const fetchBlogPosts = async (params?: { current?: number; size?: number }) => {
@@ -38,6 +38,10 @@ export default function FrontendPage() {
   const [posts, setPosts] = useState([]);
   const [status, setStatus] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [blogsHeight, setBlogsHeight] = useState(650);
+  const [statusHeight, setStatusHeight] = useState(650);
+  const blogsRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -53,9 +57,19 @@ export default function FrontendPage() {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!loading && (posts.length > 0 || status.length > 0)) {
+      const bh = blogsRef.current?.scrollHeight || 650;
+      const sh = statusRef.current?.scrollHeight || 650;
+      setBlogsHeight(bh);
+      setStatusHeight(sh);
+    }
+  }, [loading, posts, status]);
+
   return (
     <>
-      <div className="w-full p-6 bg-white min-h-screen">
+      <div className="w-full p-6 bg-white ">
         <div className="flex items-center justify-center">
           <h1 className="text-3xl font-bold mb-10 text-center">探索思想的</h1>
           <h1 className="text-3xl font-bold mb-10 text-center !text-[#00b8ff]">
@@ -128,81 +142,65 @@ export default function FrontendPage() {
             </div>
           </div>
         </div>
-
-        <div className="relative w-full overflow-hidden py-4">
-          {/* 立方体3D场景容器 */}
-          <div
-            className="w-[85vw] md:w-[70vw] h-[65vh] md:h-[70vh] mx-auto [--cube-size-w:85vw] [--cube-size-h:65vh] md:[--cube-size-w:70vw] md:[--cube-size-h:70vh]"
-            style={
-              {
-                perspective: "5000px", // 显著增加透视值，减少因 translateZ 导致的近大远小过度膨胀
-                perspectiveOrigin: "50% 50%", 
-              } as React.CSSProperties
-            }
-          >
-            {/* 立方体容器 - 根据isDynamic状态旋转 */}
+        <div className="[display:flow-root]">
+          <div className=" relative w-full overflow-visible py-4">
+            {/* 立方体3D场景容器 */}
             <div
-              className="relative w-full h-full cursor-pointer transition-transform duration-1000 ease-in-out"
+              className="overflow-visible w-[85vw] md:w-[70vw] mx-auto [--cube-size-w:85vw] [--cube-size-h:65vh] md:[--cube-size-w:70vw] md:[--cube-size-h:70vh]"
               style={{
-                transformStyle: "preserve-3d",
-                transform: `
-                  ${isDynamic ? "rotateY(-90deg)" : "rotateY(0deg)"} 
-                  ${typeof window !== 'undefined' && window.innerWidth < 768 ? 'scale(0.95)' : 'scale(1)'}
-                `,
+                height: `${isDynamic ? statusHeight : blogsHeight}px`,
+                perspective: "10000px",
+                perspectiveOrigin: "50% 50%",
               }}
-            >              {/* 加载中状态 */}
-              {loading && (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Spin></Spin>
-                </div>
-              )}
-              {/* 添加一个隐藏的占位元素来反映内容高度 - 使用较高的NewBlogs组件作为固定占位符 */}
-              <div className="opacity-0">
-                <NewBlogs posts={posts} />
-              </div>
-              {/* 最新博客 - 添加translateZ */}
+            >
+              {/* 立方体容器 - 根据isDynamic状态旋转 */}
               <div
-                className="absolute w-full h-full top-0 overflow-y-auto custom-scrollbar bg-white/50 backdrop-blur-sm rounded-2xl"
+                className=" overflow-visible relative w-full cursor-pointer transition-transform duration-1000 ease-in-out mb-10"
                 style={{
-                  transform: "translateZ(calc(var(--cube-size-w) / 2))",
-                  backfaceVisibility: "hidden",
-                  padding: "20px",
+                  transformStyle: "preserve-3d",
+                  transform: `
+                    scale(0.92)
+                    ${isDynamic ? "rotateY(-90deg)" : "rotateY(0deg)"}
+                    ${typeof window !== "undefined" && window.innerWidth < 768 ? "scale(0.9)" : "scale(1)"}
+                  `,
                 }}
               >
-                <div className="pb-10">
+                {" "}
+                {/* 加载中状态 */}
+                {loading && (
+                  <div className="w-full flex items-center justify-center">
+                    <Spin></Spin>
+                  </div>
+                )}
+                {/* 最新博客 */}
+                <div
+                  ref={blogsRef}
+                  className="absolute w-full top-0 custom-scrollbar bg-white/50 backdrop-blur-sm rounded-2xl"
+                  style={{
+                    transform: "translateZ(calc(var(--cube-size-w) / 2))",
+                    backfaceVisibility: "hidden",
+                    padding: "20px",
+                  }}
+                >
                   <NewBlogs posts={posts} />
                 </div>
-              </div>
-              {/* 最新动态 - 添加translateZ */}
-              <div
-                className="absolute w-full h-full top-0 overflow-y-auto custom-scrollbar bg-white/50 backdrop-blur-sm rounded-2xl"
-                style={{
-                  transform:
-                    "rotateY(90deg) translateZ(calc(var(--cube-size-w) / 2))",
-                  backfaceVisibility: "hidden",
-                  padding: "20px",
-                }}
-              >
-                <div className="pb-10">
+                {/* 最新动态 */}
+                <div
+                  ref={statusRef}
+                  className="absolute w-full top-0  custom-scrollbar bg-white/50 backdrop-blur-sm rounded-2xl"
+                  style={{
+                    transform:
+                      "rotateY(90deg) translateZ(calc(var(--cube-size-w) / 2))",
+                    backfaceVisibility: "hidden",
+                    padding: "20px",
+                  }}
+                >
                   <NewStatus status={status} />
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        <style jsx global>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #e2e8f0;
-            border-radius: 10px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #cbd5e1;
-          }
-        `}</style>
       </div>
     </>
   );

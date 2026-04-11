@@ -28,9 +28,9 @@ export default function RootLayout({
     <html lang="en">
       <meta name="referrer" content="no-referrer" />
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden w-full`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased  w-full`}
       >
-        <div className="w-full min-h-screen flex flex-col">{children}</div>
+        <div className="w-full flex flex-col">{children}</div>
       </body>
     </html>
   );

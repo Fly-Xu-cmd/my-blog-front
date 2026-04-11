@@ -3,10 +3,18 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { type Note } from "@/app/frontend/model";
-import { Anchor, Empty, Space, ConfigProvider, Skeleton, Drawer, FloatButton } from "antd";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Anchor,
+  Empty,
+  Space,
+  ConfigProvider,
+  Skeleton,
+  Drawer,
+  FloatButton,
+} from "antd";
 import { MenuOutlined } from "@ant-design/icons";
 import MyEditorPreview from "@/components/MyEditorPreview";
-import { motion, AnimatePresence } from "framer-motion";
 
 const formatDate = (dateString: string) => {
   if (!dateString) return "";
@@ -29,8 +37,16 @@ const parseMarkdownHeadings = (content: string): OutlineItem[] => {
   const lines = content.split("\n");
   const headings: OutlineItem[] = [];
   let index = 0;
+  let inCodeBlock = false;
 
   lines.forEach((line) => {
+    // Track code block state
+    if (line.match(/^```/)) {
+      inCodeBlock = !inCodeBlock;
+      return;
+    }
+    if (inCodeBlock) return;
+
     const match = line.match(/^(#{1,6})\s+(.+)$/);
     if (match) {
       const level = match[1].length;
@@ -70,12 +86,12 @@ export default function NoteDetailPage() {
   useEffect(() => {
     if (!slug) return;
     let isMounted = true;
-    
+
     const fetchNote = async () => {
       try {
         const res = await fetch(`/api/notes/${slug}`);
         const { ok, data, error: apiError } = await res.json();
-        
+
         if (isMounted) {
           if (ok && data) {
             setNote(data);
@@ -93,7 +109,7 @@ export default function NoteDetailPage() {
         }
       }
     };
-    
+
     fetchNote();
     return () => {
       isMounted = false;
@@ -113,7 +129,8 @@ export default function NoteDetailPage() {
           );
           headings.forEach((heading, index) => {
             const text = heading.textContent?.trim() || "";
-            heading.id = `anchor-pre-${index}-${text.slice(0, 10).replace(/\s+/g, "-")}`;
+            const cleanText = text.replace(/[*_~`]/g, "");
+            heading.id = `anchor-pre-${index}-${cleanText.slice(0, 10).replace(/\s+/g, "-")}`;
           });
         }
       }, 400);
@@ -185,7 +202,7 @@ export default function NoteDetailPage() {
         },
       }}
     >
-      <div className="max-w-[1240px] mx-auto flex flex-col lg:flex-row items-start gap-8 px-4 py-8">
+      <div className="max-w-[1240px] mx-auto flex flex-col lg:flex-row items-start gap-8 px-4 py-8 w-full">
         <motion.article
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -201,22 +218,32 @@ export default function NoteDetailPage() {
                 <span>分类：{note.category?.name || "未分类"}</span>
                 <span>最后修改：{formatDate(note.updatedAt)}</span>
               </Space>
-              {note.tags && Array.isArray(note.tags) && note.tags.length > 0 && (
-                <div className="flex gap-2">
-                  {note.tags.map((tagObj: { tag?: { name: string } } | string | unknown, idx) => {
-                    const tag = typeof tagObj === 'string' ? tagObj : (tagObj as { tag?: { name: string } }).tag?.name;
-                    if (!tag) return null;
-                    return (
-                      <span
-                        key={idx}
-                        className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md text-xs"
-                      >
-                        #{tag}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
+              {note.tags &&
+                Array.isArray(note.tags) &&
+                note.tags.length > 0 && (
+                  <div className="flex gap-2">
+                    {note.tags.map(
+                      (
+                        tagObj: { tag?: { name: string } } | string | unknown,
+                        idx,
+                      ) => {
+                        const tag =
+                          typeof tagObj === "string"
+                            ? tagObj
+                            : (tagObj as { tag?: { name: string } }).tag?.name;
+                        if (!tag) return null;
+                        return (
+                          <span
+                            key={idx}
+                            className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md text-xs"
+                          >
+                            #{tag}
+                          </span>
+                        );
+                      },
+                    )}
+                  </div>
+                )}
             </div>
           </header>
 
@@ -283,12 +310,12 @@ export default function NoteDetailPage() {
         open={drawerVisible}
         height="70%"
         className="lg:hidden"
-        styles={{ 
+        styles={{
           body: { padding: 0 },
-          content: { 
-            borderRadius: '20px 20px 0 0',
-            overflow: 'hidden'
-          }
+          content: {
+            borderRadius: "20px 20px 0 0",
+            overflow: "hidden",
+          },
         }}
       >
         <div className="p-4 h-full overflow-y-auto custom-scrollbar">
@@ -313,19 +340,6 @@ export default function NoteDetailPage() {
           />
         </div>
       </Drawer>
-
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #e5e7eb;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #d1d5db;
-        }
-      `}</style>
     </ConfigProvider>
   );
 }
