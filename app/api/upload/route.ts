@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
+import { safeRename } from "@/utils/safeRenameUtil";
 
 // 1. 定义允许的上传类型 (白名单)
 const ALLOWED_MIME_TYPES = [
@@ -60,16 +60,6 @@ export async function POST(req: Request) {
     // --- 安全重命名 ---
     // 不管用户上传的文件名叫什么，我们强制重命名为 UUID
     // 获取安全的后缀名 (基于 MIME 类型判断，或者简单提取后缀但要校验)
-    const originalExt = path.extname(file.name).toLowerCase();
-
-    // 二次确认后缀名也在白名单范围内 (双重保险)
-    const allowedExts = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"];
-    if (!allowedExts.includes(originalExt)) {
-      return NextResponse.json(
-        { ok: false, error: "非法的文件后缀" },
-        { status: 403 },
-      );
-    }
 
     // 获取上传目录
     const uploadDir = getUploadDir();
@@ -78,9 +68,8 @@ export async function POST(req: Request) {
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
-
     // 生成纯随机文件名，比如：550e8400-e29b-41d4-a716-446655440000.png
-    const uniqueName = `${uuidv4()}${originalExt}`;
+    const uniqueName = safeRename(file);
     const filePath = path.join(uploadDir, uniqueName);
 
     // 写入文件
