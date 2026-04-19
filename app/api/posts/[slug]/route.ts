@@ -110,6 +110,11 @@ export async function PUT(
     const { title, excerpt, content, cover, published, categoryId, tags } =
       body;
     const processedCategoryId = categoryId ? Number(categoryId) : undefined;
+    // 先删除旧标签关联，再创建新关联（避免 connectOrCreate 在 set 中的嵌套问题）
+    await prisma.postTag.deleteMany({
+      where: { post: { slug } },
+    });
+
     const post = await prisma.post.update({
       where: { slug },
       data: {
@@ -119,16 +124,19 @@ export async function PUT(
         cover,
         published: published === "true" ? true : false,
         categoryId: processedCategoryId,
-        tags: {
-          set: tags?.map((tag: string) => ({
-            tag: {
-              connectOrCreate: {
-                where: { name: tag },
-                create: { name: tag },
-              },
-            },
-          })),
-        },
+        tags:
+          tags?.length > 0
+            ? {
+                create: tags.map((tagName: string) => ({
+                  tag: {
+                    connectOrCreate: {
+                      where: { name: tagName },
+                      create: { name: tagName },
+                    },
+                  },
+                })),
+              }
+            : undefined,
       },
       include: {
         tags: { include: { tag: true } },
