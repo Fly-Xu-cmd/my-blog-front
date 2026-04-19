@@ -102,6 +102,7 @@ export default function AllBlogs() {
                       className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                       width={400}
                       height={200}
+                      unoptimized
                     />
                   </div>
                 ) : (
