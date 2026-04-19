@@ -94,7 +94,7 @@ export default function AllBlogs() {
                 "
               >
                 {/* 封面区域 */}
-                {post.cover && !post.cover?.startsWith("http") ? (
+                {post.cover ? (
                   <div className="relative w-full overflow-hidden">
                     <Image
                       src={getImageUrl(post)}
