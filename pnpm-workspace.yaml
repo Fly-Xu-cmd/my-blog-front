@@ -1,9 +1,0 @@
-# pnpm 11 配置（pnpm 11 起不再读取 package.json 中的 "pnpm" 字段）
-# 批准依赖运行构建脚本（pnpm 10+ 默认禁止，未批准会报 ERR_PNPM_IGNORED_BUILDS）
-onlyBuiltDependencies:
-  - '@prisma/client'
-  - '@prisma/engines'
-  - '@tailwindcss/oxide'
-  - prisma
-  - sharp
-  - unrs-resolver
