@@ -119,10 +119,12 @@ export async function GET(req: Request) {
   const published = searchParams.get("published");
   const category = searchParams.get("category");
   const tagName = searchParams.get("tags");
+  const title = searchParams.get("title");
 
   try {
     const posts = await prisma.post.findMany({
       where: {
+        title: title ? { contains: title } : undefined,
         published:
           String(published) === "true"
             ? { equals: true }
@@ -236,7 +238,7 @@ export async function POST(req: Request) {
         excerpt,
         content,
         cover,
-        published: !!published,
+        published: published === "false" ? false : !!published,
         categoryId: categoryId || undefined,
         tags: {
           create:

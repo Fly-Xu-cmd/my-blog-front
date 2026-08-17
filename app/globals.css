@@ -49,6 +49,26 @@ body {
   word-break: break-all !important;
 }
 
+/* 修复 Markdown 列表标记被 Tailwind preflight (list-style:none) 清除的问题 */
+.wmde-markdown ul:not(.no-list) {
+  list-style-type: disc;
+}
+.wmde-markdown ul ul:not(.no-list) {
+  list-style-type: circle;
+}
+.wmde-markdown ul ul ul:not(.no-list) {
+  list-style-type: square;
+}
+.wmde-markdown ol:not(.no-list) {
+  list-style-type: decimal;
+}
+.wmde-markdown ol ol:not(.no-list) {
+  list-style-type: lower-roman;
+}
+.wmde-markdown ol ol ol:not(.no-list) {
+  list-style-type: lower-alpha;
+}
+
 img {
   max-width: 100%;
   height: auto;

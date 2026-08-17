@@ -122,7 +122,7 @@ export async function PUT(
         excerpt,
         content,
         cover,
-        published: published === "true" ? true : false,
+        published: published === "true" || published === true,
         categoryId: processedCategoryId,
         tags:
           tags?.length > 0

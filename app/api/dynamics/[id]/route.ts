@@ -51,7 +51,7 @@ export async function PUT(
     );
   }
   const body = await req.json();
-  const { content } = body;
+  const { content, title, excerpt } = body;
   if (!content) {
     return NextResponse.json(
       { ok: false, error: "动态内容不能为空" },
@@ -64,6 +64,8 @@ export async function PUT(
     },
     data: {
       content,
+      title,
+      excerpt,
     },
   });
   if (!post) {
