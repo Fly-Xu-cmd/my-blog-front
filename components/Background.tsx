@@ -73,8 +73,7 @@ function GlowOrbView({
 }) {
   const offset = useTransform([mouseX, mouseY], (latest) => {
     if (typeof window === "undefined") return { x: 0, y: 0 };
-    const mx = latest[0];
-    const my = latest[1];
+    const [mx, my] = latest as [number, number];
     const cx = (orb.left / 100) * window.innerWidth;
     const cy = (orb.top / 100) * window.innerHeight;
     const dx = cx - mx;
