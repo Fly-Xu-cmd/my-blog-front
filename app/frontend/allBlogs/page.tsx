@@ -2,20 +2,12 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Image as ImageIcon } from "lucide-react"; // 用于无封面占位
-// import { posts } from "../../data/posts";
+import { Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { type Post } from "@/app/frontend/model";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-
-/**
- * 完整版博客瀑布流页面
- * ✅ Masonry布局
- * ✅ 封面图 + 动画 + 占位图兼容
- * ✅ 响应式 + 优雅阴影 + 进入动画
- */
 
 // 获取所有博客
 const fetchAllBlogs = async () => {
@@ -24,10 +16,8 @@ const fetchAllBlogs = async () => {
 };
 
 export default function AllBlogs() {
-  // 状态管理：存储从API获取的博客数据
   const [posts, setPosts] = useState<Post[]>([]);
 
-  // 从API获取所有博客
   useEffect(() => {
     fetchAllBlogs().then((data) => {
       if (data.ok) {
@@ -48,102 +38,75 @@ export default function AllBlogs() {
     return `${baseUrl}${post.cover}`;
   };
 
-  // 日期格式化
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
   return (
-    <div className=" w-full bg-gradient-to-b from-blue-50 via-white to-gray-50 py-10 px-4">
+    <div className="w-full py-10 px-4">
       <div className="max-w-6xl mx-auto">
-        {/* 页面标题 */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">
-            博客瀑布流
-          </h1>
-          <p className="text-gray-500 text-sm sm:text-base">
-            ✨ 探索所有的思想点滴，发现文字背后的故事
-          </p>
-        </div>
-
         {/* Masonry布局 */}
-        <div
-          className="
-            columns-1 sm:columns-2 lg:columns-3
-            gap-6 [column-fill:_balance]
-          "
-        >
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 [column-fill:_balance]">
           {sortedPosts.map((post) => (
             <motion.div
               key={post.id}
               className="mb-6 break-inside-avoid"
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.4,
-                delay: Math.random() * 0.3,
-                ease: "easeOut",
-              }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
             >
-              <div
-                className="
-                  bg-white rounded-2xl overflow-hidden shadow-md
-                  hover:shadow-xl transition-all duration-300 hover:-translate-y-1
-                  border border-gray-100 flex flex-col
-                "
-              >
+              <div className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border border-gray-100 dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl dark:hover:border-cyan-400/40 dark:hover:shadow-[0_0_40px_rgba(34,211,238,0.12)] flex flex-col">
                 {/* 封面区域 */}
                 {post.cover ? (
-                  <div className="relative w-full overflow-hidden">
+                  <div className="relative w-full aspect-[16/10] overflow-hidden bg-gray-100 dark:bg-white/5">
                     <Image
                       src={getImageUrl(post)}
                       alt={post.title}
-                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
-                      width={400}
-                      height={200}
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      fill
                       unoptimized
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                   </div>
                 ) : (
-                  <div className="relative w-full h-48 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                    <ImageIcon className="w-10 h-10 text-gray-400" />
-                    <span className="absolute bottom-2 right-3 text-xs text-gray-400">
-                      无封面
-                    </span>
+                  <div className="relative w-full aspect-[16/10] flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-white/5 dark:to-white/[0.02]">
+                    <ImageIcon className="w-10 h-10 text-gray-400 dark:text-white/20" />
                   </div>
                 )}
 
                 {/* 内容部分 */}
                 <div className="p-5 flex flex-col flex-grow">
-                  {/* 日期 */}
-                  <div className="mb-2">
-                    <span className="inline-block  py-1 text-xs font-medium  text-blue-700 rounded-full">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="inline-block py-1 text-xs font-medium text-cyan-600 dark:text-cyan-400 rounded-full">
                       {formatDate(post.createdAt)}
                     </span>
+                    {post.category?.name ? (
+                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-cyan-50 text-cyan-600 dark:bg-cyan-400/10 dark:text-cyan-300">
+                        {post.category.name}
+                      </span>
+                    ) : null}
                   </div>
 
-                  {/* 标题 */}
-                  <h2 className="text-lg font-semibold mb-2 text-gray-800 line-clamp-2">
+                  <h2 className="text-lg font-semibold mb-2 text-gray-800 dark:text-white line-clamp-2">
                     <Link
                       href={`posts/${post.slug}`}
-                      className="hover:text-blue-600 transition-colors"
+                      className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
                     >
                       {post.title}
                     </Link>
                   </h2>
 
-                  {/* 摘要 */}
-                  <div className="overflow-x-hidden break-words text-sm text-gray/80 leading-relaxed">
+                  <div className="overflow-x-hidden break-words text-sm text-gray-500 dark:text-white/50 leading-relaxed">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                       {post.excerpt}
                     </ReactMarkdown>
                   </div>
 
-                  {/* 阅读更多 */}
                   <Link
                     href={`posts/${post.slug}`}
-                    className="mt-auto inline-flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    className="mt-auto pt-4 inline-flex items-center text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 text-sm font-medium"
                   >
                     阅读更多
                     <svg

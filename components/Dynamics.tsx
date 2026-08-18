@@ -60,12 +60,6 @@ const formatDate = (dateString: string) => {
   }月${date.getDate()}日 (${chineseZodiac})`;
 };
 
-// 格式化日期，仅显示月和日
-const formatShortDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
-};
-
 // 获取月份对应的中文名称
 const getChineseMonth = (dateString: string) => {
   const date = new Date(dateString);
@@ -84,14 +78,6 @@ const getChineseMonth = (dateString: string) => {
     "十二月",
   ];
   return months[date.getMonth()];
-};
-
-// 获取带干支纪年的年份显示
-const getYearWithZodiac = (dateString: string): string => {
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const chineseZodiac = getChineseZodiacYear(year);
-  return `${year}年 (${chineseZodiac})`;
 };
 
 export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
@@ -118,26 +104,26 @@ export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
     <div className="flex items-start w-full group relative">
       {/* 日期 - 在大屏下独立显示，小屏下隐藏 */}
       <div className="hidden md:flex flex-col items-center w-24 flex-shrink-0 mr-8 pt-2">
-        <div className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1">
+        <div className="text-xs font-bold text-cyan-500 uppercase tracking-widest mb-1">
           {getChineseMonth(dynamic.createdAt)}
         </div>
-        <div className="text-3xl font-black text-gray-900 mb-1 leading-none">
+        <div className="text-3xl font-black text-gray-900 dark:text-white mb-1 leading-none">
           {new Date(dynamic.createdAt).getDate()}
         </div>
-        <div className="text-[10px] text-gray-400 font-medium">
+        <div className="text-[10px] text-gray-400 dark:text-white/30 font-medium">
           {new Date(dynamic.createdAt).getFullYear()}
         </div>
       </div>
 
       {/* 动态内容主体 */}
-      <div className="flex-1 min-w-0 relative bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-5 sm:p-10 transition-all duration-500 hover:shadow-[0_10px_40px_rgba(0,0,0,0.06)] hover:border-blue-100 overflow-hidden">
+      <div className="flex-1 min-w-0 relative bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-gray-100 p-5 sm:p-10 transition-all duration-500 hover:shadow-[0_10px_40px_rgba(0,0,0,0.06)] hover:border-blue-100 dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl dark:hover:border-cyan-400/40 dark:hover:shadow-[0_0_40px_rgba(34,211,238,0.12)] overflow-hidden">
         <header className="mb-6">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 leading-tight mb-3 group-hover:text-blue-600 transition-colors break-words">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white leading-tight mb-3 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors break-words">
             {dynamic.title || "记录此时此刻"}
           </h2>
 
           <div className="flex flex-wrap items-center gap-4 text-sm">
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 text-gray-500 rounded-full border border-gray-100 font-medium">
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-50 text-gray-500 rounded-full border border-gray-100 dark:bg-white/5 dark:text-white/40 dark:border-white/10 font-medium">
               <i className="iconfont text-xs">&#xe606;</i>
               {formatDate(dynamic.createdAt)}
             </div>
@@ -151,13 +137,13 @@ export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
             isExpanded ? "max-h-[5000px]" : "max-h-[300px]"
           }`}
         >
-          <div className="text-gray-700 leading-relaxed text-base sm:text-lg">
+          <div className="text-gray-700 dark:text-white/70 leading-relaxed text-base sm:text-lg">
             <MyEditorPreview source={dynamic.content || "暂无详情..."} />
           </div>
 
           {/* 底部渐变 - 仅在未展开且内容超过限制时显示 */}
           {!isExpanded && needsTruncation && (
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none transition-opacity duration-500"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-[#0a0e1a] dark:via-[#0a0e1a]/80 pointer-events-none transition-opacity duration-500"></div>
           )}
         </div>
 
@@ -177,7 +163,7 @@ export default function Dynamics({ dynamic }: { dynamic: Dynamic }) {
           <div className="mt-8 flex justify-center">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="group/btn relative px-8 py-3 bg-blue-50 text-blue-600 rounded-full font-bold text-sm transition-all duration-300 hover:bg-blue-600 hover:text-white hover:shadow-[0_10px_20px_rgba(59,130,246,0.2)] focus:outline-none overflow-hidden"
+              className="group/btn relative px-8 py-3 bg-blue-50 text-blue-600 dark:bg-cyan-400/10 dark:text-cyan-300 rounded-full font-bold text-sm transition-all duration-300 hover:bg-blue-600 hover:text-white dark:hover:bg-cyan-400 dark:hover:text-black hover:shadow-[0_10px_20px_rgba(59,130,246,0.2)] dark:hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] focus:outline-none overflow-hidden"
             >
               <span className="relative z-10 flex items-center gap-2">
                 {isExpanded ? (

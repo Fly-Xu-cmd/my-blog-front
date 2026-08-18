@@ -1,109 +1,76 @@
 "use client";
 import React, { useState } from "react";
 import Contact from "@/components/Contact";
+import ThemeToggle from "@/components/ThemeToggle";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { Drawer } from "antd";
 
+const NAV_ITEMS = [
+  { path: "/frontend", label: "首页", icon: "\ue606" },
+  { path: "/frontend/allBlogs", label: "博客", icon: "\ue634" },
+  { path: "/frontend/allStatus", label: "动态", icon: "\ue61d" },
+  { path: "/frontend/notes", label: "笔记", icon: "\ue612" },
+  { path: "/frontend/about", label: "关于我", icon: "\ue63d" },
+];
+
 /**
  * 网站顶部导航栏组件
- * 包含柔和渐变背景和固定定位功能
+ * 毛玻璃吸顶 + 渐变 active 指示 + 主题切换
  */
 export default function Header() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const isActive = (path: string) => pathname === path;
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
+  const isActive = (path: string) =>
+    path === "/frontend" ? pathname === "/frontend" : pathname.startsWith(path);
 
   return (
-    <header className="sticky top-0 z-[9999] w-full">
-      <div className="flex justify-between px-6 h-20 items-center bg-white shadow-sm relative z-50">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">若木的小世界</h1>
-        </div>
-
-        {/* Mobile menu button */}
-        <div className="md:hidden flex items-center">
-          <button
-            onClick={toggleMobileMenu}
-            className="text-gray-700 hover:text-gray-900 focus:outline-none"
-            aria-label="Toggle mobile menu"
-          >
-            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
-          </button>
-        </div>
+    <header className="sticky top-0 z-[9999] w-full border-b border-gray-200/60 bg-white/75 backdrop-blur-xl dark:border-white/10 dark:bg-[#05060a]/75">
+      <div className="flex justify-between px-4 md:px-6 h-16 items-center max-w-7xl mx-auto">
+        {/* 标题（无图标） */}
+        <Link href="/frontend" className="shrink-0">
+          <span className="text-2xl font-bold text-gray-900 dark:text-white">
+            若木的小世界
+          </span>
+        </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex h-full">
-          <ul className="flex space-x-4 h-full items-center list-none m-0 p-0">
-            <li
-              className={`h-full px-2 flex items-center ${
-                isActive("/") ? "active" : ""
-              } text-lg font-medium mr-5 text-gray-700 hover:text-gray-900 transition-colors cursor-pointer`}
-            >
-              <Link href="/" className="flex h-full items-center">
-                首页
-              </Link>
-            </li>
-            <li
-              className={`h-full px-2 flex items-center ${
-                isActive("/frontend/allBlogs") ? "active" : ""
-              } text-lg font-medium mr-5 text-gray-700 hover:text-gray-900 transition-colors cursor-pointer`}
-            >
-              <Link
-                href="/frontend/allBlogs"
-                className="flex h-full items-center"
-              >
-                博客
-              </Link>
-            </li>
-            <li
-              className={`h-full px-2 flex items-center ${
-                isActive("/frontend/allStatus") ? "active" : ""
-              } text-lg font-medium mr-5 text-gray-700 hover:text-gray-900 transition-colors cursor-pointer`}
-            >
-              <Link
-                href="/frontend/allStatus"
-                className="flex h-full items-center"
-              >
-                动态
-              </Link>
-            </li>
-            <li
-              className={`h-full px-2 flex items-center ${
-                isActive("/frontend/notes") ? "active" : ""
-              } text-lg font-medium mr-5 text-gray-700 hover:text-gray-900 transition-colors cursor-pointer`}
-            >
-              <Link
-                href="/frontend/notes"
-                className="flex h-full items-center"
-              >
-                笔记
-              </Link>
-            </li>
-            <li
-              className={`h-full px-2 flex items-center ${
-                isActive("/frontend/about") ? "active" : ""
-              } text-lg font-medium text-gray-700 hover:text-gray-900 transition-colors cursor-pointer`}
-            >
-              <Link href="/frontend/about" className="flex h-full items-center">
-                关于我
-              </Link>
-            </li>
+        <nav className="hidden md:flex h-full items-center">
+          <ul className="flex h-full items-center list-none m-0 p-0 gap-1">
+            {NAV_ITEMS.map((item) => (
+              <li key={item.path} className="h-full flex items-center">
+                <Link
+                  href={item.path}
+                  className={`relative flex h-full items-center px-3 text-[15px] font-medium transition-colors ${
+                    isActive(item.path)
+                      ? "text-cyan-600 dark:text-cyan-400"
+                      : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                  }`}
+                >
+                  {item.label}
+                  {isActive(item.path) && (
+                    <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-cyan-500 to-violet-500" />
+                  )}
+                </Link>
+              </li>
+            ))}
           </ul>
-        </div>
-        
-        {/* Desktop Contact */}
-        <div className="hidden md:block">
-          <Contact />
+        </nav>
+
+        {/* 右侧：主题切换 + 联系方式 + 移动菜单 */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <div className="hidden md:block">
+            <Contact />
+          </div>
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden flex items-center text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+            aria-label="Toggle mobile menu"
+          >
+            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
       </div>
 
@@ -111,95 +78,45 @@ export default function Header() {
       <Drawer
         title={
           <div className="flex items-center gap-2 py-1">
-            <div className="w-1 h-5 bg-blue-500 rounded-full"></div>
-            <span className="text-xl font-bold text-gray-800">网站导航</span>
+            <span className="w-1 h-5 bg-gradient-to-b from-cyan-500 to-violet-500 rounded-full" />
+            <span className="text-lg font-bold text-gray-800 dark:text-white">
+              网站导航
+            </span>
           </div>
         }
         placement="right"
-        onClose={closeMobileMenu}
+        onClose={() => setIsMobileMenuOpen(false)}
         open={isMobileMenuOpen}
-        styles={{ 
-          body: { padding: '12px 0' },
-          header: { borderBottom: '1px solid #f8fafc', padding: '16px 24px' }
+        styles={{
+          body: { padding: "12px 0" },
+          header: {
+            borderBottom: "1px solid #f1f5f9",
+            padding: "16px 24px",
+          },
         }}
         width={280}
-        className="md:hidden"
       >
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full bg-white dark:bg-[#0a0e1a]">
           <ul className="flex flex-col py-2 px-4 space-y-1 m-0 list-none">
-            <li>
-              <Link
-                href="/"
-                className={`flex items-center px-4 py-3 rounded-xl transition-all ${
-                  isActive("/") 
-                    ? "bg-blue-50 text-blue-600 font-bold" 
-                    : "text-gray-700 hover:bg-gray-50"
-                }`}
-                onClick={closeMobileMenu}
-              >
-                <i className="iconfont mr-3 text-lg">&#xe606;</i>
-                首页
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/frontend/allBlogs"
-                className={`flex items-center px-4 py-3 rounded-xl transition-all ${
-                  isActive("/frontend/allBlogs") 
-                    ? "bg-blue-50 text-blue-600 font-bold" 
-                    : "text-gray-700 hover:bg-gray-50"
-                }`}
-                onClick={closeMobileMenu}
-              >
-                <i className="iconfont mr-3 text-lg">&#xe634;</i>
-                博客
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/frontend/allStatus"
-                className={`flex items-center px-4 py-3 rounded-xl transition-all ${
-                  isActive("/frontend/allStatus") 
-                    ? "bg-blue-50 text-blue-600 font-bold" 
-                    : "text-gray-700 hover:bg-gray-50"
-                }`}
-                onClick={closeMobileMenu}
-              >
-                <i className="iconfont mr-3 text-lg">&#xe61d;</i>
-                动态
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/frontend/notes"
-                className={`flex items-center px-4 py-3 rounded-xl transition-all ${
-                  isActive("/frontend/notes") 
-                    ? "bg-blue-50 text-blue-600 font-bold" 
-                    : "text-gray-700 hover:bg-gray-50"
-                }`}
-                onClick={closeMobileMenu}
-              >
-                <i className="iconfont mr-3 text-lg">&#xe612;</i>
-                笔记
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/frontend/about"
-                className={`flex items-center px-4 py-3 rounded-xl transition-all ${
-                  isActive("/frontend/about") 
-                    ? "bg-blue-50 text-blue-600 font-bold" 
-                    : "text-gray-700 hover:bg-gray-50"
-                }`}
-                onClick={closeMobileMenu}
-              >
-                <i className="iconfont mr-3 text-lg">&#xe63d;</i>
-                关于我
-              </Link>
-            </li>
+            {NAV_ITEMS.map((item) => (
+              <li key={item.path}>
+                <Link
+                  href={item.path}
+                  className={`flex items-center px-4 py-3 rounded-xl transition-all ${
+                    isActive(item.path)
+                      ? "bg-cyan-50 text-cyan-600 font-semibold dark:bg-cyan-400/10 dark:text-cyan-400"
+                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5"
+                  }`}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <i className="iconfont mr-3 text-lg">{item.icon}</i>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
           </ul>
-          <div className="mt-auto p-6 bg-gray-50/50 border-t border-gray-100">
-            <div className="text-xs text-gray-400 uppercase tracking-wider mb-4 font-semibold px-2">
+          <div className="mt-auto p-6 border-t border-gray-100 dark:border-white/10">
+            <div className="text-xs uppercase tracking-wider mb-4 font-semibold px-2 text-gray-400">
               联系方式
             </div>
             <Contact />

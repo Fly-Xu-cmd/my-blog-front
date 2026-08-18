@@ -142,13 +142,13 @@ export default function NoteDetailPage() {
   if (loading) {
     return (
       <div className="max-w-[1240px] mx-auto flex flex-col lg:flex-row gap-8 px-4 py-8 w-full">
-        <div className="w-full lg:flex-1 bg-white p-4 sm:p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 min-h-[700px] block">
+        <div className="w-full lg:flex-1 bg-white p-4 sm:p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl min-h-[700px] block">
           <div className="animate-pulse mb-10 w-full block">
-            <div className="h-10 bg-gray-100 rounded-md w-3/4 mb-4 min-w-[280px]"></div>
-            <div className="h-4 bg-gray-50 rounded-md w-1/4 min-w-[120px]"></div>
+            <div className="h-10 bg-gray-100 dark:bg-white/10 rounded-md w-3/4 mb-4 min-w-[280px]"></div>
+            <div className="h-4 bg-gray-50 dark:bg-white/5 rounded-md w-1/4 min-w-[120px]"></div>
           </div>
 
-          <hr className="my-8 border-gray-50 w-full" />
+          <hr className="my-8 border-gray-50 dark:border-white/5 w-full" />
 
           <div className="w-full space-y-8 block">
             <Skeleton
@@ -157,10 +157,10 @@ export default function NoteDetailPage() {
               paragraph={{ rows: 4, width: "100%" }}
             />
             <div className="animate-pulse space-y-4 w-full block">
-              <div className="h-4 bg-gray-50 rounded w-full"></div>
-              <div className="h-4 bg-gray-50 rounded w-full"></div>
-              <div className="h-4 bg-gray-50 rounded w-11/12"></div>
-              <div className="h-4 bg-gray-50 rounded w-10/12"></div>
+              <div className="h-4 bg-gray-50 dark:bg-white/5 rounded w-full"></div>
+              <div className="h-4 bg-gray-50 dark:bg-white/5 rounded w-full"></div>
+              <div className="h-4 bg-gray-50 dark:bg-white/5 rounded w-11/12"></div>
+              <div className="h-4 bg-gray-50 dark:bg-white/5 rounded w-10/12"></div>
             </div>
             <Skeleton
               active
@@ -170,13 +170,13 @@ export default function NoteDetailPage() {
           </div>
         </div>
 
-        <div className="hidden lg:block w-72 shrink-0 bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
-          <div className="h-6 bg-gray-100 rounded w-1/2 mb-6 animate-pulse"></div>
+        <div className="hidden lg:block w-72 shrink-0 bg-white p-6 rounded-xl shadow-sm border border-gray-100 dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl h-fit">
+          <div className="h-6 bg-gray-100 dark:bg-white/10 rounded w-1/2 mb-6 animate-pulse"></div>
           <div className="space-y-4 w-full">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div
                 key={i}
-                className="h-3 bg-gray-50 rounded w-full animate-pulse"
+                className="h-3 bg-gray-50 dark:bg-white/5 rounded w-full animate-pulse"
                 style={{ opacity: 1 - i * 0.1 }}
               ></div>
             ))}
@@ -207,14 +207,14 @@ export default function NoteDetailPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
-          className="flex-1 w-full min-w-0 bg-white p-4 sm:p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 min-h-[700px] break-words overflow-x-hidden"
+          className="flex-1 w-full min-w-0 bg-white p-4 sm:p-6 md:p-10 rounded-xl shadow-sm border border-gray-100 dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl min-h-[700px] break-words overflow-x-hidden"
         >
-          <header className="mb-8 border-b pb-6">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
+          <header className="mb-8 border-b pb-6 dark:border-white/10">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-4 leading-tight">
               {note.title}
             </h1>
-            <div className="flex flex-wrap gap-4 text-gray-500 text-sm">
-              <Space split={<span className="text-gray-300">|</span>}>
+            <div className="flex flex-wrap gap-4 text-gray-500 dark:text-white/50 text-sm">
+              <Space split={<span className="text-gray-300 dark:text-white/20">|</span>}>
                 <span>分类：{note.category?.name || "未分类"}</span>
                 <span>最后修改：{formatDate(note.updatedAt)}</span>
               </Space>
@@ -235,7 +235,7 @@ export default function NoteDetailPage() {
                         return (
                           <span
                             key={idx}
-                            className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md text-xs"
+                            className="bg-blue-50 text-blue-600 dark:bg-cyan-400/10 dark:text-cyan-300 px-2 py-0.5 rounded-md text-xs"
                           >
                             #{tag}
                           </span>
@@ -249,7 +249,7 @@ export default function NoteDetailPage() {
 
           <div
             ref={containerRef}
-            className="w-full text-gray-800 leading-relaxed"
+            className="w-full text-gray-800 dark:text-white/80 leading-relaxed"
           >
             <MyEditorPreview source={note.content} />
           </div>
@@ -263,8 +263,8 @@ export default function NoteDetailPage() {
               transition={{ duration: 0.4, delay: 0.2 }}
               className="hidden lg:block w-72 shrink-0 sticky top-24 z-10"
             >
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
-                <div className="flex items-center gap-2 font-bold text-gray-800 mb-4 pb-2 border-b shrink-0">
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl flex flex-col max-h-[calc(100vh-120px)] overflow-hidden">
+                <div className="flex items-center gap-2 font-bold text-gray-800 dark:text-white mb-4 pb-2 border-b dark:border-white/10 shrink-0">
                   <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
                   笔记目录
                 </div>

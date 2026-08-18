@@ -14,85 +14,66 @@ type Post = {
   cover?: string;
 };
 
-// 月份元组
-const monthNames = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
 // 格式化日期函数
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   const year = date.getFullYear();
-  const month = monthNames[date.getMonth()] || "-";
-  const day = date.getDate() || "-";
-  return `${month} ${day}, ${year}`;
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}年${month}月${day}日`;
 };
 
-// Server Component：加载并传递数据
 export default function NewBlogs({ posts }: { posts: Post[] }) {
-  // 对博客文章按日期排序（最新的在前）
   const sortedPosts = [...posts].sort(
     (a: Post, b: Post) =>
       Date.parse(b.createdAt || "") - Date.parse(a.createdAt || ""),
   );
   if (sortedPosts.length === 0) {
-    return <Empty description="暂无最新博客"></Empty>;
+    return <Empty description="暂无最新博客" />;
   }
 
   return (
     <div className="w-full px-2 sm:px-4">
-      {/* 时间轴容器 */}
       <ul className="relative">
-        {/* 统一的时间轴线 - 在大屏下偏移，小屏下靠左 */}
-        <div className="absolute left-4 md:left-[10.1rem] top-0 bottom-0 w-0.5 bg-[#dceafc]"></div>
+        {/* 时间轴线 */}
+        <div className="absolute left-4 md:left-[10.5rem] top-0 bottom-0 w-px bg-gradient-to-b from-cyan-300 via-gray-200 to-transparent dark:from-cyan-500/50 dark:via-white/10 dark:to-transparent" />
 
         {sortedPosts.map((post: Post) => (
-          <li key={`post-${post.slug}`} className="flex flex-col md:flex-row items-start mb-10 group relative">
-            {/* 时间和时间轴点容器 */}
-            <div className="flex-shrink-0 flex items-center md:items-start mb-2 md:mb-0">
-              {/* 时间 - 移动端显示在上方，PC端显示在左侧 */}
-              <div className="md:w-40 text-left md:text-right pl-10 md:pl-0 md:pr-6 text-[#5e7698] font-medium">
-                <span className="text-sm md:text-base whitespace-nowrap">
-                  {formatDate(post.createdAt || "")}
-                </span>
-              </div>
-
-              {/* 时间轴点 - 确保点始终在轴线上 */}
-              <div className="absolute left-4 md:left-[10.1rem] -translate-x-1/2 z-10 top-2 md:top-2">
-                <div className="w-3 h-3 border-2 border-blue-400 rounded-full bg-white group-hover:scale-125 transition-transform duration-300"></div>
-              </div>
+          <li
+            key={`post-${post.slug}`}
+            className="flex flex-col md:flex-row items-start mb-8 group relative"
+          >
+            {/* 时间 */}
+            <div className="flex-shrink-0 md:w-40 md:text-right md:pr-6 pl-10 md:pl-0 text-sm font-medium text-gray-500 dark:text-white/40">
+              <span className="whitespace-nowrap">
+                {formatDate(post.createdAt || "")}
+              </span>
             </div>
 
-            {/* 内容卡片 - 移动端通过 pl-10 避开时间轴线 */}
+            {/* 时间轴点 */}
+            <div className="absolute left-4 md:left-[10.5rem] -translate-x-1/2 z-10 top-1.5">
+              <div className="w-3 h-3 rounded-full bg-white border-2 border-cyan-400 shadow-sm dark:bg-[#05060a] dark:border-cyan-400 group-hover:bg-cyan-500 group-hover:scale-125 group-hover:shadow-[0_0_12px_#22d3ee] transition-all duration-300" />
+            </div>
+
+            {/* 内容卡片 */}
             <div className="w-full pl-10 md:pl-0 md:ml-12">
-              <div className="p-5 sm:p-6 bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 group-hover:border-blue-100">
+              <div className="p-5 sm:p-6 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl hover:border-cyan-200 dark:hover:border-cyan-400/40 dark:hover:shadow-[0_0_40px_rgba(34,211,238,0.12)] transition-all duration-300 group-hover:-translate-y-0.5">
                 <h2 className="text-lg sm:text-xl font-bold mb-2">
                   <Link
                     href={`/frontend/posts/${post.slug}`}
-                    className="text-gray-800 hover:text-blue-600 transition-colors leading-tight"
+                    className="text-gray-800 dark:text-white hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors leading-tight"
                   >
                     {post.title}
                   </Link>
                 </h2>
                 {post.excerpt && (
-                  <p className="text-gray-500 text-sm sm:text-base mb-4 line-clamp-3 break-words">
+                  <p className="text-gray-500 dark:text-white/50 text-sm sm:text-base mb-4 line-clamp-3 break-words">
                     {post.excerpt}
                   </p>
                 )}
                 <Link
                   href={`/frontend/posts/${post.slug}`}
-                  className="inline-flex items-center text-blue-500 hover:text-blue-700 transition-colors text-sm font-semibold"
+                  className="inline-flex items-center text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors text-sm font-semibold"
                 >
                   详情阅读
                   <svg

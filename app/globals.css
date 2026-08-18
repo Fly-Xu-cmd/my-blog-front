@@ -1,52 +1,175 @@
 @import "tailwindcss";
 
-/* app/globals.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* 让 dark: 变体基于 .dark class（配合主题切换），而非仅系统偏好 */
+@custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ============ 设计令牌 ============ */
+@theme {
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans SC", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Consolas, monospace;
+
+  /* 品牌蓝（浅色模式主色） */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-800: #1e40af;
+  --color-brand-900: #1e3a8a;
+
+  --color-accent-300: #67e8f9;
+  --color-accent-400: #22d3ee;
+  --color-accent-500: #06b6d4;
+  --color-accent-600: #0891b2;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ============ 基础 ============ */
+html {
+  scroll-behavior: smooth;
+  max-width: 100%;
+  /*
+   * 横向裁剪只放在 <html> 根元素上，不要放在 <body> 上。
+   * 根元素的 overflow 会传播给视口，不会让 body 变成滚动容器，
+   * 因此不会破坏 Header 的 position: sticky 吸顶。
+   * 先写 hidden 作为旧浏览器回退，再写 clip（现代浏览器生效）。
+   */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+body {
+  max-width: 100%;
+  color: #1f2937;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  margin: 0;
+  padding: 0;
+  background-color: #f6f8fc;
+}
+
+/* 暗色模式基础 */
+.dark body {
+  color: #e5e7eb;
+  background-color: #05060a;
+}
+
+::selection {
+  background-color: #bfdbfe;
+  color: #1e3a8a;
+}
+.dark ::selection {
+  background-color: #22d3ee;
+  color: #05060a;
+}
+
+/* ============ 星空 & 极光动画 ============ */
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes float1 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(40px, -30px);
+  }
+}
+@keyframes float2 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-30px, 20px);
+  }
+}
+@keyframes float3 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(20px, 40px);
+  }
+}
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-html,
-body {
-  max-width: 100%;
-  overflow-x: hidden;
-  position: relative;
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease both;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  margin: 0;
-  padding: 0;
-  overflow: visible;
+/* ============ 流星动画 ============ */
+@keyframes meteor {
+  0% {
+    transform: rotate(215deg) translateX(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(215deg) translateX(-520px);
+    opacity: 0;
+  }
 }
 
-/* 强制 Markdown 容器内容不溢出 */
+.meteor {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  box-shadow: 0 0 6px 1px rgba(103, 232, 249, 0.45);
+  transform: rotate(215deg);
+  animation: meteor 5s linear infinite;
+  /* backwards：让延迟期间套用 0% 关键帧（opacity 0），避免流星在等待时静止显示 */
+  animation-fill-mode: backwards;
+  pointer-events: none;
+}
+
+.meteor::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 70px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), transparent);
+}
+
+/* ============ Markdown 渲染 ============ */
 .wmde-markdown,
 .markdown-body {
-  max-width: 100% !important;
-  overflow-wrap: break-word !important;
-  word-wrap: break-word !important;
-  word-break: break-all !important;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 /* 修复 Markdown 列表标记被 Tailwind preflight (list-style:none) 清除的问题 */
@@ -69,52 +192,53 @@ body {
   list-style-type: lower-alpha;
 }
 
-img {
+.wmde-markdown img {
   max-width: 100%;
   height: auto;
+  border-radius: 12px;
 }
 
-/* 代码块：强制折行显示，不产生横向滚动 */
-pre,
-code {
-  max-width: 100% !important;
-  white-space: pre-wrap !important;
-  word-break: break-all !important;
-  overflow-wrap: break-word !important;
+.wmde-markdown pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 10px;
+}
+.wmde-markdown code {
+  font-family: var(--font-mono);
 }
 
-/* 表格适配：允许内部滚动但容器不撑大 */
-table {
-  display: block !important;
-  max-width: 100% !important;
-  overflow-x: auto !important;
-  white-space: normal;
+.wmde-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
-.active {
-  color: #2c3e50;
-  border-bottom: 2px solid #3498db;
-  padding-bottom: 2px;
-  transition: border-bottom 0.3s ease;
-}
-
-/* 全局自定义滚动条样式 - 主题一致 */
+/* ============ 全局自定义滚动条 ============ */
 html::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 html::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
 }
 html::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #cbd5e1;
   border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 html::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: #94a3b8;
+  background-clip: content-box;
 }
-html::-webkit-scrollbar-corner {
-  background: #f1f1f1;
+.dark html::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  background-clip: content-box;
+}
+.dark html::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+  background-clip: content-box;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -123,16 +247,11 @@ html::-webkit-scrollbar-corner {
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
-  border-radius: 3px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 3px;
-  transition: background 0.2s ease;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
-.custom-scrollbar::-webkit-scrollbar-corner {
-  background: transparent;
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
 }
