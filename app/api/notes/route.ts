@@ -20,7 +20,7 @@ const generateUniqueSlug = async (baseSlug: string): Promise<string> => {
   if (existingNotes.length === 0) return baseSlug;
 
   const slugs = existingNotes.map((n: { slug: string }) => n.slug);
-  const maxIndex = slugs.reduce((max, slug) => {
+  const maxIndex = slugs.reduce((max: number, slug: string) => {
     if (slug === baseSlug) return Math.max(max, 1);
     const match = slug.match(new RegExp(`^${baseSlug}-(\\d+)$`));
     return match ? Math.max(max, parseInt(match[1], 10)) : max;

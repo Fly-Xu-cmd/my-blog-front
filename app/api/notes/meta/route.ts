@@ -24,7 +24,7 @@ export async function GET() {
     return NextResponse.json({
       categories,
       tags,
-      serverSyncIds: notes.map((n) => n.syncId)
+      serverSyncIds: notes.map((n: { syncId: string }) => n.syncId)
     }, { status: 200 });
   } catch (error) {
     console.error('Failed to fetch metadata:', error);

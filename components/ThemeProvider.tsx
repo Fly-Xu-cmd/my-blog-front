@@ -1,15 +1,20 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { ConfigProvider, theme as antdTheme } from "antd";
 
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
 
+export interface ThemeOrigin {
+  x: number;
+  y: number;
+}
+
 interface ThemeContextValue {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
-  setTheme: (t: Theme) => void;
+  setTheme: (t: Theme, origin?: ThemeOrigin) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
@@ -20,6 +25,41 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 export const useTheme = () => useContext(ThemeContext);
 
+/**
+ * 根据主题设置计算实际应使用的 dark 值
+ */
+function computeDark(t: Theme): boolean {
+  if (t === "dark") return true;
+  if (t === "light") return false;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+/**
+ * 应用主题到 DOM：切换 .dark class 并更新 resolvedTheme 状态
+ */
+function applyDom(
+  dark: boolean,
+  setResolvedTheme: (r: ResolvedTheme) => void,
+) {
+  document.documentElement.classList.toggle("dark", dark);
+  setResolvedTheme(dark ? "dark" : "light");
+}
+
+/**
+ * 持久化主题设置到 localStorage
+ */
+function persistTheme(t: Theme) {
+  try {
+    if (t === "system") {
+      localStorage.removeItem("theme");
+    } else {
+      localStorage.setItem("theme", t);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function ThemeProvider({
   children,
 }: {
@@ -28,7 +68,12 @@ export default function ThemeProvider({
   const [theme, setTheme] = useState<Theme>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
 
-  // 初始化：读取本地存储
+  /**
+   * 标记本次主题变更是否由用户主动触发（View Transition 路径），
+   * 避免 useEffect 中的 DOM 操作与 handleSetTheme 重复执行。
+   */
+  const userInitiatedRef = useRef(false);
+
   useEffect(() => {
     try {
       const stored = localStorage.getItem("theme") as Theme | null;
@@ -40,18 +85,25 @@ export default function ThemeProvider({
     }
   }, []);
 
-  // 应用主题到 <html> 的 class，并记录「实际生效」的主题
+  /**
+   * 主题同步 effect：负责初始化和系统主题跟随。
+   * 当变更由用户主动触发时（userInitiatedRef = true），跳过 DOM 操作，
+   * 仅处理系统主题监听器的绑定/解绑。
+   */
   useEffect(() => {
     const root = document.documentElement;
+
     const apply = () => {
-      const dark =
-        theme === "dark" ||
-        (theme === "system" &&
-          window.matchMedia("(prefers-color-scheme: dark)").matches);
+      const dark = computeDark(theme);
       root.classList.toggle("dark", dark);
       setResolvedTheme(dark ? "dark" : "light");
     };
-    apply();
+
+    if (userInitiatedRef.current) {
+      userInitiatedRef.current = false;
+    } else {
+      apply();
+    }
 
     if (theme === "system") {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -60,51 +112,67 @@ export default function ThemeProvider({
     }
   }, [theme]);
 
-  // 真正切换主题（同步切 .dark，供 View Transition 捕获“新主题”快照）
-  const applyTheme = (t: Theme) => {
-    const dark =
-      t === "dark" ||
-      (t === "system" &&
-        window.matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.classList.toggle("dark", dark);
-    setResolvedTheme(dark ? "dark" : "light");
-    setTheme(t);
-    try {
-      if (t === "system") {
-        localStorage.removeItem("theme");
-      } else {
-        localStorage.setItem("theme", t);
-      }
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const handleSetTheme = (t: Theme) => {
+  /**
+   * 用户主动切换主题（含 View Transition 动画）
+   * @param t     目标主题
+   * @param origin 动画扩散原点（相对于视口的坐标），默认右上角
+   */
+  const handleSetTheme = (t: Theme, origin?: ThemeOrigin) => {
     const doc = document as Document & {
       startViewTransition?: (cb: () => void) => { finished: Promise<void> };
     };
 
-    const commit = () => flushSync(() => applyTheme(t));
+    const dark = computeDark(t);
 
-    // 浏览器支持 View Transitions：新主题从右上角圆形展开，旧主题渐被覆盖
+    const commit = () =>
+      flushSync(() => {
+        applyDom(dark, setResolvedTheme);
+        setTheme(t);
+        persistTheme(t);
+      });
+
     if (typeof doc.startViewTransition === "function") {
+      userInitiatedRef.current = true;
+
+      const ox = origin?.x ?? window.innerWidth;
+      const oy = origin?.y ?? 0;
+
+      const oxPct = ((ox / window.innerWidth) * 100).toFixed(2);
+      const oyPct = ((oy / window.innerHeight) * 100).toFixed(2);
+
       const name = `theme-reveal-${Date.now()}`;
       const styleEl = document.createElement("style");
       styleEl.textContent = `
         @keyframes ${name} {
-          from { clip-path: circle(0px at 100% 0%); }
-          to { clip-path: circle(150vmax at 100% 0%); }
+          from { clip-path: circle(0px at ${oxPct}% ${oyPct}%); }
+          to   { clip-path: circle(150vmax at ${oxPct}% ${oyPct}%); }
         }
-        ::view-transition-old(root) { animation: none; }
-        ::view-transition-new(root) { animation: ${name} 1.25s cubic-bezier(0.4, 0, 0.2, 1) both; }
+        @keyframes ${name}-fade {
+          from { opacity: 1; }
+          to   { opacity: 0; }
+        }
+        ::view-transition-old(root) {
+          animation: ${name}-fade 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+        }
+        ::view-transition-new(root) {
+          animation: ${name} 0.85s cubic-bezier(0.4, 0, 0.2, 1) both;
+        }
       `;
-      document.head.appendChild(styleEl);
 
-      const transition = doc.startViewTransition(commit);
-      transition.finished?.finally?.(() => styleEl.remove());
+      try {
+        document.head.appendChild(styleEl);
+        const transition = doc.startViewTransition(commit);
+        transition.finished?.finally?.(() => styleEl.remove());
+      } catch {
+        styleEl.remove();
+        applyDom(dark, setResolvedTheme);
+        setTheme(t);
+        persistTheme(t);
+      }
     } else {
-      applyTheme(t);
+      applyDom(dark, setResolvedTheme);
+      setTheme(t);
+      persistTheme(t);
     }
   };
 
@@ -112,7 +180,6 @@ export default function ThemeProvider({
     <ThemeContext.Provider
       value={{ theme, resolvedTheme, setTheme: handleSetTheme }}
     >
-      {/* 让所有 Ant Design 组件（含主题切换下拉框）跟随主题系统 */}
       <ConfigProvider
         theme={{
           algorithm:
@@ -120,7 +187,6 @@ export default function ThemeProvider({
               ? antdTheme.darkAlgorithm
               : antdTheme.defaultAlgorithm,
           token: {
-            // 浮层 z-index 高于 header（z-[9999]），下拉框不会被导航遮挡
             zIndexPopupBase: 11000,
           },
         }}
