@@ -37,10 +37,7 @@ function computeDark(t: Theme): boolean {
 /**
  * 应用主题到 DOM：切换 .dark class 并更新 resolvedTheme 状态
  */
-function applyDom(
-  dark: boolean,
-  setResolvedTheme: (r: ResolvedTheme) => void,
-) {
+function applyDom(dark: boolean, setResolvedTheme: (r: ResolvedTheme) => void) {
   document.documentElement.classList.toggle("dark", dark);
   setResolvedTheme(dark ? "dark" : "light");
 }
@@ -147,15 +144,11 @@ export default function ThemeProvider({
           from { clip-path: circle(0px at ${oxPct}% ${oyPct}%); }
           to   { clip-path: circle(150vmax at ${oxPct}% ${oyPct}%); }
         }
-        @keyframes ${name}-fade {
-          from { opacity: 1; }
-          to   { opacity: 0; }
-        }
         ::view-transition-old(root) {
-          animation: ${name}-fade 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+          animation: none;
         }
         ::view-transition-new(root) {
-          animation: ${name} 0.85s cubic-bezier(0.4, 0, 0.2, 1) both;
+          animation: ${name} 1.2s cubic-bezier(0.4, 0, 0.2, 1) both;
         }
       `;
 
