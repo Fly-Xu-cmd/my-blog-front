@@ -1,3 +1,16 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+
+/**
+ * 关于页 SEO 元数据
+ */
+export const metadata: Metadata = {
+  title: "关于我",
+  description:
+    "认识若木：一名热衷于技术探索与分享的全栈开发者，专注前端、后端与 AI 方向的技术实践。",
+  alternates: { canonical: "/frontend/about" },
+};
+
 /**
  * 关于页面组件
  * 展示博主的个人简介和技术背景
@@ -8,6 +21,14 @@ export default function About() {
       <div className="max-w-3xl mx-auto">
         {/* 页面标题 */}
         <header className="text-center mb-12">
+          <Image
+            src="/imgs/head-img.jpg"
+            alt="若木的头像"
+            width={112}
+            height={112}
+            priority
+            className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover mx-auto mb-6 ring-4 ring-white shadow-lg dark:ring-white/10"
+          />
           <h1 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white tracking-tight">
             <span className="bg-gradient-to-r from-cyan-500 to-violet-500 bg-clip-text text-transparent">
               关于我

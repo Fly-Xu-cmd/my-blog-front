@@ -42,7 +42,8 @@ jobs:
       - name: 🏗️ Build Next.js project
         run: pnpm build
         env:
-          NEXT_PUBLIC_SITE_URL: https://${{ secrets.ALIYUN_SERVER_IP }}
+          # SEO（canonical/sitemap/OG）使用的正式站点域名
+          NEXT_PUBLIC_SITE_URL: https://xylxf.xyz
           NEXT_PUBLIC_BASE_URL: http://${{ secrets.ALIYUN_SERVER_ADDRESS }}
 
       # ----------------------------------------------------------------

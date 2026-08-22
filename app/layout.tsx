@@ -4,6 +4,12 @@ import "./globals.css";
 import "../public/icon/iconfont.css";
 import ThemeProvider from "@/components/ThemeProvider";
 import Background from "@/components/Background";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_OG_IMAGE,
+  absoluteUrl,
+} from "@/lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,9 +22,53 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "若木的小世界 - 技术博客",
-  description:
-    "一个专注于前端/后端/AI技术的博客，分享最新的技术趋势、实用的教程和深入的分析，帮助开发者提升技能，解决问题。",
+  metadataBase: new URL(absoluteUrl()),
+  title: {
+    default: `${SITE_NAME} - 技术博客`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  keywords: [
+    "前端开发",
+    "后端开发",
+    "AI",
+    "技术博客",
+    "JavaScript",
+    "React",
+    "Next.js",
+  ],
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: `${SITE_NAME} - 技术博客`,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    siteName: SITE_NAME,
+    locale: "zh_CN",
+    type: "website",
+    images: [{ url: SITE_OG_IMAGE, width: 1070, height: 1070, alt: SITE_NAME }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} - 技术博客`,
+    description: SITE_DESCRIPTION,
+    images: [SITE_OG_IMAGE],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+  },
+};
+
+/** WebSite 结构化数据：帮助搜索引擎识别站点名称与首页链接 */
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  url: absoluteUrl(),
+  description: SITE_DESCRIPTION,
+  inLanguage: "zh-CN",
 };
 
 // 首屏前应用主题，避免闪烁
@@ -41,6 +91,11 @@ export default function RootLayout({
         <ThemeProvider>
           <Background />
           <div className="relative w-full flex flex-col">{children}</div>
+          {/* WebSite 结构化数据（JSON-LD） */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+          />
         </ThemeProvider>
       </body>
     </html>
