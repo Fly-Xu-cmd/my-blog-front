@@ -101,7 +101,22 @@ model NoteTag {
   tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
   tagId  Int
 
-  @@id([noteId, tagId])  // 复合主键确保唯一性
+  @@id([noteId, tagId])       // 复合主键确保唯一性
   @@index([tagId])       // 针对 relationMode = "prisma" 的外键索引优化
+}
+
+// 页面访问记录表（PV 明细，UV 按 visitorId 去重）
+model PageView {
+  id           Int      @id @default(autoincrement())
+  path         String   @db.VarChar(512)  // 页面路径
+  visitorId    String   @db.VarChar(64)   // 匿名访客 ID（UUID v4，代表匿名浏览器而非用户身份）
+  referrerHost String?  @db.VarChar(255)  // 来源 hostname（服务端解析，不存完整 URL）
+  userAgent    String?  @db.VarChar(512)  // 浏览器 UA（截断存储）
+  isBot        Boolean  @default(false)   // 预留 Bot 识别扩展，第一版恒为 false
+  createdAt    DateTime @default(now()) @db.DateTime(0)
+
+  @@index([path, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([createdAt])
 }
 

@@ -79,6 +79,7 @@ export default function PostDetail({ slug }: Params) {
   const [post, setPost] = useState<Post | null>(null);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [views, setViews] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,6 +102,33 @@ export default function PostDetail({ slug }: Params) {
       }
     };
     fetchPost();
+    return () => {
+      isMounted = false;
+    };
+  }, [slug]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    /**
+     * 拉取当前文章的阅读量
+     * 失败时静默忽略，阅读量保持 "-" 展示
+     */
+    const fetchViews = async () => {
+      try {
+        const res = await fetch(
+          `/api/analytics/views?path=/frontend/posts/${slug}`,
+        );
+        const data = await res.json();
+        if (isMounted && typeof data.views === "number") {
+          setViews(data.views);
+        }
+      } catch {
+        // 获取失败时静默忽略，不影响文章展示
+      }
+    };
+
+    fetchViews();
     return () => {
       isMounted = false;
     };
@@ -209,6 +237,7 @@ export default function PostDetail({ slug }: Params) {
               <Space split={<span className="text-gray-300">|</span>}>
                 <span>分类：{post.category?.name || "未分类"}</span>
                 <span>发布于：{formatDate(post.createdAt)}</span>
+                <span>{views !== null ? `${views} 次阅读` : "-"}</span>
               </Space>
               {post.tags && post.tags.length > 0 && (
                 <div className="flex gap-2">
