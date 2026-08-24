@@ -60,7 +60,7 @@ export default function NewBlogs({ posts }: { posts: Post[] }) {
               <div className="p-5 sm:p-6 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl hover:border-cyan-200 dark:hover:border-cyan-400/40 dark:hover:shadow-[0_0_40px_rgba(34,211,238,0.12)] transition-all duration-300 group-hover:-translate-y-0.5">
                 <h2 className="text-lg sm:text-xl font-bold mb-2">
                   <Link
-                    href={`/frontend/posts/${post.slug}`}
+                    href={`/posts/${post.slug}`}
                     className="text-gray-800 dark:text-white hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors leading-tight"
                   >
                     {post.title}
@@ -72,7 +72,7 @@ export default function NewBlogs({ posts }: { posts: Post[] }) {
                   </p>
                 )}
                 <Link
-                  href={`/frontend/posts/${post.slug}`}
+                  href={`/posts/${post.slug}`}
                   className="inline-flex items-center text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors text-sm font-semibold"
                 >
                   详情阅读

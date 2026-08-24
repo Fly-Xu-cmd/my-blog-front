@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { type Note } from "@/app/frontend/model";
+import { type Note } from "@/app/model";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Anchor,

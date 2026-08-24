@@ -39,7 +39,7 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
             <div className="px-5 py-4 border-b border-gray-50 dark:border-white/5 bg-gray-50/60 dark:bg-white/[0.02] flex justify-between items-center">
               <h3 className="text-base font-semibold text-gray-800 dark:text-white">
                 <Link
-                  href={`/frontend/status/${status.id}`}
+                  href={`/status/${status.id}`}
                   className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors"
                 >
                   {status.title}
@@ -56,7 +56,7 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
                 {status.excerpt}
               </p>
               <Link
-                href={`/frontend/status/${status.id}`}
+                href={`/status/${status.id}`}
                 className="inline-flex items-center text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 transition-colors text-sm font-medium"
               >
                 查看详情
@@ -82,7 +82,7 @@ export default function NewStatus({ status }: { status: Dynamic[] }) {
       {sortedStatus.length > 0 && (
         <div className="text-center mt-8">
           <Link
-            href="/frontend/allStatus"
+            href="/allStatus"
             className="inline-block px-6 py-2.5 rounded-full bg-cyan-50 text-cyan-600 dark:bg-cyan-400/10 dark:text-cyan-300 hover:bg-cyan-100 dark:hover:bg-cyan-400/20 transition-colors text-sm font-medium"
           >
             查看全部动态

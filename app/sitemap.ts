@@ -14,10 +14,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 静态页面
   const staticEntries: MetadataRoute.Sitemap = [
     { url: absoluteUrl("/"), changeFrequency: "daily", priority: 1 },
-    { url: absoluteUrl("/frontend/allBlogs"), changeFrequency: "daily", priority: 0.9 },
-    { url: absoluteUrl("/frontend/notes"), changeFrequency: "weekly", priority: 0.8 },
-    { url: absoluteUrl("/frontend/allStatus"), changeFrequency: "daily", priority: 0.6 },
-    { url: absoluteUrl("/frontend/about"), changeFrequency: "monthly", priority: 0.5 },
+    { url: absoluteUrl("/allBlogs"), changeFrequency: "daily", priority: 0.9 },
+    { url: absoluteUrl("/notes"), changeFrequency: "weekly", priority: 0.8 },
+    { url: absoluteUrl("/allStatus"), changeFrequency: "daily", priority: 0.6 },
+    { url: absoluteUrl("/about"), changeFrequency: "monthly", priority: 0.5 },
   ];
 
   // 数据库不可达时仅返回静态页面，保证 sitemap 可用
@@ -38,13 +38,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [
       ...staticEntries,
       ...posts.map((p) => ({
-        url: absoluteUrl(`/frontend/posts/${p.slug}`),
+        url: absoluteUrl(`/posts/${p.slug}`),
         lastModified: p.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.8,
       })),
       ...notes.map((n) => ({
-        url: absoluteUrl(`/frontend/notes/${n.slug}`),
+        url: absoluteUrl(`/notes/${n.slug}`),
         lastModified: n.updatedAt,
         changeFrequency: "weekly" as const,
         priority: 0.7,

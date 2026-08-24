@@ -9,11 +9,11 @@ import { Menu, X } from "lucide-react";
 import { Drawer } from "antd";
 
 const NAV_ITEMS = [
-  { path: "/frontend", label: "首页", icon: "\ue606" },
-  { path: "/frontend/allBlogs", label: "博客", icon: "\ue634" },
-  { path: "/frontend/allStatus", label: "动态", icon: "\ue61d" },
-  { path: "/frontend/notes", label: "笔记", icon: "\ue612" },
-  { path: "/frontend/about", label: "关于我", icon: "\ue63d" },
+  { path: "/", label: "首页", icon: "\ue606" },
+  { path: "/allBlogs", label: "博客", icon: "\ue634" },
+  { path: "/allStatus", label: "动态", icon: "\ue61d" },
+  { path: "/notes", label: "笔记", icon: "\ue612" },
+  { path: "/about", label: "关于我", icon: "\ue63d" },
 ];
 
 /**
@@ -24,13 +24,13 @@ export default function Header() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const isActive = (path: string) =>
-    path === "/frontend" ? pathname === "/frontend" : pathname.startsWith(path);
+    path === "/" ? pathname === "/" : pathname.startsWith(path);
 
   return (
     <header className="sticky top-0 z-[9999] w-full border-b border-gray-200/60 bg-white/75 backdrop-blur-xl dark:border-white/10 dark:bg-[#05060a]/75">
       <div className="flex justify-between px-4 md:px-6 h-16 items-center max-w-7xl mx-auto">
         {/* 标题（头像 + 站点名） */}
-        <Link href="/frontend" className="shrink-0 flex items-center gap-2.5">
+        <Link href="/" className="shrink-0 flex items-center gap-2.5">
           <Image
             src="/imgs/head-img.jpg"
             alt="若木的头像"

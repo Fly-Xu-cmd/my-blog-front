@@ -4,6 +4,9 @@ import "./globals.css";
 import "../public/icon/iconfont.css";
 import ThemeProvider from "@/components/ThemeProvider";
 import Background from "@/components/Background";
+import Header from "@/components/Header";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
+import Footer from "@/components/Footer";
 import {
   SITE_DESCRIPTION,
   SITE_NAME,
@@ -42,7 +45,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: `${SITE_NAME} - 技术博客`,
     description: SITE_DESCRIPTION,
-    url: "/",
+    url: absoluteUrl("/"),
     siteName: SITE_NAME,
     locale: "zh_CN",
     type: "website",
@@ -90,7 +93,12 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <Background />
-          <div className="relative w-full flex flex-col">{children}</div>
+          <AnalyticsTracker />
+          <div className="relative w-full flex flex-col min-h-screen">
+            <Header />
+            <div className="w-full flex flex-1">{children}</div>
+            <Footer />
+          </div>
           {/* WebSite 结构化数据（JSON-LD） */}
           <script
             type="application/ld+json"

@@ -3,6 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, shanghaiDayStartUtc } from "@/lib/analytics";
 
 /**
+ * 规范化页面路径：去掉 /frontend 前缀，合并路由迁移前后的同一页面
+ * 例如 /frontend/posts/abc → /posts/abc，/frontend → /
+ * @param path 原始路径
+ * @returns 规范化后的路径（无 /frontend 前缀）
+ */
+function normalizePath(path: string): string {
+  if (path === "/frontend") return "/";
+  if (path.startsWith("/frontend/")) return path.slice("/frontend".length);
+  return path;
+}
+
+/**
  * 管理端统计接口（GET /api/analytics/stats?range=7d|30d，默认 7d）
  * 需携带 Authorization: Bearer <token>，且 token 用户名须匹配 ADMIN_USERNAME。
  * 返回 { today: { pv, uv }, trend: [{ date, pv, uv }], topPages: [{ path, count }], referrers: [{ host, count }] }
@@ -60,15 +72,24 @@ export async function GET(req: Request) {
     trend.push({ date, pv: item.pv, uv: item.uv });
   }
 
-  // Top 10 页面（GROUP BY / ORDER BY / LIMIT 均在 MySQL 完成）
+  // Top 页面：先按路径分组，再按规范化路径合并（合并 /frontend 前缀旧路径与新路径）
   const topRows = await prisma.pageView.groupBy({
     by: ["path"],
     _count: { _all: true },
     orderBy: { _count: { path: "desc" } },
-    take: 10,
+    take: 20, // 取 20 条，合并后再裁 Top 10
     where: { createdAt: { gte: rangeStart } },
   });
-  const topPages = topRows.map((row) => ({ path: row.path, count: row._count._all }));
+  // 按规范化路径合并统计，确保同一页面新旧路径数据合计
+  const merged = new Map<string, number>();
+  topRows.forEach((row) => {
+    const key = normalizePath(row.path);
+    merged.set(key, (merged.get(key) ?? 0) + row._count._all);
+  });
+  const topPages = Array.from(merged.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([path, count]) => ({ path, count }));
 
   // Top 10 来源域名（排除直访/无来源记录，referrerHost 为 null 的行）
   const refRows = await prisma.pageView.groupBy({

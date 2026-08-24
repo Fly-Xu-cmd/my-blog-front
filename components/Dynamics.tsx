@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import MyEditorPreview from "@/components/MyEditorPreview";
-import { Dynamic } from "@/app/frontend/model";
+import { Dynamic } from "@/app/model";
 
 /**
  * 计算天干地支纪年

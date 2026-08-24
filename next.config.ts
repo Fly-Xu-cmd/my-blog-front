@@ -4,12 +4,30 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: "https", // 如果你有 https，这里写 https
+        protocol: "https",
         hostname: "image.xylxf.xyz",
-        port: "", // 如果没有特殊端口就留空
-        pathname: "/**", // 允许该域名下的所有路径
+        port: "",
+        pathname: "/**",
       },
     ],
+  },
+  /**
+   * 永久重定向旧的 /frontend/* 路径到根路径
+   * 解决 Google Search Console "重复网页"和"网页会自动重定向"问题
+   */
+  async redirects() {
+    return [
+      {
+        source: "/frontend",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/frontend/:path*",
+        destination: "/:path*",
+        permanent: true,
+      },
+    ];
   },
 };
 

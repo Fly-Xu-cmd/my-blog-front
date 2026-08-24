@@ -1,6 +1,8 @@
-// app/page.tsx
-import { redirect } from "next/navigation";
+import HomeFeed from "./frontend/HomeFeed";
 
+/**
+ * 博客首页（直接渲染，不重定向）
+ */
 export default function Home() {
-  redirect("/frontend");
+  return <HomeFeed />;
 }
