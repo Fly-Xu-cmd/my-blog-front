@@ -1,4 +1,4 @@
-import HomeFeed from "./frontend/HomeFeed";
+import HomeFeed from "./HomeFeed";
 
 /**
  * 博客首页（直接渲染，不重定向）

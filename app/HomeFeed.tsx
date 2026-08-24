@@ -4,7 +4,10 @@ import NewStatus from "@/components/NewStatus";
 import { Segmented, Spin } from "antd";
 import { useEffect, useState } from "react";
 
-// 获取博客文章
+/**
+ * 获取博客文章列表
+ * @returns 博客文章接口响应数据
+ */
 const fetchBlogPosts = async () => {
   const res = await fetch(`/api/posts?current=1&size=10`);
   if (!res.ok) {
@@ -13,7 +16,10 @@ const fetchBlogPosts = async () => {
   return res.json();
 };
 
-// 获取动态数据
+/**
+ * 获取动态（状态）列表
+ * @returns 动态数据接口响应
+ */
 const fetchStatus = async () => {
   const res = await fetch(`/api/dynamics?current=1&size=10`);
   return res.json();
@@ -30,6 +36,9 @@ export default function HomeFeed() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    /**
+     * 并行拉取博客与动态数据，任一失败不阻塞另一项
+     */
     const fetchData = async () => {
       try {
         const postsData = await fetchBlogPosts();
