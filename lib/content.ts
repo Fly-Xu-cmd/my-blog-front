@@ -6,7 +6,6 @@ export type Resource = 'post' | 'note' | 'dynamic';
 export const relations = { category: true, tags: { include: { tag: true } }, series: true };
 const taxonomy = { category: true, tags: { include: { tag: true } } };
 export const postSummary = {
- content:true,
   id: true,
   title: true,
   slug: true,
@@ -21,7 +20,6 @@ export const postSummary = {
   ...relations,
 };
 export const noteSummary = {
- content:true,
   id: true,
   title: true,
   slug: true,
@@ -35,7 +33,6 @@ export const noteSummary = {
   ...taxonomy,
 };
 const dynamicSummary = {
- content:true,
   id: true,
   title: true,
   excerpt: true,
@@ -62,7 +59,6 @@ export function filter(params: URLSearchParams, isAdmin: boolean) {
 }
 export async function listContent(resource: Resource, params: URLSearchParams, isAdmin = false) {
   const { current, pageSize, skip, take } = pagination(params);
-const legacy=!isAdmin&&!params.has('current')&&!params.has('pageSize')&&!params.has('size');
   const where = filter(params, isAdmin);
   const category = params.get('category');
   const tag = params.get('tags');

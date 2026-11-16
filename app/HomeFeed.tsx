@@ -1,90 +1,47 @@
-"use client";
-import NewBlogs from "@/components/NewBlogs";
-import NewStatus from "@/components/NewStatus";
-import { Segmented, Spin } from "antd";
-import { useEffect, useState } from "react";
-
-/**
- * 获取博客文章列表
- * @returns 博客文章接口响应数据
- */
-const fetchBlogPosts = async () => {
-  const res = await fetch(`/api/posts?current=1&size=10`);
-  if (!res.ok) {
-    throw new Error(`HTTP error! status: ${res.status}`);
-  }
-  return res.json();
-};
-
-/**
- * 获取动态（状态）列表
- * @returns 动态数据接口响应
- */
-const fetchStatus = async () => {
-  const res = await fetch(`/api/dynamics?current=1&size=10`);
-  return res.json();
-};
-
-/**
- * 首页内容客户端组件
- * 现代 hero + Segmented 切换博客/动态
- */
-export default function HomeFeed() {
-  const [tab, setTab] = useState<string | number>("blogs");
-  const [posts, setPosts] = useState([]);
-  const [status, setStatus] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    /**
-     * 并行拉取博客与动态数据，任一失败不阻塞另一项
-     */
-    const fetchData = async () => {
-      try {
-        const postsData = await fetchBlogPosts();
-        setPosts(postsData.data || []);
-        const statusData = await fetchStatus();
-        setStatus(statusData.data || []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
+'use client';
+import { useState } from 'react';
+import PublicList, { Listing } from '@/components/PublicList';
+export default function HomeFeed({
+  posts,
+  dynamics,
+  postError,
+  dynamicError,
+}: {
+  posts: Listing;
+  dynamics: Listing;
+  postError?: boolean;
+  dynamicError?: boolean;
+}) {
+  const [tab, setTab] = useState<'post' | 'dynamic'>('post');
   return (
     <div className="w-full">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="relative max-w-3xl mx-auto text-center pt-16 pb-12 px-4">
-          <div className="mt-8 flex justify-center">
-            <Segmented
-              size="large"
-              value={tab}
-              onChange={setTab}
-              options={[
-                { label: "最新博客", value: "blogs" },
-                { label: "最新动态", value: "dynamics" },
-              ]}
-            />
-          </div>
+      <section className="max-w-4xl mx-auto text-center px-4 py-14">
+        <h1 className="text-4xl font-bold mb-5">若木的小世界</h1>
+        <p className="text-gray-500 text-lg">记录前端、后端与 AI 应用实践，也留下生活中的思考。</p>
+        <div className="flex justify-center gap-3 mt-8">
+          <button
+            className="rounded-full border px-5 py-2"
+            aria-pressed={tab === 'post'}
+            onClick={() => setTab('post')}
+          >
+            最新博客
+          </button>
+          <button
+            className="rounded-full border px-5 py-2"
+            aria-pressed={tab === 'dynamic'}
+            onClick={() => setTab('dynamic')}
+          >
+            最新动态
+          </button>
         </div>
       </section>
-
-      {/* 内容区 */}
-      <section className="max-w-5xl mx-auto px-4 py-10">
-        {loading ? (
-          <div className="flex justify-center py-24">
-            <Spin size="large" />
-          </div>
-        ) : tab === "blogs" ? (
-          <NewBlogs posts={posts} />
-        ) : (
-          <NewStatus status={status} />
-        )}
-      </section>
+      {(tab === 'post' ? postError : dynamicError) ? (
+        <p role="alert" className="text-center">
+          内容暂不可用，请稍后刷新
+        </p>
+      ) : (
+        <PublicList key={tab} resource={tab} initial={tab === 'post' ? posts : dynamics} />
+      )}
     </div>
   );
 }
