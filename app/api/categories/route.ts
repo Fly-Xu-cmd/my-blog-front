@@ -1,83 +1,50 @@
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-
-export async function GET() {
-  try {
-    const categories = await prisma.category.findMany({
-      orderBy: { name: "asc" },
-    });
-    return NextResponse.json({
-      ok: true,
-      data: categories,
-      total: categories.length,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: "服务器内部错误:" + err },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(req: Request) {
-  const { name } = await req.json();
-  if (!name)
-    return NextResponse.json(
-      { ok: false, error: "name required" },
-      { status: 400 }
-    );
-  try {
-    const cat = await prisma.category.upsert({
-      where: { name },
-      update: {},
-      create: { name },
-    });
-    return NextResponse.json({ ok: true, data: cat });
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: "服务器内部错误:" + err },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(req: Request) {
-  const { name } = await req.json();
-  if (!name)
-    return NextResponse.json(
-      { ok: false, error: "name required" },
-      { status: 400 }
-    );
-  try {
-    const cat = await prisma.category.delete({
-      where: { name },
-    });
-    return NextResponse.json({ ok: true, data: cat });
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: "服务器内部错误:" + err },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(req: Request) {
-  const { name, newName } = await req.json();
-  if (!name || !newName)
-    return NextResponse.json(
-      { ok: false, error: "name required" },
-      { status: 400 }
-    );
-  try {
-    const cat = await prisma.category.update({
-      where: { name },
-      data: { name: newName },
-    });
-    return NextResponse.json({ ok: true, data: cat });
-  } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: "服务器内部错误:" + err },
-      { status: 500 }
-    );
-  }
-}
+import { prisma } from '@/lib/prisma';
+import { admin, adminScope, body, ApiError, endpoint, json, textField } from '@/lib/api';
+export const GET = endpoint(async (req: Request) => {
+  const isAdmin = await adminScope(req);
+  const data = await prisma.category.findMany({
+    where: isAdmin
+      ? {}
+      : {
+          OR: [{ posts: { some: { published: true } } }, { notes: { some: { published: true } } }],
+        },
+    orderBy: { name: 'asc' },
+  });
+  return json({ ok: true, data, total: data.length });
+});
+export const POST = endpoint(async (req: Request) => {
+  await admin(req);
+  const data = await body(req);
+  const name = textField(data.name, 100, true)!;
+  return json({
+    ok: true,
+    data: await prisma.category.upsert({ where: { name }, create: { name }, update: {} }),
+  });
+});
+export const PUT = endpoint(async (req: Request) => {
+  await admin(req);
+  const data = await body(req);
+  return json({
+    ok: true,
+    data: await prisma.category.update({
+      where: { name: textField(data.name, 100, true)! },
+      data: { name: textField(data.newName, 100, true)! },
+    }),
+  });
+});
+export const DELETE = endpoint(async (req: Request) => {
+  await admin(req);
+  const data = await body(req);
+  const name = textField(data.name, 100, true)!;
+  await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<
+      { id: number }[]
+    >`SELECT id FROM Category WHERE name = ${name} FOR UPDATE`;
+    if (!rows.length) throw new ApiError(404, 'NOT_FOUND');
+    const id = rows[0].id;
+    await tx.post.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
+    await tx.note.updateMany({ where: { categoryId: id }, data: { categoryId: null } });
+    await tx.category.delete({ where: { id } });
+  });
+  return json({ ok: true });
+});

@@ -1,27 +1,23 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import "../public/icon/iconfont.css";
-import ThemeProvider from "@/components/ThemeProvider";
-import Background from "@/components/Background";
-import Header from "@/components/Header";
-import AnalyticsTracker from "@/components/AnalyticsTracker";
-import Footer from "@/components/Footer";
-import {
-  SITE_DESCRIPTION,
-  SITE_NAME,
-  SITE_OG_IMAGE,
-  absoluteUrl,
-} from "@/lib/seo";
+import { safeJson } from '@/lib/markdown';
+import type { Metadata } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
+import './globals.css';
+import '../public/icon/iconfont.css';
+import ThemeProvider from '@/components/ThemeProvider';
+import Background from '@/components/Background';
+import Header from '@/components/Header';
+import AnalyticsTracker from '@/components/AnalyticsTracker';
+import Footer from '@/components/Footer';
+import { SITE_DESCRIPTION, SITE_NAME, SITE_OG_IMAGE, absoluteUrl } from '@/lib/seo';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
@@ -31,28 +27,20 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
-  keywords: [
-    "前端开发",
-    "后端开发",
-    "AI",
-    "技术博客",
-    "JavaScript",
-    "React",
-    "Next.js",
-  ],
+  keywords: ['前端开发', '后端开发', 'AI', '技术博客', 'JavaScript', 'React', 'Next.js'],
   applicationName: SITE_NAME,
-  alternates: { canonical: "/" },
+  alternates: { canonical: '/' },
   openGraph: {
     title: `${SITE_NAME} - 技术博客`,
     description: SITE_DESCRIPTION,
-    url: absoluteUrl("/"),
+    url: absoluteUrl('/'),
     siteName: SITE_NAME,
-    locale: "zh_CN",
-    type: "website",
+    locale: 'zh_CN',
+    type: 'website',
     images: [{ url: SITE_OG_IMAGE, width: 1070, height: 1070, alt: SITE_NAME }],
   },
   twitter: {
-    card: "summary_large_image",
+    card: 'summary_large_image',
     title: `${SITE_NAME} - 技术博客`,
     description: SITE_DESCRIPTION,
     images: [SITE_OG_IMAGE],
@@ -60,18 +48,18 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
-    googleBot: { index: true, follow: true, "max-image-preview": "large" },
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
   },
 };
 
 /** WebSite 结构化数据：帮助搜索引擎识别站点名称与首页链接 */
 const websiteJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebSite",
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
   name: SITE_NAME,
   url: absoluteUrl(),
   description: SITE_DESCRIPTION,
-  inLanguage: "zh-CN",
+  inLanguage: 'zh-CN',
 };
 
 // 首屏前应用主题，避免闪烁
@@ -89,9 +77,7 @@ export default function RootLayout({
         <meta name="baidu-site-verification" content="codeva-4lXFAVteOq" />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased w-full`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased w-full`}>
         <ThemeProvider>
           <Background />
           <AnalyticsTracker />
@@ -103,7 +89,7 @@ export default function RootLayout({
           {/* WebSite 结构化数据（JSON-LD） */}
           <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+            dangerouslySetInnerHTML={{ __html: safeJson(websiteJsonLd) }}
           />
         </ThemeProvider>
       </body>

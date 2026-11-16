@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, shanghaiDayStartUtc } from "@/lib/analytics";
+import { requireAdmin } from "@/lib/auth";
+import { shanghaiDayStartUtc } from "@/lib/analytics";
 
 /**
  * 规范化页面路径：去掉 /frontend 前缀，合并路由迁移前后的同一页面

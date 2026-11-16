@@ -1,110 +1,13 @@
-import { prisma } from "@/lib/prisma";
-import { NextRequest, NextResponse } from "next/server";
-/**
- * 获取单条动态内容
- * @param req
- * @param param1
- * @returns
- */
-
-export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { id } = await context.params; // ✅ 注意这里要 await
-  if (!Number(id)) {
-    return NextResponse.json(
-      { ok: false, error: "动态ID不能为空" },
-      { status: 400 }
-    );
-  }
-  const post = await prisma.dynamic.findUnique({
-    where: {
-      id: Number(id),
-    },
-  });
-  if (!post) {
-    return NextResponse.json(
-      { ok: false, error: "动态未找到" },
-      { status: 404 }
-    );
-  }
-  return NextResponse.json({ ok: true, data: post });
-}
-
-/**
- * 更新动态
- * @param req
- * @param param1
- * @returns
- */
-
-export async function PUT(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { id } = await context.params; // ✅ 注意这里要 await
-  if (!id) {
-    return NextResponse.json(
-      { ok: false, error: "动态ID不能为空" },
-      { status: 400 }
-    );
-  }
-  const body = await req.json();
-  const { content, title, excerpt } = body;
-  if (!content) {
-    return NextResponse.json(
-      { ok: false, error: "动态内容不能为空" },
-      { status: 400 }
-    );
-  }
-  const post = await prisma.dynamic.update({
-    where: {
-      id: Number(id),
-    },
-    data: {
-      content,
-      title,
-      excerpt,
-    },
-  });
-  if (!post) {
-    return NextResponse.json(
-      { ok: false, error: "动态未找到" },
-      { status: 404 }
-    );
-  }
-  return NextResponse.json({ ok: true, data: post });
-}
-
-/**
- * 删除动态
- * @param req
- * @param param1
- * @returns
- */
-
-export async function DELETE(
-  req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { id } = await context.params; // ✅ 注意这里要 await
-  if (!id) {
-    return NextResponse.json(
-      { ok: false, error: "动态ID不能为空" },
-      { status: 400 }
-    );
-  }
-  const post = await prisma.dynamic.delete({
-    where: {
-      id: Number(id),
-    },
-  });
-  if (!post) {
-    return NextResponse.json(
-      { ok: false, error: "动态未找到" },
-      { status: 404 }
-    );
-  }
-  return NextResponse.json({ ok: true, data: post });
-}
+import { adminScope, endpoint, json } from '@/lib/api';
+import { detail } from '@/lib/content';
+import { deleteDynamic, dynamicId, updateDynamic } from '@/lib/dynamic-api';
+type Context = { params: Promise<{ id: string }> };
+export const GET = endpoint(async (req: Request, ctx: Context) =>
+  json({ ok: true, data: await detail('dynamic', (await ctx.params).id, await adminScope(req)) }),
+);
+export const PUT = endpoint(async (req: Request, ctx: Context) =>
+  updateDynamic(req, dynamicId((await ctx.params).id)),
+);
+export const DELETE = endpoint(async (req: Request, ctx: Context) =>
+  deleteDynamic(req, dynamicId((await ctx.params).id)),
+);

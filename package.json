@@ -5,9 +5,13 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "next start",
+    "start": "next start --hostname 127.0.0.1",
     "lint": "eslint",
-    "tunnel": "ssh -L 3307:localhost:3306 -L 6379:localhost:6379 -N -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes my-blog-db"
+    "tunnel": "ssh -L 3307:localhost:3306 -L 6379:localhost:6379 -N -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes my-blog-db",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test",
+    "backfill": "tsx scripts/backfill.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -15,6 +19,7 @@
     "@uiw/react-markdown-preview": "^5.1.5",
     "@uiw/react-md-editor": "^4.0.8",
     "antd": "^5.27.4",
+    "dotenv": "^18.0.10",
     "framer-motion": "^12.23.24",
     "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.2",
@@ -22,6 +27,7 @@
     "mermaid": "^11.12.1",
     "mysql2": "^3.16.0",
     "next": "^15.5.9",
+    "pinyin-pro": "^3.29.5",
     "prisma": "^6.17.1",
     "proxy-agent": "^5.0.0",
     "qiniu": "^7.15.1",
@@ -36,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4",
     "@types/formidable": "^3.4.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -45,8 +52,11 @@
     "@types/uuid": "^11.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
+    "prettier": "^3.10.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.1.0"
   },
   "presets": [
     "react-app"

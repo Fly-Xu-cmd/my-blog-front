@@ -1,163 +1,57 @@
-import { prisma } from "@/lib/prisma";
-import { NextRequest, NextResponse } from "next/server";
-// 获取单篇文章
-export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ slug: string }> }
-) {
-  const { slug } = await context.params; // ✅ await 访问
-
-  if (!slug) {
-    return new Response(JSON.stringify({ error: "缺少 slug 参数" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  try {
-    const post = await prisma.post.findUnique({
-      where: { slug },
-      include: {
-        category: true,
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
-    });
-
-    if (!post) {
-      return new Response(JSON.stringify({ error: "文章未找到" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
+import { prisma } from '@/lib/prisma';
+import { admin, adminScope, ApiError, body, endpoint, json, textField } from '@/lib/api';
+import {
+  categoryField,
+  contentFields,
+  detail,
+  format,
+  relations,
+  seriesFields,
+  tagWrite,
+} from '@/lib/content';
+type Context = { params: Promise<{ slug: string }> };
+export const GET = endpoint(async (req: Request, ctx: Context) =>
+  json({ ok: true, data: await detail('post', (await ctx.params).slug, await adminScope(req)) }),
+);
+export const PUT = endpoint(async (req: Request, ctx: Context) => {
+  await admin(req);
+  const { slug } = await ctx.params;
+  const data = await body(req);
+  if (data.slug !== undefined && data.slug !== slug) throw new ApiError(409, 'SLUG_IMMUTABLE');
+  const fields = contentFields(data);
+  if (fields.title !== undefined) textField(fields.title, 255, true);
+  if (fields.content !== undefined) textField(fields.content, 4_000_000, true);
+  const result = await prisma.$transaction(async (tx) => {
+    const existing = await tx.post.findUnique({ where: { slug } });
+    if (!existing) throw new ApiError(404, 'NOT_FOUND');
+    if (fields.published === true)
+      await tx.post.updateMany({
+        where: { slug, publishedAt: null },
+        data: { publishedAt: new Date() },
       });
-    }
-
-    return new Response(JSON.stringify({ ok: true, data: post }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "服务器内部错误:" + err }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
-}
-// 删除文章
-export async function DELETE(
-  req: NextRequest,
-  context: { params: Promise<{ slug: string }> }
-) {
-  const { slug } = await context.params; // ✅ await 访问
-
-  if (!slug) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "缺少 slug 参数" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
-  try {
-    // 先删除文章与标签的关联关系（PostTag记录），保留标签本身
-    await prisma.postTag.deleteMany({
-      where: { post: { slug } },
-    });
-
-    const post = await prisma.post.delete({
-      where: { slug },
-    });
-    return NextResponse.json({ ok: true, data: post });
-  } catch (err) {
-    console.error("DELETE /api/posts/[slug] 错误:", err);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "服务器内部错误",
-        details: err instanceof Error ? err.message : String(err),
-      },
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
-}
-// 更新文章
-export async function PUT(
-  req: NextRequest,
-  context: { params: Promise<{ slug: string }> }
-) {
-  const { slug } = await context.params; // ✅ await 访问
-
-  if (!slug) {
-    return new Response(
-      JSON.stringify({ ok: false, error: "缺少 slug 参数" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
-  try {
-    const body = await req.json();
-    const { title, excerpt, content, cover, published, categoryId, tags } =
-      body;
-    const processedCategoryId = categoryId ? Number(categoryId) : undefined;
-    // 先删除旧标签关联，再创建新关联（避免 connectOrCreate 在 set 中的嵌套问题）
-    await prisma.postTag.deleteMany({
-      where: { post: { slug } },
-    });
-
-    const post = await prisma.post.update({
+    return tx.post.update({
       where: { slug },
       data: {
-        title,
-        excerpt,
-        content,
-        cover,
-        published: published === "true" || published === true,
-        categoryId: processedCategoryId,
+        ...fields,
+        cover: data.cover === null ? null : textField(data.cover, 512),
+        categoryId: await categoryField(data.categoryId, tx),
+        ...(await seriesFields(data, existing, tx)),
         tags:
-          tags?.length > 0
-            ? {
-                create: tags.map((tagName: string) => ({
-                  tag: {
-                    connectOrCreate: {
-                      where: { name: tagName },
-                      create: { name: tagName },
-                    },
-                  },
-                })),
-              }
-            : undefined,
+          data.tags === undefined
+            ? undefined
+            : { deleteMany: {}, ...(await tagWrite(data.tags, tx)) },
       },
-      include: {
-        tags: { include: { tag: true } },
-        category: true,
-      },
+      include: relations,
     });
-    return NextResponse.json(
-      { ok: true, data: post },
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  } catch (err) {
-    console.error("更新文章失败:", err);
-    return NextResponse.json(
-      { ok: false, error: "服务器内部错误" },
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
-}
+  });
+  return json({ ok: true, data: format(result) });
+});
+export const DELETE = endpoint(async (req: Request, ctx: Context) => {
+  await admin(req);
+  const { slug } = await ctx.params;
+  await prisma.$transaction(async (tx) => {
+    await tx.postTag.deleteMany({ where: { post: { slug } } });
+    await tx.post.delete({ where: { slug } });
+  });
+  return json({ ok: true });
+});

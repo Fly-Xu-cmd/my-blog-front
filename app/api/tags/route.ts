@@ -1,62 +1,53 @@
-import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
-
-export async function GET() {
-  try {
-    const tags = await prisma.tag.findMany({
-      orderBy: { name: "asc" },
-    });
-    return NextResponse.json({ ok: true, data: tags, total: tags.length });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ ok: false, error: "服务器内部错误" });
-  }
-}
-
-export async function POST(req: Request) {
-  const { name } = await req.json();
-  if (!name)
-    return NextResponse.json({ error: "name required" }, { status: 400 });
-  try {
-    const tag = await prisma.tag.upsert({
-      where: { name },
-      update: {},
-      create: { name },
-    });
-    return NextResponse.json({ ok: true, data: tag });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ ok: false, error: "服务器内部错误" });
-  }
-}
-
-export async function DELETE(req: Request) {
-  const { name } = await req.json();
-  if (!name)
-    return NextResponse.json({ error: "name required" }, { status: 400 });
-  try {
-    const tag = await prisma.tag.delete({
-      where: { name },
-    });
-    return NextResponse.json({ ok: true, data: tag });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ ok: false, error: "服务器内部错误" });
-  }
-}
-
-export async function PUT(req: Request) {
-  const { name, newName } = await req.json();
-  if (!name || !newName)
-    return NextResponse.json({ error: "name required" }, { status: 400 });
-  try {
-    const tag = await prisma.tag.update({
-      where: { name },
-      data: { name: newName },
-    });
-    return NextResponse.json({ ok: true, data: tag });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ ok: false, error: "服务器内部错误" });
-  }
-}
+import { prisma } from '@/lib/prisma';
+import { admin, adminScope, body, ApiError, endpoint, json, textField } from '@/lib/api';
+export const GET = endpoint(async (req: Request) => {
+  const isAdmin = await adminScope(req);
+  const data = await prisma.tag.findMany({
+    where: isAdmin
+      ? {}
+      : {
+          OR: [
+            { posts: { some: { post: { published: true } } } },
+            { notes: { some: { note: { published: true } } } },
+          ],
+        },
+    orderBy: { name: 'asc' },
+  });
+  return json({ ok: true, data, total: data.length });
+});
+export const POST = endpoint(async (req: Request) => {
+  await admin(req);
+  const data = await body(req);
+  const name = textField(data.name, 100, true)!;
+  return json({
+    ok: true,
+    data: await prisma.tag.upsert({ where: { name }, create: { name }, update: {} }),
+  });
+});
+export const PUT = endpoint(async (req: Request) => {
+  await admin(req);
+  const data = await body(req);
+  return json({
+    ok: true,
+    data: await prisma.tag.update({
+      where: { name: textField(data.name, 100, true)! },
+      data: { name: textField(data.newName, 100, true)! },
+    }),
+  });
+});
+export const DELETE = endpoint(async (req: Request) => {
+  await admin(req);
+  const data = await body(req);
+  const name = textField(data.name, 100, true)!;
+  await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<
+      { id: number }[]
+    >`SELECT id FROM Tag WHERE name = ${name} FOR UPDATE`;
+    if (!rows.length) throw new ApiError(404, 'NOT_FOUND');
+    const id = rows[0].id;
+    await tx.postTag.deleteMany({ where: { tagId: id } });
+    await tx.noteTag.deleteMany({ where: { tagId: id } });
+    await tx.tag.delete({ where: { id } });
+  });
+  return json({ ok: true });
+});

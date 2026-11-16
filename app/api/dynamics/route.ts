@@ -1,128 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const title = searchParams.get("title");
-  const current = parseInt(searchParams.get("current") || "1");
-  const size = parseInt(searchParams.get("size") || "10");
-
-  try {
-    // 使用 $transaction 并行执行查询，减少数据库连接占用时间
-    const [total, dynamics] = await prisma.$transaction([
-      prisma.dynamic.count({
-        where: {
-          title: title ? { contains: title } : undefined,
-        },
-      }),
-      prisma.dynamic.findMany({
-        where: {
-          title: title ? { contains: title } : undefined,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        skip: (current - 1) * size,
-        take: size,
-      }),
-    ]);
-    return NextResponse.json({
-      ok: true,
-      data: dynamics,
-      total,
-      current,
-      size,
-      pages: Math.ceil(total / size),
-    });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const { content, excerpt, title } = await req.json();
-    if (!content || !excerpt) {
-      return NextResponse.json({ error: "缺少内容或简介" }, { status: 400 });
-    }
-    const dynamic = await prisma.dynamic.create({
-      data: {
-        content,
-        excerpt,
-        title,
-      },
-    });
-    return NextResponse.json({ ok: true, data: dynamic });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const { id } = await req.json(); // ✅ 注意这里要 await
-    if (!Number(id)) {
-      return NextResponse.json({ error: "缺少动态ID" }, { status: 400 });
-    }
-    const deletedDynamic = await prisma.dynamic.delete({
-      where: {
-        id: Number(id),
-      },
-    });
-    return NextResponse.json({ ok: true, data: deletedDynamic });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
-  }
-}
-export async function PUT(req: NextRequest) {
-  try {
-    const { id, content, excerpt } = await req.json();
-    if (!Number(id) || !content || !excerpt) {
-      return NextResponse.json(
-        { error: "缺少动态ID或内容或简介" },
-        { status: 400 },
-      );
-    }
-    const dynamic = await prisma.dynamic.update({
-      where: {
-        id: Number(id),
-      },
-      data: {
-        content,
-        excerpt,
-      },
-    });
-    return NextResponse.json({ ok: true, data: dynamic });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
-  }
-}
-
-export async function PATCH(req: NextRequest) {
-  try {
-    const { content, excerpt, id } = await req.json();
-    if (!Number(id) || (!content && !excerpt)) {
-      return NextResponse.json(
-        { error: "缺少动态ID或内容或简介" },
-        { status: 400 },
-      );
-    }
-    const dynamic = await prisma.dynamic.update({
-      where: {
-        id: Number(id),
-      },
-      data: {
-        content,
-        excerpt,
-      },
-    });
-    return NextResponse.json({ ok: true, data: dynamic });
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "服务器内部错误" }, { status: 500 });
-  }
-}
+import { admin, adminScope, body, endpoint, json } from '@/lib/api';
+import { listContent } from '@/lib/content';
+import { createDynamic, deleteDynamic, dynamicId, updateDynamic } from '@/lib/dynamic-api';
+export const GET = endpoint(async (req: Request) =>
+  json(await listContent('dynamic', new URL(req.url).searchParams, await adminScope(req))),
+);
+export const POST = createDynamic;
+export const DELETE = endpoint(async (req: Request) => {
+  await admin(req);
+  const data = await body(req);
+  return deleteDynamic(req, dynamicId(data.id));
+});
+export const PUT = endpoint(async (req: Request) => {
+  await admin(req);
+  const data = await body(req.clone());
+  return updateDynamic(req, dynamicId(data.id));
+});
+export const PATCH = PUT;
