@@ -62,7 +62,8 @@ export function filter(params: URLSearchParams, isAdmin: boolean) {
 }
 export async function listContent(resource: Resource, params: URLSearchParams, isAdmin = false) {
   const { current, pageSize, skip, take } = pagination(params);
-const legacy=!isAdmin&&!params.has('current')&&!params.has('pageSize')&&!params.has('size');
+  const legacy = !isAdmin && !params.has('current') && !params.has('pageSize') && !params.has('size');
+  const page: { skip?: number; take?: number } = legacy ? {} : { skip, take };
   const where = filter(params, isAdmin);
   const category = params.get('category');
   const tag = params.get('tags');
@@ -77,7 +78,7 @@ const legacy=!isAdmin&&!params.has('current')&&!params.has('pageSize')&&!params.
   if (resource === 'post') {
     const [total, rows] = await prisma.$transaction([
       prisma.post.count({ where: classified }),
-      prisma.post.findMany({ where: classified, select: postSummary, orderBy, skip, take }),
+      prisma.post.findMany({ where: classified, select: postSummary, orderBy, ...page }),
     ]);
     return {
       ok: true,
@@ -94,7 +95,7 @@ const legacy=!isAdmin&&!params.has('current')&&!params.has('pageSize')&&!params.
     const noteWhere = { ...classified, ...(kind ? { kind: kind as 'TECH' | 'ESSAY' } : {}) };
     const [total, rows] = await prisma.$transaction([
       prisma.note.count({ where: noteWhere }),
-      prisma.note.findMany({ where: noteWhere, select: noteSummary, orderBy, skip, take }),
+      prisma.note.findMany({ where: noteWhere, select: noteSummary, orderBy, ...page }),
     ]);
     return {
       ok: true,
@@ -107,7 +108,7 @@ const legacy=!isAdmin&&!params.has('current')&&!params.has('pageSize')&&!params.
   }
   const [total, rows] = await prisma.$transaction([
     prisma.dynamic.count({ where }),
-    prisma.dynamic.findMany({ where, select: dynamicSummary, orderBy, skip, take }),
+    prisma.dynamic.findMany({ where, select: dynamicSummary, orderBy, ...page }),
   ]);
   return { ok: true, data: rows, total, current, pageSize, pages: Math.ceil(total / pageSize) };
 }
