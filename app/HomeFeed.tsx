@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import PublicList, { Listing } from '@/components/PublicList';
+import Link from 'next/link';
 export default function HomeFeed({
   posts,
   dynamics,
@@ -18,6 +19,12 @@ export default function HomeFeed({
       <section className="max-w-4xl mx-auto text-center px-4 py-14">
         <h1 className="text-4xl font-bold mb-5">若木的小世界</h1>
         <p className="text-gray-500 text-lg">记录前端、后端与 AI 应用实践，也留下生活中的思考。</p>
+        <div className="flex justify-center gap-5 mt-6">
+          <Link href="/feed.xml" className="text-cyan-600">
+            RSS 订阅
+          </Link>
+          <Link href="/archive">文章归档</Link>
+        </div>
         <div className="flex justify-center gap-3 mt-8">
           <button
             className="rounded-full border px-5 py-2"

@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+/playwright-report/
+/test-results/
+/.claude/settings.local.json
+/prisma/*.db
+
