@@ -18,7 +18,7 @@ test('night sky keeps meteors occasional and stops motion when preferences chang
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await expect(background).toHaveAttribute('data-motion', 'paused');
-  expect(await page.locator('.star-layer').first().evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
+  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-renderer', 'static');
   await page.clock.fastForward(40000);
   await expect(page.locator('.meteor')).toHaveCount(0);
 
@@ -31,6 +31,92 @@ test('night sky keeps meteors occasional and stops motion when preferences chang
   await page.clock.fastForward(40000);
   await expect(page.locator('.meteor')).toHaveCount(1);
 });
+
+test('sky responds locally and reserves click meteors for blank-space gestures', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.clock.install({ time: new Date('2026-11-17T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-17T00:00:01Z'));
+  await page.goto('/archive');
+  const sky = page.locator('.responsive-sky');
+  await expect(sky).toHaveAttribute('data-renderer', /webgl|fallback/);
+  await page.mouse.move(1200, 500);
+  await page.clock.runFor(500);
+  await expect(sky).toHaveAttribute('data-field', 'responding');
+  await page.mouse.click(1200, 500);
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
+  await page.clock.fastForward(1500);
+  await page.mouse.click(1200, 500);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.clock.fastForward(7000);
+  await page.getByRole('heading', { name: '文章归档', exact: true }).click();
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.evaluate(() => {
+    const selection = getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(document.querySelector('h1')!);
+    selection?.removeAllRanges(); selection?.addRange(range);
+  });
+  await page.mouse.click(1200, 500);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.mouse.move(1200, 500); await page.mouse.down();
+  await page.mouse.move(1100, 600, { steps: 4 }); await page.mouse.up();
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.evaluate(() => getSelection()?.removeAllRanges());
+  await page.mouse.click(1200, 500);
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(sky).toHaveAttribute('data-renderer', 'static');
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.mouse.click(1200, 500);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+});
+
+
+test('component surfaces and popup dismissal consume clicks before the sky', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.goto('/allBlogs');
+  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-renderer', /webgl|fallback/);
+  await page.getByRole('button', { name: '切换主题' }).click();
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.mouse.click(1250, 650);
+  await expect(page.locator('.ant-dropdown')).toBeHidden();
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.getByRole('button', { name: '筛选', exact: true }).click();
+  await page.locator('.ant-popover-inner').click({ position: { x: 6, y: 6 } });
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.locator('.ant-select-selector').first().click({ position: { x: 2, y: 16 } });
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.getByRole('combobox', { name: '分类', exact: true }).click();
+  await page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').click({ position: { x: 2, y: 2 } });
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.mouse.click(1250, 650);
+  await expect(page.locator('.ant-popover')).toBeHidden();
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.mouse.click(1250, 650);
+  await expect(page.locator('.meteor[data-source=interaction]')).toHaveCount(1);
+});
+
+test('sky falls back without WebGL and touch scrolling does not launch meteors', async ({ browser }) => {
+  const context = await browser.newContext({ hasTouch: true, viewport: { width: 390, height: 844 }, colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await context.addInitScript(`const get = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+      return type === 'webgl' ? null : get.call(this, type, ...args);
+    };`);
+  const page = await context.newPage();
+  await page.goto('/archive');
+  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-renderer', 'fallback');
+  await page.dispatchEvent('section', 'pointerdown', { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, clientX: 5, clientY: 500 });
+  await page.dispatchEvent('section', 'pointermove', { pointerType: 'touch', pointerId: 1, isPrimary: true, clientX: 5, clientY: 400 });
+  await page.dispatchEvent('section', 'pointercancel', { pointerType: 'touch', pointerId: 1 });
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.touchscreen.tap(5, 500);
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await context.close();
+});
+
 test('server body, duplicate Chinese anchors and Mermaid fallback survive disabled JavaScript', async ({
   browser,
 }) => {

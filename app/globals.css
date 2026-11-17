@@ -81,45 +81,13 @@ body {
   .night-sky { background-position: 60% center; }
 }
 
-.star-field {
-  mask-image: radial-gradient(ellipse 48% 58% at 50% 58%, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.6) 48%, #000 100%);
-}
-
-.star-layer {
-  position: absolute;
-  inset: 0;
-  animation: star-drift 260s ease-in-out infinite alternate;
-}
-
-.star-layer-1 { animation-name: star-drift-middle; }
-.star-layer-2 { animation-name: star-drift-near; }
-
-@keyframes star-drift {
-  to { transform: translate(8px, -6px); }
-}
-@keyframes star-drift-middle {
-  to { transform: translate(-12px, 8px); }
-}
-@keyframes star-drift-near {
-  to { transform: translate(18px, 12px); }
-}
-
-.twinkle-star {
-  animation: star-twinkle 9s ease-in-out infinite;
-}
-@keyframes star-twinkle {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 0.85; }
-}
-
-.site-background[data-motion="paused"] .star-layer,
-.site-background[data-motion="paused"] .twinkle-star {
-  animation-play-state: paused;
+.responsive-cloud {
+  opacity: 0;
+  transition: opacity 0.6s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-background .star-layer,
-  .site-background .twinkle-star { animation: none; }
+  .responsive-cloud { display: none; transition: none; }
   .site-background .meteor { display: none; }
 }
 
@@ -141,7 +109,7 @@ body {
 /* ============ 偶发流星：一秒掠过，细淡拖尾 ============ */
 @keyframes meteor {
   0% { transform: rotate(-35deg) translateX(0); opacity: 0; }
-  12% { opacity: 0.65; }
+  12% { opacity: 0.85; }
   65% { opacity: 0.5; }
   100% { transform: rotate(-35deg) translateX(-360px); opacity: 0; }
 }
@@ -153,7 +121,7 @@ body {
   border-radius: 9999px;
   background: #e6edf7;
   box-shadow: 0 0 4px rgba(197, 216, 241, 0.3);
-  animation: meteor 1s linear both;
+  animation: meteor 1s linear 0.18s both;
 }
 
 .meteor::before {
