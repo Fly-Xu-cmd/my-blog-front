@@ -13,6 +13,7 @@ export interface SkyFrame {
   wind: [number, number];
   focus: [number, number, number];
   flash: [number, number, number];
+  pulse: [number, number, number, number];
 }
 
 const vertexSource = `
@@ -31,6 +32,7 @@ uniform vec2 offset;
 uniform vec2 wind;
 uniform vec3 focus;
 uniform vec3 flash;
+uniform vec4 pulse;
 uniform float time;
 void main() {
   vec2 px = uv * size;
@@ -46,12 +48,17 @@ void main() {
                              cos(dustUV.x * 15.0 + time * 0.15)) * 0.007;
   textureUV -= wind / size * cover * 0.45;
   textureUV -= (relative + vec2(relative.y, -relative.x) * 0.45) * influence * 0.025 * cover;
+  vec2 pulseDelta = px - pulse.xy;
+  vec2 pulseRelative = pulseDelta / max(pulse.w, 1.0);
+  float pulseField = exp(-dot(pulseRelative, pulseRelative) * 2.4) * pulse.z;
+  // Inverse sampling pushes the gas outward, then returns it along the same field.
+  textureUV -= pulseDelta / size * cover * pulseField * 0.65;
   vec3 color = texture2D(nebula, clamp(textureUV, 0.001, 0.999)).rgb;
   vec3 gas = max(color - vec3(5.0, 7.0, 12.0) / 255.0, 0.0);
   vec2 trail = (px - flash.xy) / 150.0;
   float illumination = exp(-dot(trail, trail) * 2.0) * flash.z;
   // Reveal the existing gas, leaving empty space dark rather than a round glow.
-  color += gas * (influence * 0.85 + illumination * 1.1);
+  color += gas * (influence * 0.85 + illumination * 1.1 + pulseField * 0.35);
   gl_FragColor = vec4(color, 1.0);
 }
 `;
@@ -115,9 +122,16 @@ export function createCloudRenderer(
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     const locations = Object.fromEntries(
-      ["size", "cover", "offset", "wind", "focus", "flash", "time"].map(
-        (key) => [key, gl.getUniformLocation(program, key)],
-      ),
+      [
+        "size",
+        "cover",
+        "offset",
+        "wind",
+        "focus",
+        "flash",
+        "pulse",
+        "time",
+      ].map((key) => [key, gl.getUniformLocation(program, key)]),
     );
     return {
       dispose,
@@ -150,6 +164,13 @@ export function createCloudRenderer(
           frame.flash[2],
         );
         gl.uniform1f(locations.time, frame.time);
+        gl.uniform4f(
+          locations.pulse,
+          frame.pulse[0],
+          frame.height - frame.pulse[1],
+          frame.pulse[2],
+          frame.pulse[3],
+        );
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       },
     };

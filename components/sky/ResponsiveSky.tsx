@@ -21,6 +21,8 @@ const excluded =
 const blankTags = new Set(["BODY", "DIV", "MAIN", "SECTION", "UL"]);
 const overlays =
   ".ant-popover,.ant-select-dropdown,.ant-dropdown,.ant-picker-dropdown,.ant-modal,.ant-drawer-open,dialog[open]";
+const pulseDuration = 4800;
+const pulseExpansion = 800;
 
 function createStars(): Star[] {
   return Array.from({ length: 180 }, (_, i) => {
@@ -99,6 +101,7 @@ export default function ResponsiveSky({
       selected: boolean;
       overlayOpen: boolean;
     } | null = null;
+    let pulse: { u: number; v: number; createdAt: number } | null = null;
     const pointer = {
       x: width / 2,
       y: height / 2,
@@ -174,6 +177,29 @@ export default function ResponsiveSky({
           Math.max(0, Math.sin(Math.min(1, age / 1.3) * Math.PI)),
         ];
       }
+      const pulseRadius = Math.min(320, Math.min(width, height) * 0.65);
+      let pulseFrame: SkyFrame["pulse"] = [0, 0, 0, pulseRadius];
+      let pulsePhase = "idle";
+      if (active && pulse) {
+        const age = Math.max(0, Date.now() - pulse.createdAt);
+        if (age >= pulseDuration) pulse = null;
+        else {
+          const expanding = age < pulseExpansion;
+          const progress = expanding
+            ? age / pulseExpansion
+            : (age - pulseExpansion) / (pulseDuration - pulseExpansion);
+          const eased = progress * progress * (3 - 2 * progress);
+          pulseFrame = [
+            pulse.u * width,
+            pulse.v * height,
+            expanding ? eased : 1 - eased,
+            pulseRadius,
+          ];
+          pulsePhase = expanding ? "expanding" : "gathering";
+        }
+      }
+      if (element.dataset.pulse !== pulsePhase)
+        element.dataset.pulse = pulsePhase;
       ctx.clearRect(0, 0, width, height);
       for (const star of stars.current) {
         const x = star.u * width + wind[0] * star.depth;
@@ -183,6 +209,11 @@ export default function ResponsiveSky({
         const distance = Math.hypot(rx, ry);
         const influence =
           Math.exp(-((distance / 220) ** 2) * 2) * fast.strength;
+        const px = x - pulseFrame[0],
+          py = y - pulseFrame[1];
+        const pulseField =
+          Math.exp(-((Math.hypot(px, py) / pulseRadius) ** 2) * 2.4) *
+          pulseFrame[2];
         const amount = active ? 1 - Math.exp(-dt * 7) : 1;
         const tx =
           distance > 1
@@ -211,13 +242,22 @@ export default function ResponsiveSky({
           : 1;
         const alpha = Math.min(
           0.95,
-          star.alpha * quiet * twinkle + influence * 0.4 + illumination * 0.4,
+          star.alpha * quiet * twinkle +
+            influence * 0.4 +
+            illumination * 0.4 +
+            pulseField * 0.12,
         );
         ctx.fillStyle = `rgba(218,230,245,${alpha})`;
         ctx.shadowColor = `rgba(183,204,232,${alpha * 0.5})`;
         ctx.shadowBlur = star.size > 1.5 || influence > 0.25 ? 4 : 0;
         ctx.beginPath();
-        ctx.arc(x + star.dx, y + star.dy, star.size / 2, 0, Math.PI * 2);
+        ctx.arc(
+          x + star.dx + px * pulseField * 0.65 * star.depth,
+          y + star.dy + py * pulseField * 0.65 * star.depth,
+          star.size / 2,
+          0,
+          Math.PI * 2,
+        );
         ctx.fill();
       }
       const frame: SkyFrame = {
@@ -227,6 +267,7 @@ export default function ResponsiveSky({
         wind,
         focus: [slow.x, slow.y, slow.strength],
         flash,
+        pulse: pulseFrame,
       };
       cloudRenderer?.draw(frame);
       const field = fast.strength > 0.05 ? "responding" : "idle";
@@ -315,7 +356,15 @@ export default function ResponsiveSky({
         window.getSelection()?.isCollapsed === false
       )
         return;
-      if (onMeteorRef.current({ x: event.clientX, y: event.clientY })) {
+      const now = Date.now();
+      if (!pulse || now - pulse.createdAt >= pulseDuration) {
+        pulse = {
+          u: event.clientX / width,
+          v: event.clientY / height,
+          createdAt: now,
+        };
+        element.dataset.pulse = "expanding";
+        onMeteorRef.current({ x: event.clientX, y: event.clientY });
         pointer.x = event.clientX;
         pointer.y = event.clientY;
         pointer.inside = gesture.pointerType !== "touch";
@@ -376,6 +425,7 @@ export default function ResponsiveSky({
       ref={root}
       className="responsive-sky absolute inset-0"
       data-field="idle"
+      data-pulse="idle"
     >
       <canvas
         ref={cloudCanvas}
