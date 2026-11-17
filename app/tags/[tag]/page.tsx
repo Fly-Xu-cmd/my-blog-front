@@ -5,7 +5,13 @@ import PublicList from '@/components/PublicList';
 import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 export default async function TagPage({ params }: { params: Promise<{ tag: string }> }) {
-  const { tag } = await params;
+  const { tag: encodedTag } = await params;
+  let tag: string;
+  try {
+    tag = decodeURIComponent(encodedTag);
+  } catch {
+    notFound();
+  }
   const visible = await prisma.tag.findFirst({
     where: {
       name: tag,

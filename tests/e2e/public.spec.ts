@@ -164,6 +164,60 @@ test('malicious Markdown and JSON-LD cannot execute scripts', async ({ page, req
   const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
   expect(blocks.some((b) => JSON.parse(b).headline?.includes('</script>'))).toBe(true);
 });
+test('encoded tag links show public posts and notes without decoding literal escapes twice', async ({ page, request, browser }) => {
+  const auth = await request.post('/api/login', {
+    data: { username: 'test-admin', password: 'test-only' },
+  });
+  const token = (await auth.json()).data.token;
+  const tag = 'E2E 中文标签 + 100% / %20 # ' + randomUUID();
+  const privateTag = 'E2E 草稿标签 ' + randomUUID();
+  const rows = [];
+  for (const [resource, title, published] of [
+    ['posts', 'Tag Aggregation Post', true],
+    ['notes', 'Tag Aggregation Note', true],
+    ['posts', 'E2E_TAG_DRAFT_MARKER', false],
+  ] as const) {
+    const created = await request.post('/api/' + resource, {
+      headers: { Authorization: 'Bearer ' + token, 'Idempotency-Key': randomUUID() },
+      data: {
+        title, content: 'Tag aggregation body', published,
+        slug: 'e2e-tag-' + randomUUID(), tags: published ? [tag] : [tag, privateTag],
+      },
+    });
+    expect(created.status()).toBe(200);
+    rows.push((await created.json()).data);
+  }
+  await page.goto('/posts/' + rows[0].slug);
+  await page.getByRole('link', { name: '#' + tag, exact: true }).click();
+  await expect(page.getByRole('heading', { name: '#' + tag, exact: true })).toBeVisible();
+  await expect(page.locator('.editorial-article-row')).toHaveCount(1);
+  await expect(page.locator('.editorial-note-row')).toHaveCount(1);
+  await expect(page.locator('main')).not.toContainText('E2E_TAG_DRAFT_MARKER');
+  const searched = page.waitForResponse((r) => {
+    const url = new URL(r.url());
+    return url.pathname === '/api/posts' && url.searchParams.get('q') === 'Tag Aggregation Post';
+  });
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).first().fill('Tag Aggregation Post');
+  const searchResponse = await searched;
+  expect(new URL(searchResponse.url()).searchParams.get('tags')).toBe(tag);
+  expect((await searchResponse.json()).total).toBe(1);
+  await expect(page.locator('.editorial-article-row')).toContainText('Tag Aggregation Post');
+  await expect(page.locator('.editorial-list').first()).toHaveAttribute('aria-busy', 'false');
+  const path = '/tags/' + encodeURIComponent(tag);
+  const response = await request.get(path);
+  expect(response.status()).toBe(200);
+  expect(await response.text()).not.toContain('E2E_TAG_DRAFT_MARKER');
+  expect((await request.get('/tags/' + encodeURIComponent(privateTag))).status()).toBe(404);
+  expect((await request.get('/tags/' + encodeURIComponent('E2E missing ' + randomUUID()))).status()).toBe(404);
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const serverPage = await context.newPage();
+  await serverPage.goto(path);
+  await expect(serverPage.getByRole('heading', { name: '#' + tag, exact: true })).toBeVisible();
+  await expect(serverPage.locator('.editorial-article-row')).toHaveCount(1);
+  await expect(serverPage.locator('.editorial-note-row')).toHaveCount(1);
+  await context.close();
+});
+
 test('drafts remain absent from every public entry', async ({ request }) => {
   const response = await request.get('/posts/e2e-private');
   expect(response.status()).toBe(404);
