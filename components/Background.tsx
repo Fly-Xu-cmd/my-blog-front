@@ -45,6 +45,25 @@ interface GlowOrb {
   driftY: number; // 纵向漂移（px）
 }
 
+// 暗星沿宽松的斜向星带分布；亮星留在上方和两侧，避开正文中央。
+function starPosition(peripheral = false) {
+  if (peripheral) {
+    const zone = Math.random();
+    if (zone < 0.4)
+      return { x: 3 + Math.random() * 94, y: 3 + Math.random() * 20 };
+    return {
+      x: zone < 0.7 ? 3 + Math.random() * 14 : 83 + Math.random() * 14,
+      y: 23 + Math.random() * 72,
+    };
+  }
+  const x = Math.random() * 100;
+  const y =
+    Math.random() < 0.65
+      ? Math.max(2, Math.min(98, 85 - x * 0.75 + (Math.random() - 0.5) * 45))
+      : Math.random() * 100;
+  return { x, y };
+}
+
 // 浅色光晕色板：5 种不同的柔和色，每团光晕各用一种
 const GLOW_TINTS = [
   "#93c5fd", // 蓝
@@ -220,32 +239,34 @@ export default function Background() {
     // 三层细星点使用零扩散阴影，避免原先的大圆点和大量 DOM。
     setStarLayers(
       [
-        { count: 160, size: 1, alpha: 0.5, duration: 260 },
-        { count: 85, size: 1.4, alpha: 0.65, duration: 210 },
-        { count: 35, size: 1.8, alpha: 0.8, duration: 160 },
-      ].map(({ count, size, alpha, duration }) => ({
+        { count: 140, size: 0.8, alpha: 0.22, duration: 260 },
+        { count: 28, size: 1.1, alpha: 0.38, duration: 210 },
+        { count: 6, size: 1.5, alpha: 0.55, duration: 160 },
+      ].map(({ count, size, alpha, duration }, layer) => ({
         size,
         duration,
         shadows: Array.from({ length: count }, () => {
-          const x = (Math.random() * 100).toFixed(2);
-          const y = (Math.random() * 100).toFixed(2);
-          const opacity = (alpha + Math.random() * 0.2).toFixed(2);
-          return `${x}vw ${y}vh 0 0 rgba(218,230,245,${opacity})`;
+          const { x, y } = starPosition(layer === 2);
+          const opacity = (alpha + Math.random() * 0.16).toFixed(2);
+          return `${x.toFixed(2)}vw ${y.toFixed(2)}vh 0 0 rgba(218,230,245,${opacity})`;
         }).join(","),
       })),
     );
 
     // 少量会闪烁的亮星（单独 DOM）
     setTwinkleStars(
-      Array.from({ length: 20 }, (_, i) => ({
-        id: i,
-        left: `${(Math.random() * 100).toFixed(2)}vw`,
-        top: `${(Math.random() * 100).toFixed(2)}vh`,
-        size: Math.random() < 0.75 ? 1.4 : 2,
-        delay: (-Math.random() * 12).toFixed(2),
-        duration: (7 + Math.random() * 5).toFixed(2),
-        tint: Math.random() < 0.3 ? "#c5d8f1" : "#e6edf7",
-      })),
+      Array.from({ length: 6 }, (_, i) => {
+        const { x, y } = starPosition(true);
+        return {
+          id: i,
+          left: `${x.toFixed(2)}vw`,
+          top: `${y.toFixed(2)}vh`,
+          size: Math.random() < 0.75 ? 1.5 : 2,
+          delay: (-Math.random() * 14).toFixed(2),
+          duration: (9 + Math.random() * 5).toFixed(2),
+          tint: Math.random() < 0.3 ? "#b7cce8" : "#d5e0ef",
+        };
+      }),
     );
 
     // 浅色模糊光晕：随机位置/大小/颜色/节奏，各自无限“时隐时现”
@@ -279,39 +300,41 @@ export default function Background() {
     >
       {/* 阅读区压淡星光，保留上方与两侧的纵深。 */}
       <div className="night-sky hidden dark:block absolute inset-0">
-        {starLayers.map((layer, i) => (
-          <div
-            key={i}
-            className={`star-layer star-layer-${i}`}
-            style={{ animationDuration: `${layer.duration}s` }}
-          >
-            <span
-              className="absolute left-0 top-0 rounded-full"
+        <div className="star-field absolute inset-0">
+          {starLayers.map((layer, i) => (
+            <div
+              key={i}
+              className={`star-layer star-layer-${i}`}
+              style={{ animationDuration: `${layer.duration}s` }}
+            >
+              <span
+                className="absolute left-0 top-0 rounded-full"
+                style={{
+                  width: layer.size,
+                  height: layer.size,
+                  boxShadow: layer.shadows,
+                }}
+              />
+            </div>
+          ))}
+          {twinkleStars.map((s) => (
+            <div
+              key={s.id}
+              className="twinkle-star absolute rounded-full"
               style={{
-                width: layer.size,
-                height: layer.size,
-                boxShadow: layer.shadows,
+                left: s.left,
+                top: s.top,
+                width: s.size,
+                height: s.size,
+                background: s.tint,
+                boxShadow: `0 0 5px ${s.tint}33`,
+                animationDuration: `${s.duration}s`,
+                animationDelay: `${s.delay}s`,
+                opacity: 0.5,
               }}
             />
-          </div>
-        ))}
-        {twinkleStars.map((s) => (
-          <div
-            key={s.id}
-            className="twinkle-star absolute rounded-full"
-            style={{
-              left: s.left,
-              top: s.top,
-              width: s.size,
-              height: s.size,
-              background: s.tint,
-              boxShadow: `0 0 4px ${s.tint}55`,
-              animationDuration: `${s.duration}s`,
-              animationDelay: `${s.delay}s`,
-              opacity: 0.5,
-            }}
-          />
-        ))}
+          ))}
+        </div>
 
         {motionActive && resolvedTheme === "dark" && meteor && (
           <span
