@@ -77,30 +77,28 @@ export default async function Article({
         {((series && position >= 0) || related.length > 0) && (
           <footer className="article-reading-footer mt-7 border-t border-gray-200 dark:border-white/10 pt-4 space-y-3">
             {series && position >= 0 && (
-              <div className="flex items-baseline justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <span className="min-w-0 [overflow-wrap:anywhere]">
-                  {series.name} <span className="whitespace-nowrap">· {position + 1}/{series.posts.length}</span>
-                </span>
-                <Link className="shrink-0 hover:text-cyan-600 dark:hover:text-cyan-400" href={'/series/' + series.slug}>
-                  查看系列 <span aria-hidden="true">→</span>
+              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                <Link className="min-w-0 max-w-full text-sm text-gray-500 dark:text-gray-400 [overflow-wrap:anywhere] hover:text-cyan-600 dark:hover:text-cyan-400" href={'/series/' + series.slug}>
+                  <span className="underline decoration-gray-400/60 underline-offset-4">{series.name}</span>{' '}
+                  <span className="whitespace-nowrap text-xs">· {position + 1}/{series.posts.length}</span>
                 </Link>
+                {(previous || next) && (
+                  <nav aria-label="系列上下篇" className="min-w-0 basis-full sm:basis-auto sm:flex-1 flex flex-wrap justify-end gap-x-5 gap-y-2 text-sm">
+                    {previous && (
+                      <Link className="min-w-0 max-w-full flex items-baseline gap-2 hover:text-cyan-600 dark:hover:text-cyan-400" href={'/posts/' + previous.slug}>
+                        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">上一篇</span>
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{previous.title}</span>
+                      </Link>
+                    )}
+                    {next && (
+                      <Link className="min-w-0 max-w-full flex items-baseline justify-end gap-2 text-right hover:text-cyan-600 dark:hover:text-cyan-400" href={'/posts/' + next.slug}>
+                        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">下一篇</span>
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{next.title} <span aria-hidden="true">→</span></span>
+                      </Link>
+                    )}
+                  </nav>
+                )}
               </div>
-            )}
-            {(previous || next) && (
-              <nav aria-label="系列上下篇" className={`grid gap-x-6 gap-y-2 text-sm ${previous && next ? 'sm:grid-cols-2' : ''}`}>
-                {previous && (
-                  <Link className="min-w-0 flex items-baseline gap-2 hover:text-cyan-600 dark:hover:text-cyan-400" href={'/posts/' + previous.slug}>
-                    <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">上一篇</span>
-                    <span className="min-w-0 [overflow-wrap:anywhere]">{previous.title}</span>
-                  </Link>
-                )}
-                {next && (
-                  <Link className="min-w-0 flex items-baseline justify-end gap-2 text-right hover:text-cyan-600 dark:hover:text-cyan-400" href={'/posts/' + next.slug}>
-                    <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">下一篇</span>
-                    <span className="min-w-0 [overflow-wrap:anywhere]">{next.title} <span aria-hidden="true">→</span></span>
-                  </Link>
-                )}
-              </nav>
             )}
             {related.length > 0 && (
               <nav aria-label="推荐阅读" className="flex items-baseline gap-3 text-sm text-gray-500 dark:text-gray-400">
