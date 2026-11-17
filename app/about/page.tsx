@@ -40,7 +40,7 @@ export default function About() {
         </header>
 
         {/* 个人介绍卡片 */}
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-8 md:p-10 dark:bg-white/[0.04] dark:border-white/10 dark:backdrop-blur-xl">
+        <div className="p-8 md:p-10">
           <div className="max-w-none">
             <p className="text-gray-700 dark:text-white/70 leading-relaxed mb-6">
               大家好呀！欢迎来到我的技术教程博客，在这里我将和大家分享各类有趣又实用的技术知识。不过，在开启技术探讨之旅前，先让我来简单介绍一下自己吧。

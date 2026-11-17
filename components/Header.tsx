@@ -6,7 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
-import { Drawer } from 'antd';
+import { Button, Drawer } from 'antd';
 
 const NAV_ITEMS = [
   { path: '/', label: '首页', icon: '\ue606' },
@@ -72,13 +72,16 @@ export default function Header() {
           <div className="hidden lg:block">
             <Contact />
           </div>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden flex items-center text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-            aria-label="Toggle mobile menu"
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div className="lg:hidden">
+            <Button
+              type="text"
+              shape="circle"
+              icon={isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="网站导航"
+              aria-expanded={isMobileMenuOpen}
+            />
+          </div>
         </div>
       </div>
 

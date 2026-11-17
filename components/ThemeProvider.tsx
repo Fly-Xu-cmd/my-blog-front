@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { ConfigProvider, theme as antdTheme } from "antd";
+import zhCN from "antd/locale/zh_CN";
 
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -174,6 +175,7 @@ export default function ThemeProvider({
       value={{ theme, resolvedTheme, setTheme: handleSetTheme }}
     >
       <ConfigProvider
+        locale={zhCN}
         theme={{
           algorithm:
             resolvedTheme === "dark"
@@ -181,6 +183,7 @@ export default function ThemeProvider({
               : antdTheme.defaultAlgorithm,
           token: {
             zIndexPopupBase: 11000,
+            colorPrimary: resolvedTheme === "dark" ? "#78cce0" : "#087f9b",
           },
         }}
       >

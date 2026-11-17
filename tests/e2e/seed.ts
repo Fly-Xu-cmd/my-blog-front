@@ -60,6 +60,19 @@ async function main() {
         },
         update: { published: true, cover: i < 2 ? '/imgs/head-img.jpg' : null },
       });
+    for (let i = 0; i < 21; i++)
+      await db.post.upsert({
+        where: { slug: 'e2e-keyboard-' + i },
+        create: {
+          slug: 'e2e-keyboard-' + i,
+          title: 'E2E_KEYBOARD ' + i,
+          excerpt: 'Keyboard pagination summary',
+          content: 'Keyboard pagination body',
+          published: true,
+          publishedAt: new Date(Date.now() - i * 1000),
+        },
+        update: { published: true },
+      });
     await db.note.upsert({
       where: { slug: 'e2e-note' },
       create: {

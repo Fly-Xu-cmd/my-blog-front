@@ -154,6 +154,28 @@ test('editorial indexes retain covers, note filters and recoverable search failu
   await expect(page.locator('.editorial-feature-cover img')).toBeVisible();
   await expect(page.locator('.editorial-article-row.has-cover img').first()).toBeVisible();
   await expect(page.locator('.editorial-article-row:not(.has-cover) img')).toHaveCount(0);
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E_KEYBOARD');
+  await expect(page.getByRole('status').filter({ hasText: '21 条内容' })).toBeVisible();
+  const pagination = page.getByRole('navigation', { name: '分页', exact: true });
+  const next = pagination.getByRole('button', { name: '下一页' });
+  for (let i = 0; i < 50; i++) {
+    await page.keyboard.press('Tab');
+    if (await next.evaluate((button) => button === document.activeElement)) break;
+  }
+  await expect(next).toBeFocused();
+  await pagination.getByRole('button', { name: '下一页' }).press('Enter');
+  await expect(pagination).toContainText(/2\s*\/\s*3/);
+  await expect(page.locator('main article')).toHaveCount(10);
+  await page.route('**/api/posts?**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.continue();
+  });
+  await pagination.getByRole('button', { name: '下一页' }).click();
+  await expect(pagination.getByRole('button', { name: '下一页' })).toBeDisabled();
+  await expect(pagination.getByRole('button', { name: '上一页' })).toBeDisabled();
+  await expect(page.locator('main article')).toHaveCount(1);
+  await page.unroute('**/api/posts?**');
+  await page.getByRole('button', { name: '清除筛选' }).click();
   let failed = false;
   await page.route('**/api/posts?**', async (route) => {
     if (!failed && new URL(route.request().url()).searchParams.get('q') === 'E2E_SEARCH') {
@@ -168,12 +190,31 @@ test('editorial indexes retain covers, note filters and recoverable search failu
   await expect(page.locator('.editorial-feature')).toHaveCount(0);
   await expect(page.locator('main').getByRole('alert')).toHaveCount(0);
 
+  await page.getByRole('button', { name: '清除筛选' }).click();
+  await page.getByRole('button', { name: '筛选', exact: true }).click();
+  await page.getByRole('combobox', { name: '分类', exact: true }).fill('E2E Category');
+  await page.getByRole('combobox', { name: '分类', exact: true }).press('Enter');
+  await expect(page.locator('main article')).toHaveCount(1);
+  await expect(page.locator('main article')).toContainText('E2E Public');
+  await page.getByRole('combobox', { name: '标签', exact: true }).fill('E2E Public Tag');
+  await page.getByRole('combobox', { name: '标签', exact: true }).press('Enter');
+  await expect(page.locator('main article')).toHaveCount(1);
+  await page.getByRole('heading', { name: '博客', exact: true }).click();
+  await page.getByRole('button', { name: '清除筛选' }).click();
+  await expect(page.locator('.editorial-feature')).toHaveCount(1);
+  for (const route of ['/', '/allBlogs', '/notes', '/allStatus']) {
+    await page.goto(route);
+    await expect(page.locator('main')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  }
+
   await page.goto('/notes');
   await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E');
-  await page.getByRole('button', { name: '生活随笔', exact: true }).click();
+  await page.locator('.ant-segmented-item-label').getByText('生活随笔', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: '生活随笔', exact: true })).toBeChecked();
   await expect(page.locator('.editorial-note-row')).toHaveCount(1);
   await expect(page.locator('.editorial-note-row')).toContainText('E2E Note');
-  await page.getByRole('button', { name: '技术笔记', exact: true }).click();
+  await page.locator('.ant-segmented-item-label').getByText('技术笔记', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: '技术笔记', exact: true })).toBeChecked();
   await expect(page.locator('.editorial-note-row')).toHaveCount(1);
   await expect(page.locator('.editorial-note-row')).toContainText('E2E Technical Note');
   await page.goto('/allStatus');

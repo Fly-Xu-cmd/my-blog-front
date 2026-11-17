@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { Button, ConfigProvider, Input, Pagination, Popover, Segmented, Select } from 'antd';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import {
   ArticleRow,
@@ -84,18 +85,34 @@ export default function PublicList({
   const lead = resource === 'post' && featured && !hasFilters && page === 1 ? state.data[0] : null;
   const rows = lead ? state.data.slice(1) : state.data;
   return (
-    <div className="editorial-list" aria-busy={loading}>
-      <div className="editorial-list-head">
-        {heading && (
-          <div className="editorial-page-heading">
-            <h1>{heading}</h1>
-            {description && <p>{description}</p>}
-          </div>
-        )}
-        <div className="editorial-tools">
-          <label className="editorial-search">
-            <Search size={17} aria-hidden="true" />
-            <input
+    <ConfigProvider
+      theme={{
+        components: {
+          Input: {
+            colorBgContainer: 'transparent',
+            hoverBg: 'transparent',
+            activeBg: 'transparent',
+          },
+          Select: { selectorBg: 'transparent' },
+          Segmented: { trackBg: 'transparent' },
+          Pagination: { itemBg: 'transparent', itemActiveBg: 'transparent' },
+        },
+      }}
+    >
+      <div className="editorial-list" aria-busy={loading}>
+        <div className="editorial-list-head">
+          {heading && (
+            <div className="editorial-page-heading">
+              <h1>{heading}</h1>
+              {description && <p>{description}</p>}
+            </div>
+          )}
+          <div className="editorial-tools">
+            <Input
+              className="editorial-search"
+              prefix={<Search size={17} aria-hidden="true" />}
+              allowClear
+              size="large"
               aria-label="搜索标题或正文"
               placeholder="搜索标题或正文"
               value={query}
@@ -105,138 +122,161 @@ export default function PublicList({
               }}
               maxLength={200}
             />
-          </label>
-          {(categories.length > 0 || (!fixedTag && tags.length > 0)) && (
-            <details className="editorial-filter-menu">
-              <summary>
-                <SlidersHorizontal size={16} aria-hidden="true" />
-                筛选
-              </summary>
-              <div className="editorial-filter-panel">
-                {categories.length > 0 && (
-                  <select
-                    aria-label="分类"
-                    value={category}
-                    onChange={(e) => {
-                      setCategory(e.target.value);
-                      setPage(1);
-                    }}
-                    className="editorial-select"
-                  >
-                    <option value="">全部分类</option>
-                    {categories.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                )}
-                {!fixedTag && tags.length > 0 && (
-                  <select
-                    aria-label="标签"
-                    value={tag}
-                    onChange={(e) => {
-                      setTag(e.target.value);
-                      setPage(1);
-                    }}
-                    className="editorial-select"
-                  >
-                    <option value="">全部标签</option>
-                    {tags.map((t) => (
-                      <option key={t}>{t}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </details>
-          )}
+            {(categories.length > 0 || (!fixedTag && tags.length > 0)) && (
+              <Popover
+                trigger="click"
+                placement="bottomRight"
+                destroyOnHidden
+                content={
+                  <div className="editorial-filter-panel">
+                    {categories.length > 0 && (
+                      <Select
+                        aria-label="分类"
+                        placeholder="全部分类"
+                        value={category || undefined}
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        options={categories.map((name) => ({ value: name, label: name }))}
+                        onChange={(value) => {
+                          setCategory(value ?? '');
+                          setPage(1);
+                        }}
+                        className="editorial-select"
+                      />
+                    )}
+                    {!fixedTag && tags.length > 0 && (
+                      <Select
+                        aria-label="标签"
+                        placeholder="全部标签"
+                        value={tag || undefined}
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        options={tags.map((name) => ({ value: name, label: name }))}
+                        onChange={(value) => {
+                          setTag(value ?? '');
+                          setPage(1);
+                        }}
+                        className="editorial-select"
+                      />
+                    )}
+                  </div>
+                }
+              >
+                <Button type="text" icon={<SlidersHorizontal size={16} aria-hidden="true" />}>
+                  筛选
+                </Button>
+              </Popover>
+            )}
+          </div>
         </div>
-      </div>
-      {resource === 'note' && (
-        <div className="editorial-note-types" aria-label="笔记类型">
-          {[
-            ['', '全部笔记'],
-            ['TECH', '技术笔记'],
-            ['ESSAY', '生活随笔'],
-          ].map(([value, label]) => (
-            <button
-              key={value}
-              aria-pressed={kind === value}
-              onClick={() => {
+        {resource === 'note' && (
+          <div className="editorial-note-types">
+            <Segmented
+              aria-label="笔记类型"
+              value={kind}
+              options={[
+                { value: '', label: '全部笔记' },
+                { value: 'TECH', label: '技术笔记' },
+                { value: 'ESSAY', label: '生活随笔' },
+              ]}
+              onChange={(value) => {
                 setKind(value);
                 setPage(1);
               }}
+            />
+          </div>
+        )}
+        <div className="editorial-list-status">
+          <span role="status">{loading ? '加载中…' : state.total + ' 条内容'}</span>
+          {hasFilters && (
+            <Button
+              type="link"
+              onClick={() => {
+                setQuery('');
+                setCategory('');
+                setTag(fixedTag ?? '');
+                setKind('');
+                setPage(1);
+              }}
             >
-              {label}
-            </button>
-          ))}
+              清除筛选
+            </Button>
+          )}
         </div>
-      )}
-      <div className="editorial-list-status">
-        <span role="status">{loading ? '加载中…' : state.total + ' 条内容'}</span>
-        {hasFilters && (
-          <button
-            onClick={() => {
-              setQuery('');
-              setCategory('');
-              setTag(fixedTag ?? '');
-              setKind('');
-              setPage(1);
-            }}
-          >
-            清除筛选
-          </button>
+        {error && (
+          <div className="editorial-error" role="alert">
+            <p>{error}</p>
+            <Button type="link" onClick={() => setRetry((n) => n + 1)}>
+              重新加载
+            </Button>
+          </div>
+        )}
+        {lead && (
+          <>
+            <FeaturedArticle item={lead} />
+            {rows.length > 0 && (
+              <div className="editorial-section-head">
+                <h2>更多文章</h2>
+                <span>按发布时间排列</span>
+              </div>
+            )}
+          </>
+        )}
+        {resource === 'dynamic' ? (
+          <div className="editorial-timeline">
+            {rows.map((item, index) => (
+              <div key={item.id}>
+                {(index === 0 || entryMonth(rows[index - 1]) !== entryMonth(item)) && (
+                  <h2 className="editorial-month">{entryMonth(item)}</h2>
+                )}
+                <DynamicEntry item={item} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          rows.map((item) =>
+            resource === 'note' ? (
+              <NoteRow key={item.id} item={item} />
+            ) : (
+              <ArticleRow key={item.id} item={item} />
+            ),
+          )
+        )}
+        {!state.data.length && !loading && <p className="editorial-empty">没有匹配的内容</p>}
+        {state.pages > 1 && (
+          <nav aria-label="分页" className="editorial-pagination">
+            <Pagination
+              current={page}
+              pageSize={initial.pageSize}
+              total={state.total}
+              disabled={loading}
+              onChange={setPage}
+              simple={{ readOnly: true }}
+              showSizeChanger={false}
+              itemRender={(_, type, original) =>
+                type === 'prev' || type === 'next' ? (
+                  <span>
+                    <Button
+                      type="text"
+                      tabIndex={type === 'next' && page === 1 ? 0 : -1}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') event.stopPropagation();
+                      }}
+                      disabled={loading || (type === 'prev' ? page <= 1 : page >= state.pages)}
+                    >
+                      {type === 'prev' ? '上一页' : '下一页'}
+                    </Button>
+                  </span>
+                ) : (
+                  original
+                )
+              }
+            />
+          </nav>
         )}
       </div>
-      {error && (
-        <div className="editorial-error" role="alert">
-          <p>{error}</p>
-          <button onClick={() => setRetry((n) => n + 1)}>重新加载</button>
-        </div>
-      )}
-      {lead && (
-        <>
-          <FeaturedArticle item={lead} />
-          {rows.length > 0 && (
-            <div className="editorial-section-head">
-              <h2>更多文章</h2>
-              <span>按发布时间排列</span>
-            </div>
-          )}
-        </>
-      )}
-      {resource === 'dynamic' ? (
-        <div className="editorial-timeline">
-          {rows.map((item, index) => (
-            <div key={item.id}>
-              {(index === 0 || entryMonth(rows[index - 1]) !== entryMonth(item)) && (
-                <h2 className="editorial-month">{entryMonth(item)}</h2>
-              )}
-              <DynamicEntry item={item} />
-            </div>
-          ))}
-        </div>
-      ) : (
-        rows.map((item) =>
-          resource === 'note' ? (
-            <NoteRow key={item.id} item={item} />
-          ) : (
-            <ArticleRow key={item.id} item={item} />
-          ),
-        )
-      )}
-      {!state.data.length && !loading && <p className="editorial-empty">没有匹配的内容</p>}
-      {state.pages > 1 && (
-        <nav aria-label="分页" className="editorial-pagination">
-          <button disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>
-            上一页
-          </button>
-          <span>
-            {page}/{state.pages}
-          </span>
-          <button disabled={page >= state.pages || loading} onClick={() => setPage((p) => p + 1)}>
-            下一页
-          </button>
-        </nav>
-      )}
-    </div>
+    </ConfigProvider>
   );
 }

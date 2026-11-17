@@ -1,7 +1,7 @@
 "use client";
 import { useRef } from "react";
 import { Moon, Sun, Monitor } from "lucide-react";
-import { Dropdown } from "antd";
+import { Button, Dropdown } from "antd";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 
 const options: { key: Theme; label: string; icon: React.ReactNode }[] = [
@@ -56,13 +56,14 @@ export default function ThemeToggle() {
       getPopupContainer={() => document.body}
       overlayStyle={{ marginTop: 8 }}
     >
-      <button
+      <Button
+        type="text"
+        shape="circle"
+        icon={current.icon}
         ref={btnRef}
         aria-label="切换主题"
         className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10"
-      >
-        {current.icon}
-      </button>
+      />
     </Dropdown>
   );
 }
