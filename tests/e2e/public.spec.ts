@@ -1,5 +1,36 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
+
+test('night sky keeps meteors occasional and stops motion when preferences change', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.clock.install({ time: new Date('2026-11-17T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-17T00:00:01Z'));
+  await page.goto('/posts/e2e-public');
+  const background = page.locator('.site-background');
+  await expect(background).toHaveAttribute('data-motion', 'active');
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.clock.fastForward(19000);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.clock.fastForward(21000);
+  await expect(page.locator('.meteor')).toHaveCount(1);
+  await page.clock.fastForward(1500);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(background).toHaveAttribute('data-motion', 'paused');
+  expect(await page.locator('.star-layer').first().evaluate((el) => getComputedStyle(el).animationName)).toBe('none');
+  await page.clock.fastForward(40000);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+
+  await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
+  await expect(page.locator('.night-sky')).toBeHidden();
+  await page.clock.fastForward(40000);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('.night-sky')).toBeVisible();
+  await page.clock.fastForward(40000);
+  await expect(page.locator('.meteor')).toHaveCount(1);
+});
 test('server body, duplicate Chinese anchors and Mermaid fallback survive disabled JavaScript', async ({
   browser,
 }) => {

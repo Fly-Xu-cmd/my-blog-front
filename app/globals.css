@@ -72,43 +72,50 @@ body {
   color: #05060a;
 }
 
-/* ============ 星空 & 极光动画 ============ */
-@keyframes twinkle {
-  0%,
-  100% {
-    opacity: 0.15;
-  }
-  50% {
-    opacity: 1;
-  }
+/* ============ 分层星空 ============ */
+.night-sky {
+  background: radial-gradient(ellipse at 75% 10%, rgba(30, 48, 80, 0.35), transparent 65%);
+  mask-image: radial-gradient(ellipse 48% 58% at 50% 58%, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.7) 48%, #000 100%);
 }
-@keyframes float1 {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(40px, -30px);
-  }
+
+.star-layer {
+  position: absolute;
+  inset: 0;
+  animation: star-drift 260s ease-in-out infinite alternate;
 }
-@keyframes float2 {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(-30px, 20px);
-  }
+
+.star-layer-1 { animation-name: star-drift-middle; }
+.star-layer-2 { animation-name: star-drift-near; }
+
+@keyframes star-drift {
+  to { transform: translate(8px, -6px); }
 }
-@keyframes float3 {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  50% {
-    transform: translate(20px, 40px);
-  }
+@keyframes star-drift-middle {
+  to { transform: translate(-12px, 8px); }
 }
+@keyframes star-drift-near {
+  to { transform: translate(18px, 12px); }
+}
+
+.twinkle-star {
+  animation: star-twinkle 9s ease-in-out infinite;
+}
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.site-background[data-motion="paused"] .star-layer,
+.site-background[data-motion="paused"] .twinkle-star {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-background .star-layer,
+  .site-background .twinkle-star { animation: none; }
+  .site-background .meteor { display: none; }
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -124,36 +131,22 @@ body {
   animation: fadeInUp 0.5s ease both;
 }
 
-/* ============ 流星动画 ============ */
+/* ============ 偶发流星：一秒掠过，细淡拖尾 ============ */
 @keyframes meteor {
-  0% {
-    transform: rotate(215deg) translateX(0);
-    opacity: 0;
-  }
-  5% {
-    opacity: 1;
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    transform: rotate(215deg) translateX(-520px);
-    opacity: 0;
-  }
+  0% { transform: rotate(-35deg) translateX(0); opacity: 0; }
+  12% { opacity: 0.65; }
+  65% { opacity: 0.5; }
+  100% { transform: rotate(-35deg) translateX(-360px); opacity: 0; }
 }
 
 .meteor {
   position: absolute;
-  width: 2px;
-  height: 2px;
+  width: 1.5px;
+  height: 1.5px;
   border-radius: 9999px;
-  background-color: #ffffff;
-  box-shadow: 0 0 6px 1px rgba(103, 232, 249, 0.45);
-  transform: rotate(215deg);
-  animation: meteor 5s linear infinite;
-  /* backwards：让延迟期间套用 0% 关键帧（opacity 0），避免流星在等待时静止显示 */
-  animation-fill-mode: backwards;
-  pointer-events: none;
+  background: #e6edf7;
+  box-shadow: 0 0 4px rgba(197, 216, 241, 0.3);
+  animation: meteor 1s linear both;
 }
 
 .meteor::before {
@@ -161,9 +154,9 @@ body {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 70px;
+  width: 90px;
   height: 1px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), transparent);
+  background: linear-gradient(90deg, rgba(218, 230, 245, 0.6), transparent);
 }
 
 /* ============ Markdown 渲染 ============ */
