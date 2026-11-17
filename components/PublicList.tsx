@@ -1,49 +1,45 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { shanghaiDate } from '@/lib/markdown';
-export type Summary = {
-  id: number;
-  title: string | null;
-  slug?: string;
-  excerpt: string | null;
-  createdAt: string;
-  publishedAt: string | null;
-  category?: { name: string } | null;
-  tags?: string[];
-  cover?: string | null;
-  kind?: string;
-};
-export type Listing = {
-  data: Summary[];
-  total: number;
-  current: number;
-  pageSize: number;
-  pages: number;
-};
+import { Search, SlidersHorizontal } from 'lucide-react';
+import {
+  ArticleRow,
+  NoteRow,
+  DynamicEntry,
+  FeaturedArticle,
+  entryMonth,
+  type Listing,
+} from './ContentEntries';
+export type { Summary, Listing } from './ContentEntries';
 export default function PublicList({
   resource,
   initial,
   categories = [],
   tags = [],
   fixedTag,
+  featured = false,
+  heading,
+  description,
 }: {
   resource: 'post' | 'note' | 'dynamic';
   initial: Listing;
   categories?: string[];
   tags?: string[];
   fixedTag?: string;
+  featured?: boolean;
+  heading?: string;
+  description?: string;
 }) {
   const [state, setState] = useState(initial);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [tag, setTag] = useState(fixedTag ?? '');
-  const [page, setPage] = useState(1);
+  const [kind, setKind] = useState('');
+  const [page, setPage] = useState(initial.current);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    if (!query && !category && tag === (fixedTag ?? '') && page === 1) {
+    if (!query && !category && !kind && tag === (fixedTag ?? '') && page === initial.current) {
       setState(initial);
       setError('');
       setLoading(false);
@@ -53,9 +49,14 @@ export default function PublicList({
     const timer = setTimeout(() => {
       setLoading(true);
       setError('');
-      const params = new URLSearchParams({ current: String(page), pageSize: '10', q: query });
+      const params = new URLSearchParams({
+        current: String(page),
+        pageSize: String(initial.pageSize),
+        q: query,
+      });
       if (category) params.set('category', category);
       if (tag) params.set('tags', tag);
+      if (kind) params.set('kind', kind);
       void fetch(
         '/api/' + { post: 'posts', note: 'notes', dynamic: 'dynamics' }[resource] + '?' + params,
         { signal: abort.signal },
@@ -78,97 +79,153 @@ export default function PublicList({
       clearTimeout(timer);
       abort.abort();
     };
-  }, [query, category, tag, page, resource, initial, fixedTag]);
+  }, [query, category, tag, kind, page, resource, initial, fixedTag, retry]);
+  const hasFilters = Boolean(query || category || kind || tag !== (fixedTag ?? ''));
+  const lead = resource === 'post' && featured && !hasFilters && page === 1 ? state.data[0] : null;
+  const rows = lead ? state.data.slice(1) : state.data;
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 py-8">
-      <div className="flex flex-wrap gap-3 mb-8">
-        <input
-          aria-label="搜索标题或正文"
-          placeholder="搜索标题或正文"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setPage(1);
-          }}
-          className="rounded-lg border p-3 bg-transparent"
-        />
-        {categories.length > 0 && (
-          <select
-            aria-label="分类"
-            value={category}
-            onChange={(e) => {
-              setCategory(e.target.value);
+    <div className="editorial-list" aria-busy={loading}>
+      <div className="editorial-list-head">
+        {heading && (
+          <div className="editorial-page-heading">
+            <h1>{heading}</h1>
+            {description && <p>{description}</p>}
+          </div>
+        )}
+        <div className="editorial-tools">
+          <label className="editorial-search">
+            <Search size={17} aria-hidden="true" />
+            <input
+              aria-label="搜索标题或正文"
+              placeholder="搜索标题或正文"
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(1);
+              }}
+              maxLength={200}
+            />
+          </label>
+          {(categories.length > 0 || (!fixedTag && tags.length > 0)) && (
+            <details className="editorial-filter-menu">
+              <summary>
+                <SlidersHorizontal size={16} aria-hidden="true" />
+                筛选
+              </summary>
+              <div className="editorial-filter-panel">
+                {categories.length > 0 && (
+                  <select
+                    aria-label="分类"
+                    value={category}
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      setPage(1);
+                    }}
+                    className="editorial-select"
+                  >
+                    <option value="">全部分类</option>
+                    {categories.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                )}
+                {!fixedTag && tags.length > 0 && (
+                  <select
+                    aria-label="标签"
+                    value={tag}
+                    onChange={(e) => {
+                      setTag(e.target.value);
+                      setPage(1);
+                    }}
+                    className="editorial-select"
+                  >
+                    <option value="">全部标签</option>
+                    {tags.map((t) => (
+                      <option key={t}>{t}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </details>
+          )}
+        </div>
+      </div>
+      {resource === 'note' && (
+        <div className="editorial-note-types" aria-label="笔记类型">
+          {[
+            ['', '全部笔记'],
+            ['TECH', '技术笔记'],
+            ['ESSAY', '生活随笔'],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              aria-pressed={kind === value}
+              onClick={() => {
+                setKind(value);
+                setPage(1);
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="editorial-list-status">
+        <span role="status">{loading ? '加载中…' : state.total + ' 条内容'}</span>
+        {hasFilters && (
+          <button
+            onClick={() => {
+              setQuery('');
+              setCategory('');
+              setTag(fixedTag ?? '');
+              setKind('');
               setPage(1);
             }}
-            className="border rounded-lg p-3 bg-transparent"
           >
-            <option value="">全部分类</option>
-            {categories.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+            清除筛选
+          </button>
         )}
-        {!fixedTag && tags.length > 0 && (
-          <select
-            aria-label="标签"
-            value={tag}
-            onChange={(e) => {
-              setTag(e.target.value);
-              setPage(1);
-            }}
-            className="border rounded-lg p-3 bg-transparent"
-          >
-            <option value="">全部标签</option>
-            {tags.map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </select>
-        )}
-        <span role="status" className="self-center text-sm text-gray-500">
-          {loading ? '加载中…' : state.total + ' 条内容'}
-        </span>
       </div>
-      {error && <p role="alert">{error}</p>}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {state.data.map((item) => (
-          <article
-            key={item.id}
-            className="min-w-0 rounded-2xl border border-gray-100 dark:border-white/10 bg-white dark:bg-white/[0.04] p-6"
-          >
-            {item.cover && (
-              <Image
-                unoptimized
-                width={800}
-                height={450}
-                src={item.cover}
-                alt=""
-                className="w-full aspect-video object-cover rounded-lg mb-4"
-              />
-            )}
-            <time className="text-sm text-gray-500">
-              {shanghaiDate(item.publishedAt ?? item.createdAt)}
-            </time>
-            <h2 className="text-xl font-bold mt-3 mb-3">
-              <Link
-                href={
-                  resource === 'dynamic'
-                    ? '/status/' + item.id
-                    : (resource === 'post' ? '/posts/' : '/notes/') + item.slug
-                }
-              >
-                {item.title || '动态'}
-              </Link>
-            </h2>
-            <p className="text-gray-500 break-words line-clamp-3">{item.excerpt || '暂无摘要'}</p>
-            <p className="text-cyan-600 text-sm mt-4">
-              {item.category?.name} {item.tags?.map((t) => '#' + t).join(' ')}
-            </p>
-          </article>
-        ))}
-      </div>
-      {!state.data.length && <p className="py-10 text-center text-gray-500">没有匹配的内容</p>}
+      {error && (
+        <div className="editorial-error" role="alert">
+          <p>{error}</p>
+          <button onClick={() => setRetry((n) => n + 1)}>重新加载</button>
+        </div>
+      )}
+      {lead && (
+        <>
+          <FeaturedArticle item={lead} />
+          {rows.length > 0 && (
+            <div className="editorial-section-head">
+              <h2>更多文章</h2>
+              <span>按发布时间排列</span>
+            </div>
+          )}
+        </>
+      )}
+      {resource === 'dynamic' ? (
+        <div className="editorial-timeline">
+          {rows.map((item, index) => (
+            <div key={item.id}>
+              {(index === 0 || entryMonth(rows[index - 1]) !== entryMonth(item)) && (
+                <h2 className="editorial-month">{entryMonth(item)}</h2>
+              )}
+              <DynamicEntry item={item} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        rows.map((item) =>
+          resource === 'note' ? (
+            <NoteRow key={item.id} item={item} />
+          ) : (
+            <ArticleRow key={item.id} item={item} />
+          ),
+        )
+      )}
+      {!state.data.length && !loading && <p className="editorial-empty">没有匹配的内容</p>}
       {state.pages > 1 && (
-        <nav aria-label="分页" className="flex justify-center gap-5 mt-8">
+        <nav aria-label="分页" className="editorial-pagination">
           <button disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>
             上一页
           </button>

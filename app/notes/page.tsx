@@ -8,30 +8,24 @@ export default async function Page() {
   const initial = await listContent('note', new URLSearchParams());
   const [categories, tags] = await Promise.all([
     prisma.category.findMany({
-      where: {
-        OR: [{ posts: { some: { published: true } } }, { notes: { some: { published: true } } }],
-      },
+      where: { notes: { some: { published: true } } },
       select: { name: true },
     }),
     prisma.tag.findMany({
-      where: {
-        OR: [
-          { posts: { some: { post: { published: true } } } },
-          { notes: { some: { note: { published: true } } } },
-        ],
-      },
+      where: { notes: { some: { note: { published: true } } } },
       select: { name: true },
     }),
   ]);
   return (
-    <section className="w-full">
-      <h1 className="text-center text-3xl font-bold pt-10">笔记</h1>
+    <main className="editorial-page">
       <PublicList
         resource="note"
+        heading="笔记"
+        description="把零散的发现记下来，留给下一次需要它的自己。"
         initial={serialize(initial)}
         categories={categories.map((c) => c.name)}
         tags={tags.map((t) => t.name)}
       />
-    </section>
+    </main>
   );
 }

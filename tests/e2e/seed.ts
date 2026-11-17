@@ -53,11 +53,12 @@ async function main() {
           slug: 'e2e-search-' + i,
           title: 'E2E_SEARCH ' + i,
           excerpt: 'Only summary',
+          cover: i < 2 ? '/imgs/head-img.jpg' : null,
           content: 'Unique body search phrase',
           published: true,
           publishedAt: new Date(Date.now() - i * 1000),
         },
-        update: { published: true },
+        update: { published: true, cover: i < 2 ? '/imgs/head-img.jpg' : null },
       });
     await db.note.upsert({
       where: { slug: 'e2e-note' },
@@ -85,6 +86,20 @@ async function main() {
         publishedAt: new Date(),
       },
       update: { published: true },
+    });
+    await db.note.upsert({
+      where: { slug: 'e2e-tech-note' },
+      create: {
+        slug: 'e2e-tech-note',
+        syncId: 'e2e/tech-note',
+        title: 'E2E Technical Note',
+        content: 'Technical note body',
+        excerpt: 'Technical note summary',
+        kind: 'TECH',
+        published: true,
+        publishedAt: new Date(),
+      },
+      update: { published: true, kind: 'TECH' },
     });
   } finally {
     await db.$disconnect();

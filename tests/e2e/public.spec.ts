@@ -123,3 +123,68 @@ test('real HTTP sync uses separate credentials and never republishes hidden cont
   ).toBe(400);
   expect((await request.get('/api/notes/meta')).status()).toBe(401);
 });
+
+test('editorial indexes retain covers, note filters and recoverable search failures', async ({
+  page,
+  browser,
+  request,
+}) => {
+  const auth = await request.post('/api/login', {
+    data: { username: 'test-admin', password: 'test-only' },
+  });
+  expect(auth.ok()).toBe(true);
+  const token = (await auth.json()).data.token;
+  for (const cover of [null, '/imgs/head-img.jpg', '/imgs/head-img.jpg']) {
+    const created = await request.post('/api/posts', {
+      headers: { Authorization: 'Bearer ' + token, 'Idempotency-Key': randomUUID() },
+      data: {
+        title: 'Editorial cover fixture',
+        slug: 'e2e-cover-' + randomUUID(),
+        content: 'Editorial cover body',
+        excerpt: 'Editorial cover summary',
+        cover,
+        published: true,
+      },
+    });
+    expect(created.status()).toBe(200);
+  }
+  await page.goto('/allBlogs');
+  await expect(page.locator('.editorial-feature')).toHaveCount(1);
+  await expect(page.locator('main article')).toHaveCount(10);
+  await expect(page.locator('.editorial-feature-cover img')).toBeVisible();
+  await expect(page.locator('.editorial-article-row.has-cover img').first()).toBeVisible();
+  await expect(page.locator('.editorial-article-row:not(.has-cover) img')).toHaveCount(0);
+  let failed = false;
+  await page.route('**/api/posts?**', async (route) => {
+    if (!failed && new URL(route.request().url()).searchParams.get('q') === 'E2E_SEARCH') {
+      failed = true;
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false}' });
+    } else await route.continue();
+  });
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E_SEARCH');
+  await expect(page.locator('main').getByRole('alert')).toContainText('加载失败');
+  await page.getByRole('button', { name: '重新加载' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '12 条内容' })).toBeVisible();
+  await expect(page.locator('.editorial-feature')).toHaveCount(0);
+  await expect(page.locator('main').getByRole('alert')).toHaveCount(0);
+
+  await page.goto('/notes');
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E');
+  await page.getByRole('button', { name: '生活随笔', exact: true }).click();
+  await expect(page.locator('.editorial-note-row')).toHaveCount(1);
+  await expect(page.locator('.editorial-note-row')).toContainText('E2E Note');
+  await page.getByRole('button', { name: '技术笔记', exact: true }).click();
+  await expect(page.locator('.editorial-note-row')).toHaveCount(1);
+  await expect(page.locator('.editorial-note-row')).toContainText('E2E Technical Note');
+  await page.goto('/allStatus');
+  await expect(page.locator('.editorial-timeline')).toBeVisible();
+
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const serverPage = await context.newPage();
+  await serverPage.goto('/');
+  await expect(serverPage.getByRole('heading', { name: '最近写下', exact: true })).toBeVisible();
+  await expect(serverPage.getByRole('heading', { name: '最近的笔记', exact: true })).toBeVisible();
+  await expect(serverPage.getByRole('heading', { name: '最近动态', exact: true })).toBeVisible();
+  await expect(serverPage.locator('.editorial-feature-cover img')).toBeVisible();
+  await context.close();
+});

@@ -29,7 +29,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-[9999] w-full border-b border-gray-200/60 bg-white/75 backdrop-blur-xl dark:border-white/10 dark:bg-[#05060a]/75">
-      <div className="flex justify-between px-4 md:px-6 h-16 items-center max-w-7xl mx-auto">
+      <div className="flex justify-between px-5 md:px-9 h-16 items-center max-w-[1160px] mx-auto">
         {/* 标题（头像 + 站点名） */}
         <Link href="/" className="shrink-0 flex items-center gap-2.5">
           <Image
@@ -39,17 +39,18 @@ export default function Header() {
             height={36}
             className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-200/60 dark:ring-white/15"
           />
-          <span className="text-2xl font-bold text-gray-900 dark:text-white">若木的小世界</span>
+          <span className="text-xl font-semibold text-gray-900 dark:text-white">若木的小世界</span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex h-full items-center">
+        <nav className="hidden lg:flex h-full items-center">
           <ul className="flex h-full items-center list-none m-0 p-0 gap-1">
             {NAV_ITEMS.map((item) => (
               <li key={item.path} className="h-full flex items-center">
                 <Link
                   href={item.path}
-                  className={`relative flex h-full items-center px-3 text-[15px] font-medium transition-colors ${
+                  aria-current={isActive(item.path) ? 'page' : undefined}
+                  className={`relative flex h-full items-center px-2.5 text-sm font-medium transition-colors ${
                     isActive(item.path)
                       ? 'text-cyan-600 dark:text-cyan-400'
                       : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
@@ -57,7 +58,7 @@ export default function Header() {
                 >
                   {item.label}
                   {isActive(item.path) && (
-                    <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-cyan-500 to-violet-500" />
+                    <span className="absolute inset-x-2.5 -bottom-px h-0.5 bg-cyan-600 dark:bg-cyan-400" />
                   )}
                 </Link>
               </li>
@@ -68,12 +69,12 @@ export default function Header() {
         {/* 右侧：主题切换 + 联系方式 + 移动菜单 */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <Contact />
           </div>
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden flex items-center text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+            className="lg:hidden flex items-center text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
             aria-label="Toggle mobile menu"
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
