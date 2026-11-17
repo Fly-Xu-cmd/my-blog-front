@@ -2,10 +2,10 @@
 import { useEffect, useRef } from "react";
 import {
   createCloudRenderer,
-  scatterDrift,
   type SkyMeteor,
   type SkyFrame,
 } from "./cloud-renderer";
+import { SkyMotion, ambientDrift } from "./sky-motion";
 
 interface Star {
   u: number;
@@ -39,8 +39,6 @@ const blankTags = new Set([
 ]);
 const overlays =
   ".ant-popover,.ant-select-dropdown,.ant-dropdown,.ant-picker-dropdown,.ant-modal,.ant-drawer-open,dialog[open]";
-const pulseDuration = 4800;
-const pulseExpansion = 800;
 
 function hitsText(target: Element, x: number, y: number) {
   const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
@@ -129,6 +127,8 @@ export default function ResponsiveSky({
       ratio = 1;
     let cloudRenderer: ReturnType<typeof createCloudRenderer> = null;
     let lastFrame = performance.now();
+    let nextFrame = lastFrame;
+    const motion = new SkyMotion(width, height);
     let lastScroll = scrollY,
       scrollTarget = 0,
       scrollOffset = 0;
@@ -140,7 +140,8 @@ export default function ResponsiveSky({
       selected: boolean;
       overlayOpen: boolean;
     } | null = null;
-    let pulse: { u: number; v: number; createdAt: number } | null = null;
+    let lastKick = -Infinity;
+    let kickCount = 0;
     const pointer = {
       x: width / 2,
       y: height / 2,
@@ -151,6 +152,8 @@ export default function ResponsiveSky({
     const fast = { x: pointer.x, y: pointer.y, strength: 0 };
     const slow = { ...fast };
     const image = new Image();
+    let cloudQuality = 1;
+    let slowFrames = 0;
     const setRenderer = (value: string) => {
       element.dataset.renderer = value;
     };
@@ -165,9 +168,20 @@ export default function ResponsiveSky({
       setRenderer(cloudRenderer ? "webgl" : "fallback");
       clouds.style.opacity = cloudRenderer ? "1" : "0";
     };
+    const resizeClouds = () => {
+      const cloudRatio = Math.min(
+        ratio,
+        cloudQuality,
+        Math.sqrt(700000 / (width * height)) * cloudQuality,
+      );
+      clouds.width = Math.round(width * cloudRatio);
+      clouds.height = Math.round(height * cloudRatio);
+      element.dataset.quality = cloudQuality.toFixed(2);
+    };
     const resize = () => {
       width = element.clientWidth || innerWidth;
       height = element.clientHeight || innerHeight;
+      motion.resize(width, height);
       ratio = Math.min(
         devicePixelRatio || 1,
         1.5,
@@ -175,18 +189,13 @@ export default function ResponsiveSky({
       );
       canvas.width = Math.round(width * ratio);
       canvas.height = Math.round(height * ratio);
-      const cloudRatio = Math.min(
-        ratio,
-        1.25,
-        Math.sqrt(2000000 / (width * height)),
-      );
-      clouds.width = Math.round(width * cloudRatio);
-      clouds.height = Math.round(height * cloudRatio);
+      resizeClouds();
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
       if (!active) draw(0);
     };
     const draw = (dt: number) => {
       const time = sceneTime.current;
+      motion.advance(dt);
       const hoverAge = Date.now() - pointer.movedAt;
       const target =
         active && pointer.inside
@@ -202,9 +211,7 @@ export default function ResponsiveSky({
       follow(slow, 3);
       scrollOffset += (scrollTarget - scrollOffset) * (1 - Math.exp(-dt * 5));
       scrollTarget *= Math.exp(-dt * 3);
-      const wind: [number, number] = active
-        ? [Math.sin(time * 0.07) * 11, Math.cos(time * 0.05) * 7 + scrollOffset]
-        : [0, 0];
+      const wind: [number, number] = active ? [0, scrollOffset] : [0, 0];
       let flash: [number, number, number] = [0, 0, 0];
       const current = active ? meteorRef.current : null;
       if (current) {
@@ -216,44 +223,25 @@ export default function ResponsiveSky({
           Math.max(0, Math.sin(Math.min(1, age / 1.3) * Math.PI)),
         ];
       }
-      const pulseRadius = Math.min(320, Math.min(width, height) * 0.65);
-      let pulseFrame: SkyFrame["pulse"] = [0, 0, 0, pulseRadius];
-      let pulsePhase = "idle";
-      if (active && pulse) {
-        const age = Math.max(0, Date.now() - pulse.createdAt);
-        if (age >= pulseDuration) pulse = null;
-        else {
-          const expanding = age < pulseExpansion;
-          const progress = expanding
-            ? age / pulseExpansion
-            : (age - pulseExpansion) / (pulseDuration - pulseExpansion);
-          const eased = progress * progress * (3 - 2 * progress);
-          pulseFrame = [
-            pulse.u * width,
-            pulse.v * height,
-            expanding ? eased : 1 - eased,
-            pulseRadius,
-          ];
-          pulsePhase = expanding ? "expanding" : "gathering";
-        }
-      }
+      const pulsePhase =
+        !active || motion.energy < 0.12
+          ? "idle"
+          : Date.now() - lastKick < 800
+            ? "expanding"
+            : "gathering";
       if (element.dataset.pulse !== pulsePhase)
         element.dataset.pulse = pulsePhase;
       ctx.clearRect(0, 0, width, height);
       for (const star of stars.current) {
-        const x = star.u * width + wind[0] * star.depth;
-        const y = star.v * height + wind[1] * star.depth;
+        const travel = active ? ambientDrift(time, star.depth) : [0, 0];
+        const x = star.u * width + travel[0] * 0.2 * star.depth;
+        const y = star.v * height + travel[1] * 0.2 * star.depth + wind[1];
         const rx = x - fast.x,
           ry = y - fast.y;
         const distance = Math.hypot(rx, ry);
         const influence =
           Math.exp(-((distance / 220) ** 2) * 2) * fast.strength;
-        const px = x - pulseFrame[0],
-          py = y - pulseFrame[1];
-        const pulseField =
-          Math.exp(-((Math.hypot(px, py) / pulseRadius) ** 2) * 2.4) *
-          pulseFrame[2];
-        const drift = pulseFrame[2] > 0 ? scatterDrift(px, py) : [0, 0];
+        const drift = motion.sample(x / width, y / height);
         const amount = active ? 1 - Math.exp(-dt * 7) : 1;
         const tx =
           distance > 1
@@ -282,18 +270,15 @@ export default function ResponsiveSky({
           : 1;
         const alpha = Math.min(
           0.95,
-          star.alpha * quiet * twinkle +
-            influence * 0.4 +
-            illumination * 0.4 +
-            pulseField * 0.12,
+          star.alpha * quiet * twinkle + influence * 0.4 + illumination * 0.4,
         );
         ctx.fillStyle = `rgba(218,230,245,${alpha})`;
         ctx.shadowColor = `rgba(183,204,232,${alpha * 0.5})`;
         ctx.shadowBlur = star.size > 1.5 || influence > 0.25 ? 4 : 0;
         ctx.beginPath();
         ctx.arc(
-          x + star.dx + drift[0] * pulseField * star.depth,
-          y + star.dy + drift[1] * pulseField * star.depth,
+          x + star.dx + drift[0] * star.depth * 0.7,
+          y + star.dy + drift[1] * star.depth * 0.7,
           star.size / 2,
           0,
           Math.PI * 2,
@@ -307,7 +292,7 @@ export default function ResponsiveSky({
         wind,
         focus: [slow.x, slow.y, slow.strength],
         flash,
-        pulse: pulseFrame,
+        motion,
       };
       cloudRenderer?.draw(frame);
       const field = fast.strength > 0.05 ? "responding" : "idle";
@@ -315,11 +300,21 @@ export default function ResponsiveSky({
     };
     const tick = (now: number) => {
       if (disposed) return;
-      const elapsed = now - lastFrame;
-      if (elapsed >= 1000 / 30) {
-        const dt = Math.min(elapsed / 1000, 0.1);
+      if (now >= nextFrame - 0.5) {
+        const dt = Math.max(0, (now - lastFrame) / 1000);
+        // Keep the flow smooth on slower GPUs by reducing only cloud pixels.
+        // Click count never increases simulation or shader work per frame.
+        slowFrames =
+          dt > 0.022 && dt < 2 ? slowFrames + 1 : Math.max(0, slowFrames - 0.3);
+        if (slowFrames >= 18 && cloudQuality > 0.55) {
+          cloudQuality = Math.max(0.55, cloudQuality * 0.82);
+          slowFrames = 0;
+          resizeClouds();
+        }
         lastFrame = now;
-        sceneTime.current += dt;
+        nextFrame += 1000 / 60;
+        if (nextFrame < now) nextFrame = now + 1000 / 60;
+        sceneTime.current += Math.min(dt, 0.1);
         draw(dt);
       }
       raf = requestAnimationFrame(tick);
@@ -394,19 +389,15 @@ export default function ResponsiveSky({
       )
         return;
       const now = Date.now();
-      if (!pulse || now - pulse.createdAt >= pulseDuration) {
-        pulse = {
-          u: event.clientX / width,
-          v: event.clientY / height,
-          createdAt: now,
-        };
-        element.dataset.pulse = "expanding";
-        onMeteorRef.current({ x: event.clientX, y: event.clientY });
-        pointer.x = event.clientX;
-        pointer.y = event.clientY;
-        pointer.inside = gesture.pointerType !== "touch";
-        pointer.movedAt = Date.now();
-      }
+      motion.kick(event.clientX, event.clientY);
+      lastKick = now;
+      element.dataset.pulse = "expanding";
+      element.dataset.pulseCount = String(++kickCount);
+      onMeteorRef.current({ x: event.clientX, y: event.clientY });
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.inside = gesture.pointerType !== "touch";
+      pointer.movedAt = now;
     };
     const lost = (event: Event) => {
       event.preventDefault();
@@ -417,6 +408,7 @@ export default function ResponsiveSky({
     };
     resize();
     draw(0);
+    element.dataset.pulseCount = "0";
     setRenderer(active ? "loading" : "static");
     clouds.style.opacity = "0";
     window.addEventListener("resize", resize);
@@ -463,6 +455,7 @@ export default function ResponsiveSky({
       className="responsive-sky absolute inset-0"
       data-field="idle"
       data-pulse="idle"
+      data-pulse-count="0"
     >
       <canvas
         ref={cloudCanvas}

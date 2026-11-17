@@ -1,3 +1,6 @@
+import type { SkyMotion } from "./sky-motion";
+import { ambientDrift } from "./sky-motion";
+
 export interface SkyMeteor {
   id: number;
   left: string;
@@ -13,17 +16,7 @@ export interface SkyFrame {
   wind: [number, number];
   focus: [number, number, number];
   flash: [number, number, number];
-  pulse: [number, number, number, number];
-}
-
-// Screen-space currents shared below; gas parcels and stars drift through them.
-export function scatterDrift(dx: number, dy: number): [number, number] {
-  const length = Math.sqrt(dx * dx + dy * dy + 8100);
-  const rx = dx / length,
-    ry = dy / length;
-  const nx = Math.sin(dy * 0.021 + Math.sin(dx * 0.009) * 2);
-  const ny = Math.cos(dx * 0.019 - Math.sin(dy * 0.011) * 2);
-  return [rx * 55 - ry * nx * 10 + nx * 12, ry * 55 + rx * nx * 10 + ny * 12];
+  motion: SkyMotion;
 }
 
 const vertexSource = `
@@ -46,59 +39,44 @@ uniform vec2 offset;
 uniform vec2 wind;
 uniform vec3 focus;
 uniform vec3 flash;
-uniform vec4 pulse;
+uniform vec2 currents[6];
+uniform vec2 displacements[6];
 uniform float time;
-vec2 scatterDrift(vec2 delta) {
-  vec2 radial = delta / sqrt(dot(delta, delta) + 8100.0);
-  vec2 noise = vec2(sin(delta.y * 0.021 + sin(delta.x * 0.009) * 2.0),
-                    cos(delta.x * 0.019 - sin(delta.y * 0.011) * 2.0));
-  return radial * 55.0 + vec2(-radial.y, radial.x) * noise.x * 10.0 + noise * 12.0;
-}
 void main() {
   vec2 px = uv * size;
   vec2 relative = (px - focus.xy) / 220.0;
   float influence = exp(-dot(relative, relative) * 2.0) * focus.z;
-  vec2 textureUV = (uv - 0.5) * cover + 0.5 + offset;
-  // Bounded, overlapping currents keep gas flowing even without a pointer.
-  // Advect the fine dust with the broad current instead of moving a flat image.
-  vec2 current = vec2(sin(textureUV.y * 7.0 + time * 0.13),
-                      cos(textureUV.x * 6.0 - time * 0.10)) * 0.018;
-  vec2 dustUV = textureUV + current;
-  textureUV += current + vec2(sin(dustUV.y * 19.0 - time * 0.18),
-                             cos(dustUV.x * 15.0 + time * 0.15)) * 0.007;
+  // Overscan gives the slow travelling currents room at the viewport edges.
+  vec2 textureUV = (uv - 0.5) * cover * 0.78 + 0.5 + offset;
   textureUV -= wind / size * cover * 0.45;
   textureUV -= (relative + vec2(relative.y, -relative.x) * 0.45) * influence * 0.025 * cover;
-  vec2 pulseDelta = px - pulse.xy;
-  vec2 pulseRelative = pulseDelta / max(pulse.w, 1.0);
-  float pulseField = exp(-dot(pulseRelative, pulseRelative) * 2.4) * pulse.z;
-  vec3 color = texture2D(nebula, clamp(textureUV, 0.001, 0.999)).rgb;
   vec3 sky = vec3(5.0, 7.0, 12.0) / 255.0;
-  vec3 gas = max(color - sky, 0.0);
-  if (pulse.z > 0.001 && pulseField > 0.005) {
-    vec2 screenDelta = vec2(pulseDelta.x, -pulseDelta.y);
-    vec3 dispersedGas = vec3(0.0);
-    for (int i = 0; i < 4; i++) {
-      vec2 parcel = i == 0 ? vec2(-0.5, -0.35) : i == 1 ? vec2(0.5, -0.35)
-                  : i == 2 ? vec2(-0.4, 0.5) : vec2(0.45, 0.5);
-      vec2 drift = scatterDrift(parcel * pulse.w) * pulse.z;
-      vec2 sourceUV = textureUV - vec2(drift.x, -drift.y) / size * cover;
-      vec2 maskUV = vec2(0.5) + (screenDelta - drift) / max(pulse.w, 1.0) * 0.6;
-      float grain = clamp((texture2D(nebula, clamp(maskUV, 0.001, 0.999)).b - sky.b) * 10.0 + 0.25, 0.0, 1.0);
-      vec4 distance = vec4(grain) - vec4(0.125, 0.375, 0.625, 0.875);
-      vec4 portions = exp(-distance * distance * 8.0);
-      portions /= dot(portions, vec4(1.0));
-      float part = i == 0 ? portions.x : i == 1 ? portions.y : i == 2 ? portions.z : portions.w;
-      dispersedGas += max(texture2D(nebula, clamp(sourceUV, 0.001, 0.999)).rgb - sky, 0.0) * part;
-    }
-    // Independently translate complementary gas parcels; never scale the image.
-    color += (dispersedGas * 0.9 - gas) * pulseField;
-    gas = max(color - sky, 0.0);
+  vec3 gas = vec3(0.0);
+  for (int i = 0; i < 6; i++) {
+    vec2 travel = vec2(currents[i].x, -currents[i].y);
+    vec2 displacement = vec2(displacements[i].x, -displacements[i].y);
+    vec2 sourceScreen = uv - (travel + displacement) / size;
+    vec2 sourceUV = textureUV - (travel + displacement) / size * cover * 0.78;
+    // Dust rolls within the travelling current, rather than wobbling in place.
+    sourceUV += vec2(sin(sourceUV.y * 12.0 + time * 0.055),
+                     cos(sourceUV.x * 10.0 - time * 0.04)) * 0.003;
+    vec3 parcelGas = max(texture2D(nebula, clamp(sourceUV, 0.001, 0.999)).rgb - sky, 0.0);
+    // The overlapping masks travel with their parcels. No radial image warp:
+    // differently directed cloud patches part instead of magnifying the scene.
+    sourceScreen += vec2(sin(parcelGas.b * 30.0), cos(parcelGas.r * 35.0)) * 0.055;
+    float horizontal = smoothstep(0.2, 0.8, sourceScreen.x);
+    float lower = 1.0 - smoothstep(0.14, 0.53, sourceScreen.y);
+    float upper = smoothstep(0.47, 0.86, sourceScreen.y);
+    float vertical = i < 2 ? lower : i < 4 ? 1.0 - lower - upper : upper;
+    float side = i == 0 || i == 2 || i == 4 ? 1.0 - horizontal : horizontal;
+    float part = side * vertical;
+    gas += parcelGas * part;
   }
   vec2 trail = (px - flash.xy) / 150.0;
   float illumination = exp(-dot(trail, trail) * 2.0) * flash.z;
   // Reveal the existing gas, leaving empty space dark rather than a round glow.
-  color += gas * (influence * 0.85 + illumination * 1.1 + pulseField * 0.15);
-  gl_FragColor = vec4(color, 1.0);
+  gas *= 1.0 + influence * 0.6 + illumination * 0.75;
+  gl_FragColor = vec4(sky + gas, 1.0);
 }
 `;
 
@@ -118,6 +96,16 @@ export function createCloudRenderer(
   const program = gl.createProgram();
   const buffer = gl.createBuffer();
   const texture = gl.createTexture();
+  const anchors = [
+    [0.25, 0.82],
+    [0.75, 0.82],
+    [0.25, 0.5],
+    [0.75, 0.5],
+    [0.25, 0.18],
+    [0.75, 0.18],
+  ];
+  const currents = new Float32Array(12);
+  const displacements = new Float32Array(12);
   const dispose = () => {
     shaders.forEach((shader) => gl.deleteShader(shader));
     gl.deleteProgram(program);
@@ -160,6 +148,7 @@ export function createCloudRenderer(
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.uniform1i(gl.getUniformLocation(program, "nebula"), 0);
     const locations = Object.fromEntries(
       [
         "size",
@@ -168,7 +157,8 @@ export function createCloudRenderer(
         "wind",
         "focus",
         "flash",
-        "pulse",
+        "currents[0]",
+        "displacements[0]",
         "time",
       ].map((key) => [key, gl.getUniformLocation(program, key)]),
     );
@@ -203,13 +193,19 @@ export function createCloudRenderer(
           frame.flash[2],
         );
         gl.uniform1f(locations.time, frame.time);
-        gl.uniform4f(
-          locations.pulse,
-          frame.pulse[0],
-          frame.height - frame.pulse[1],
-          frame.pulse[2],
-          frame.pulse[3],
-        );
+        anchors.forEach(([u, v], i) => {
+          const drift = ambientDrift(frame.time, i * 0.3);
+          const displacement = frame.motion.sample(
+            u + drift[0] / frame.width,
+            v + drift[1] / frame.height,
+          );
+          currents[i * 2] = drift[0];
+          currents[i * 2 + 1] = drift[1];
+          displacements[i * 2] = displacement[0];
+          displacements[i * 2 + 1] = displacement[1];
+        });
+        gl.uniform2fv(locations["currents[0]"], currents);
+        gl.uniform2fv(locations["displacements[0]"], displacements);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       },
     };
