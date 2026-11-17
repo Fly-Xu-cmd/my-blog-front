@@ -92,6 +92,7 @@ export default function PublicList({
             colorBgContainer: 'transparent',
             hoverBg: 'transparent',
             activeBg: 'transparent',
+            activeShadow: 'none',
           },
           Select: { selectorBg: 'transparent' },
           Segmented: { trackBg: 'transparent' },

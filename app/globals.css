@@ -302,7 +302,7 @@ html::-webkit-scrollbar-thumb:hover {
 .editorial-page a:not(.ant-btn):hover {
   color: var(--editorial-accent);
 }
-.editorial-page :is(a, button, input, select, summary):focus-visible {
+.editorial-page a:not(.ant-btn):focus-visible {
   outline: 2px solid var(--editorial-accent);
   outline-offset: 5px;
 }
@@ -335,7 +335,7 @@ html::-webkit-scrollbar-thumb:hover {
   align-items: center;
   gap: 18px;
 }
-.editorial-search {
+.editorial-tools .editorial-search {
   width: 250px;
   max-width: 100%;
 }
@@ -621,8 +621,8 @@ html::-webkit-scrollbar-thumb:hover {
   font-size: 13px;
   color: var(--editorial-muted);
 }
-.editorial-pagination .ant-pagination-prev,
-.editorial-pagination .ant-pagination-next {
+.editorial-pagination .ant-pagination .ant-pagination-prev,
+.editorial-pagination .ant-pagination .ant-pagination-next {
   width: auto;
 }
 .editorial-empty {

@@ -156,6 +156,11 @@ test('editorial indexes retain covers, note filters and recoverable search failu
   await expect(page.locator('.editorial-article-row:not(.has-cover) img')).toHaveCount(0);
   await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E_KEYBOARD');
   await expect(page.getByRole('status').filter({ hasText: '21 条内容' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '搜索标题或正文' })).toHaveCSS(
+    'outline-style',
+    'none',
+  );
+  await expect(page.locator('.editorial-search')).toHaveCSS('box-shadow', 'none');
   const pagination = page.getByRole('navigation', { name: '分页', exact: true });
   const next = pagination.getByRole('button', { name: '下一页' });
   for (let i = 0; i < 50; i++) {
@@ -227,5 +232,9 @@ test('editorial indexes retain covers, note filters and recoverable search failu
   await expect(serverPage.getByRole('heading', { name: '最近的笔记', exact: true })).toBeVisible();
   await expect(serverPage.getByRole('heading', { name: '最近动态', exact: true })).toBeVisible();
   await expect(serverPage.locator('.editorial-feature-cover img')).toBeVisible();
+  await serverPage.goto('/notes');
+  await expect(serverPage.locator('style[data-antd-ssr]').first()).toBeAttached();
+  await expect(serverPage.locator('.ant-segmented-group')).toHaveCSS('display', 'flex');
+  await expect(serverPage.locator('.ant-segmented-item-input').first()).toHaveCSS('opacity', '0');
   await context.close();
 });

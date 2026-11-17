@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import '../public/icon/iconfont.css';
 import ThemeProvider from '@/components/ThemeProvider';
+import AntdStyleRegistry from '@/components/AntdStyleRegistry';
 import Background from '@/components/Background';
 import Header from '@/components/Header';
 import AnalyticsTracker from '@/components/AnalyticsTracker';
@@ -78,20 +79,22 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased w-full`}>
-        <ThemeProvider>
-          <Background />
-          <AnalyticsTracker />
-          <div className="relative w-full flex flex-col min-h-screen">
-            <Header />
-            <div className="w-full flex flex-1">{children}</div>
-            <Footer />
-          </div>
-          {/* WebSite 结构化数据（JSON-LD） */}
-          <script
-            type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: safeJson(websiteJsonLd) }}
-          />
-        </ThemeProvider>
+        <AntdStyleRegistry>
+          <ThemeProvider>
+            <Background />
+            <AnalyticsTracker />
+            <div className="relative w-full flex flex-col min-h-screen">
+              <Header />
+              <div className="w-full flex flex-1">{children}</div>
+              <Footer />
+            </div>
+            {/* WebSite 结构化数据（JSON-LD） */}
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: safeJson(websiteJsonLd) }}
+            />
+          </ThemeProvider>
+        </AntdStyleRegistry>
       </body>
     </html>
   );
