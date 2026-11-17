@@ -77,6 +77,11 @@ body {
   background: #05060a url('/backgrounds/nebula-dust.webp') center / cover no-repeat;
 }
 
+/* The premultiplied cloud layer supplies its own light and star occlusion. */
+.night-sky:has(.responsive-sky[data-renderer="webgl"]) {
+  background-image: none;
+}
+
 @media (max-width: 640px) {
   .night-sky { background-position: 60% center; }
 }

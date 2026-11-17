@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, chromium } from '@playwright/test';
 import { randomUUID } from 'crypto';
 
 test('night sky keeps meteors occasional and stops motion when preferences change', async ({ page }) => {
@@ -176,6 +176,76 @@ test('sky falls back without WebGL and touch scrolling does not launch meteors',
   await expect(page.locator('.responsive-sky')).toHaveAttribute('data-pulse', 'expanding');
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await context.close();
+});
+
+test('depth sheets render opacity while far stars stay stable during nearby touch impulses', async () => {
+  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  try {
+    const page = await browser.newPage({ hasTouch: true, viewport: { width: 1280, height: 900 }, colorScheme: 'dark', reducedMotion: 'no-preference' });
+    await page.clock.install({ time: new Date('2026-11-17T00:00:00Z') });
+    await page.clock.pauseAt(new Date('2026-11-17T00:00:01Z'));
+    await page.addInitScript(`
+      const original = WebGLRenderingContext.prototype.drawArrays;
+      window.skyProbeRequested = true;
+      WebGLRenderingContext.prototype.drawArrays = function(...args) {
+        original.apply(this, args);
+        if (!window.skyProbeRequested || !this.canvas.classList.contains('responsive-cloud')) return;
+        window.skyProbeRequested = false;
+        const width = this.drawingBufferWidth, height = this.drawingBufferHeight;
+        const pixels = new Uint8Array(width * height * 4);
+        this.readPixels(0, 0, width, height, this.RGBA, this.UNSIGNED_BYTE, pixels);
+        let min = 255, max = 0, blue = 0;
+        for (let i = 3; i < pixels.length; i += 4) { min = Math.min(min, pixels[i]); max = Math.max(max, pixels[i]); blue = Math.max(blue, pixels[i - 1]); }
+        window.skyOpacity = {min, max, blue};
+      };
+    `);
+    await page.goto('http://127.0.0.1:3197/archive');
+    const sky = page.locator('.responsive-sky');
+    await expect(sky).toHaveAttribute('data-renderer', 'webgl');
+    await page.clock.runFor(32);
+    const opacity = await page.evaluate('window.skyOpacity') as { min: number; max: number; blue: number };
+    expect(opacity.max).toBeGreaterThan(40);
+    expect(opacity.min).toBeLessThan(opacity.max - 30);
+    expect(opacity.blue).toBeGreaterThan(20);
+    await expect(page.locator('.night-sky')).toHaveCSS('background-image', 'none');
+    const distant = await page.locator('.responsive-stars').evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL());
+    await page.touchscreen.tap(1200, 500);
+    await page.clock.runFor(180);
+    await page.touchscreen.tap(900, 650);
+    await page.clock.runFor(180);
+    await expect(sky).toHaveAttribute('data-pulse-count', '2');
+    expect(await page.locator('.responsive-stars').evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL())).toBe(distant);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(sky).toHaveAttribute('data-renderer', 'static');
+    await expect(page.locator('.night-sky')).toHaveCSS('background-image', /nebula-dust\.webp/);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await expect(sky).toHaveAttribute('data-renderer', 'webgl');
+    await page.evaluate('window.skyProbeRequested = true');
+    await page.clock.runFor(32);
+    const restored = await page.evaluate('window.skyOpacity') as { min: number; max: number; blue: number };
+    expect(restored.max).toBeGreaterThan(40);
+    expect(restored.blue).toBeGreaterThan(20);
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect(sky).toHaveAttribute('data-renderer', 'static');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(sky).toHaveAttribute('data-renderer', 'webgl');
+    await page.evaluate('window.skyProbeRequested = true');
+    await page.clock.runFor(32);
+    expect((await page.evaluate('window.skyOpacity') as { blue: number }).blue).toBeGreaterThan(20);
+  } finally { await browser.close(); }
+});
+
+test('surface atlas failure preserves the static sky and gesture handling', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.route('**/backgrounds/nebula-surfaces.webp', (route) => route.abort());
+  await page.goto('/archive');
+  const sky = page.locator('.responsive-sky');
+  await expect(sky).toHaveAttribute('data-renderer', 'fallback');
+  await expect(page.locator('.night-sky')).toHaveCSS('background-image', /nebula-dust\.webp/);
+  await page.mouse.click(5, 500);
+  await expect(sky).toHaveAttribute('data-pulse-count', '1');
+  await page.getByRole('heading', { name: '文章归档', exact: true }).click({ position: { x: 20, y: 15 } });
+  await expect(sky).toHaveAttribute('data-pulse-count', '1');
 });
 
 test('server body, duplicate Chinese anchors and Mermaid fallback survive disabled JavaScript', async ({

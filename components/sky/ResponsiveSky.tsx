@@ -14,8 +14,7 @@ interface Star {
   alpha: number;
   depth: number;
   phase: number;
-  dx: number;
-  dy: number;
+  tint: string;
 }
 const excluded =
   'a,button,input,textarea,select,label,summary,form,details,nav,header,footer,[role="button"],[role="link"],[role="combobox"],[role="listbox"],[role="option"],[role="menu"],[role="menuitem"],[role="dialog"],[role="tab"],[contenteditable],[data-sky-no-interaction],.ant-select,.ant-select-dropdown,.ant-popover,.ant-dropdown,.ant-picker,.ant-modal,.ant-drawer,.ant-pagination,.ant-segmented,.ant-input-affix-wrapper,.ant-input-group,.ant-upload,.ant-message,.ant-notification';
@@ -83,10 +82,14 @@ function createStars(): Star[] {
       v,
       size: i < 140 ? 0.8 : i < 168 ? 1.1 : 1.7,
       alpha: i < 140 ? 0.28 : i < 168 ? 0.46 : 0.65,
-      depth: i < 140 ? 0.6 : i < 168 ? 1 : 1.5,
+      depth: i < 140 ? 0.025 : i < 168 ? 0.04 : 0.06,
       phase: Math.random() * Math.PI * 2,
-      dx: 0,
-      dy: 0,
+      tint:
+        i % 9 === 0
+          ? "235,219,194"
+          : i % 4 === 0
+            ? "232,235,239"
+            : "205,222,242",
     };
   });
 }
@@ -103,7 +106,9 @@ export default function ResponsiveSky({
   const root = useRef<HTMLDivElement>(null);
   const cloudCanvas = useRef<HTMLCanvasElement>(null);
   const starCanvas = useRef<HTMLCanvasElement>(null);
+  const dustCanvas = useRef<HTMLCanvasElement>(null);
   const stars = useRef<Star[]>([]);
+  const dust = useRef<Star[]>([]);
   const sceneTime = useRef(0);
   const meteorRef = useRef(meteor);
   const onMeteorRef = useRef(onMeteor);
@@ -116,10 +121,39 @@ export default function ResponsiveSky({
     const element = root.current;
     const clouds = cloudCanvas.current;
     const canvas = starCanvas.current;
-    if (!element || !clouds || !canvas) return;
+    const particles = dustCanvas.current;
+    if (!element || !clouds || !canvas || !particles) return;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const dustContext = particles.getContext("2d");
+    if (!ctx || !dustContext) return;
     if (!stars.current.length) stars.current = createStars();
+    // Two restrained stellar sources are shared with the cloud lighting.
+    Object.assign(stars.current[0], {
+      u: 0.73,
+      v: 0.3,
+      size: 2.1,
+      alpha: 0.85,
+      tint: "205,222,242",
+      depth: 0.04,
+    });
+    Object.assign(stars.current[1], {
+      u: 0.25,
+      v: 0.7,
+      size: 1.8,
+      alpha: 0.7,
+      tint: "235,219,194",
+      depth: 0.04,
+    });
+    if (!dust.current.length)
+      dust.current = Array.from({ length: 22 }, () => ({
+        u: Math.random(),
+        v: Math.random(),
+        size: 0.8 + Math.random() * 0.6,
+        alpha: 0.12 + Math.random() * 0.14,
+        depth: 0.7 + Math.random() * 0.6,
+        phase: Math.random() * Math.PI * 2,
+        tint: "181,194,213",
+      }));
     let disposed = false;
     let raf = 0;
     let width = element.clientWidth || innerWidth,
@@ -128,6 +162,8 @@ export default function ResponsiveSky({
     let cloudRenderer: ReturnType<typeof createCloudRenderer> = null;
     let lastFrame = performance.now();
     let nextFrame = lastFrame;
+    let farDirty = true;
+    let farView: [number, number] = [0, 0];
     const motion = new SkyMotion(width, height);
     let lastScroll = scrollY,
       scrollTarget = 0,
@@ -152,16 +188,25 @@ export default function ResponsiveSky({
     const fast = { x: pointer.x, y: pointer.y, strength: 0 };
     const slow = { ...fast };
     const image = new Image();
+    const surfaceImage = new Image();
     let cloudQuality = 1;
     let slowFrames = 0;
     const setRenderer = (value: string) => {
       element.dataset.renderer = value;
     };
     const initializeClouds = () => {
-      if (disposed || !active || !image.complete || !image.naturalWidth) return;
+      if (
+        disposed ||
+        !active ||
+        !image.complete ||
+        !image.naturalWidth ||
+        !surfaceImage.complete ||
+        !surfaceImage.naturalWidth
+      )
+        return;
       cloudRenderer?.dispose();
       try {
-        cloudRenderer = createCloudRenderer(clouds, image);
+        cloudRenderer = createCloudRenderer(clouds, image, surfaceImage);
       } catch {
         cloudRenderer = null;
       }
@@ -189,8 +234,13 @@ export default function ResponsiveSky({
       );
       canvas.width = Math.round(width * ratio);
       canvas.height = Math.round(height * ratio);
+      const particleRatio = Math.min(1, Math.sqrt(800000 / (width * height)));
+      particles.width = Math.round(width * particleRatio);
+      particles.height = Math.round(height * particleRatio);
       resizeClouds();
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      dustContext.setTransform(particleRatio, 0, 0, particleRatio, 0, 0);
+      farDirty = true;
       if (!active) draw(0);
     };
     const draw = (dt: number) => {
@@ -212,6 +262,13 @@ export default function ResponsiveSky({
       scrollOffset += (scrollTarget - scrollOffset) * (1 - Math.exp(-dt * 5));
       scrollTarget *= Math.exp(-dt * 3);
       const wind: [number, number] = active ? [0, scrollOffset] : [0, 0];
+      const voyage = active ? ambientDrift(time, 0.3) : [0, 0];
+      const view: [number, number] = active
+        ? [
+            (slow.x / width - 0.5) * 18 * slow.strength + voyage[0] * 0.07,
+            (slow.y / height - 0.5) * 12 * slow.strength + voyage[1] * 0.07,
+          ]
+        : [0, 0];
       let flash: [number, number, number] = [0, 0, 0];
       const current = active ? meteorRef.current : null;
       if (current) {
@@ -231,59 +288,55 @@ export default function ResponsiveSky({
             : "gathering";
       if (element.dataset.pulse !== pulsePhase)
         element.dataset.pulse = pulsePhase;
-      ctx.clearRect(0, 0, width, height);
-      for (const star of stars.current) {
-        const travel = active ? ambientDrift(time, star.depth) : [0, 0];
-        const x = star.u * width + travel[0] * 0.2 * star.depth;
-        const y = star.v * height + travel[1] * 0.2 * star.depth + wind[1];
-        const rx = x - fast.x,
-          ry = y - fast.y;
-        const distance = Math.hypot(rx, ry);
-        const influence =
-          Math.exp(-((distance / 220) ** 2) * 2) * fast.strength;
+      if (
+        farDirty ||
+        Math.hypot(view[0] - farView[0], view[1] - farView[1]) > 0.4
+      ) {
+        farDirty = false;
+        farView = view;
+        ctx.clearRect(0, 0, width, height);
+        for (const star of stars.current) {
+          const x = star.u * width + view[0] * star.depth;
+          const y = star.v * height + view[1] * star.depth;
+          const quiet =
+            0.35 +
+            Math.min(1, Math.hypot((star.u - 0.5) * 2, (star.v - 0.58) * 1.7)) *
+              0.65;
+          const alpha = star.alpha * quiet;
+          ctx.fillStyle = `rgba(${star.tint},${alpha})`;
+          ctx.shadowColor = `rgba(${star.tint},${alpha * 0.4})`;
+          ctx.shadowBlur = star.size > 1.5 ? 3 : 0;
+          ctx.beginPath();
+          ctx.arc(x, y, star.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      dustContext.clearRect(0, 0, width, height);
+      const nearTravel = active ? ambientDrift(time, 1.4) : [0, 0];
+      for (const particle of dust.current) {
+        const x =
+          particle.u * width + view[0] * particle.depth + nearTravel[0] * 0.18;
+        const y =
+          particle.v * height +
+          view[1] * particle.depth +
+          nearTravel[1] * 0.18 +
+          wind[1];
         const drift = motion.sample(x / width, y / height);
-        const amount = active ? 1 - Math.exp(-dt * 7) : 1;
-        const tx =
-          distance > 1
-            ? ((rx / distance) * 13 - (ry / distance) * 6) *
-              influence *
-              star.depth
-            : 0;
-        const ty =
-          distance > 1
-            ? ((ry / distance) * 13 + (rx / distance) * 6) *
-              influence *
-              star.depth
-            : 0;
-        star.dx += (tx - star.dx) * amount;
-        star.dy += (ty - star.dy) * amount;
         const illumination =
-          Math.exp(
-            (-(Math.hypot(x - flash[0], y - flash[1]) ** 2) / 22500) * 2,
-          ) * flash[2];
-        const quiet =
-          0.35 +
-          Math.min(1, Math.hypot((star.u - 0.5) * 2, (star.v - 0.58) * 1.7)) *
-            0.65;
-        const twinkle = active
-          ? 0.92 + Math.sin(time * 0.55 + star.phase) * 0.08
-          : 1;
-        const alpha = Math.min(
-          0.95,
-          star.alpha * quiet * twinkle + influence * 0.4 + illumination * 0.4,
-        );
-        ctx.fillStyle = `rgba(218,230,245,${alpha})`;
-        ctx.shadowColor = `rgba(183,204,232,${alpha * 0.5})`;
-        ctx.shadowBlur = star.size > 1.5 || influence > 0.25 ? 4 : 0;
-        ctx.beginPath();
-        ctx.arc(
-          x + star.dx + drift[0] * star.depth * 0.7,
-          y + star.dy + drift[1] * star.depth * 0.7,
-          star.size / 2,
+          Math.exp(-((Math.hypot(x - slow.x, y - slow.y) / 220) ** 2)) *
+          slow.strength;
+        dustContext.fillStyle = `rgba(${particle.tint},${particle.alpha + illumination * 0.12})`;
+        dustContext.shadowColor = `rgba(${particle.tint},0.1)`;
+        dustContext.shadowBlur = 2;
+        dustContext.beginPath();
+        dustContext.arc(
+          x + drift[0] * particle.depth,
+          y + drift[1] * particle.depth,
+          particle.size / 2,
           0,
           Math.PI * 2,
         );
-        ctx.fill();
+        dustContext.fill();
       }
       const frame: SkyFrame = {
         width,
@@ -293,6 +346,7 @@ export default function ResponsiveSky({
         focus: [slow.x, slow.y, slow.strength],
         flash,
         motion,
+        view,
       };
       cloudRenderer?.draw(frame);
       const field = fast.strength > 0.05 ? "responding" : "idle";
@@ -414,10 +468,14 @@ export default function ResponsiveSky({
     window.addEventListener("resize", resize);
     if (active) {
       image.onload = initializeClouds;
-      image.onerror = () => {
+      surfaceImage.onload = initializeClouds;
+      const failed = () => {
         if (!disposed) setRenderer("fallback");
       };
-      image.src = "/backgrounds/nebula-dust.webp";
+      image.onerror = failed;
+      surfaceImage.onerror = failed;
+      image.src = "/backgrounds/nebula-layers.webp";
+      surfaceImage.src = "/backgrounds/nebula-surfaces.webp";
       clouds.addEventListener("webglcontextlost", lost);
       clouds.addEventListener("webglcontextrestored", initializeClouds);
       window.addEventListener("pointermove", move, { passive: true });
@@ -434,6 +492,8 @@ export default function ResponsiveSky({
       cancelAnimationFrame(raf);
       image.onload = null;
       image.onerror = null;
+      surfaceImage.onload = null;
+      surfaceImage.onerror = null;
       cloudRenderer?.dispose();
       clouds.style.opacity = "0";
       window.removeEventListener("resize", resize);
@@ -458,12 +518,16 @@ export default function ResponsiveSky({
       data-pulse-count="0"
     >
       <canvas
+        ref={starCanvas}
+        className="responsive-stars absolute inset-0 h-full w-full"
+      />
+      <canvas
         ref={cloudCanvas}
         className="responsive-cloud absolute inset-0 h-full w-full"
       />
       <canvas
-        ref={starCanvas}
-        className="responsive-stars absolute inset-0 h-full w-full"
+        ref={dustCanvas}
+        className="responsive-dust absolute inset-0 h-full w-full"
       />
     </div>
   );
