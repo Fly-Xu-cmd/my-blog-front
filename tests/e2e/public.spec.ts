@@ -59,7 +59,7 @@ test('sky responds locally and reserves click meteors for blank-space gestures',
   await expect(page.locator('.meteor')).toHaveCount(0);
   await page.clock.fastForward(5000);
   await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await page.getByRole('heading', { name: '文章归档', exact: true }).click();
+  await page.getByRole('heading', { name: '文章归档', exact: true }).click({ position: { x: 20, y: 15 } });
   await expect(page.locator('.meteor')).toHaveCount(0);
   await expect(sky).toHaveAttribute('data-pulse', 'idle');
   await page.evaluate(() => {
@@ -86,6 +86,49 @@ test('sky responds locally and reserves click meteors for blank-space gestures',
   await expect(page.locator('.meteor')).toHaveCount(0);
 });
 
+
+test('summary whitespace responds while actual text and article links stay protected', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.goto('/allBlogs');
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E_KEYBOARD');
+  await expect(page.getByRole('status').filter({ hasText: '21 条内容' })).toBeVisible();
+  const sky = page.locator('.responsive-sky');
+  await expect(sky).toHaveAttribute('data-renderer', /webgl|fallback/);
+  const row = page.locator('.editorial-article-row').first();
+  const summary = row.locator('p');
+  await summary.scrollIntoViewIfNeeded();
+  const points = await summary.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const text = range.getClientRects()[0];
+    const box = element.getBoundingClientRect();
+    return {
+      text: { x: text.left + 10, y: (text.top + text.bottom) / 2 },
+      blank: { x: box.right - 12, y: (text.top + text.bottom) / 2 },
+      textRight: text.right,
+    };
+  });
+  expect(points.blank.x).toBeGreaterThan(points.textRight + 2);
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName, points.blank)).toBe('P');
+  await page.mouse.click(points.text.x, points.text.y);
+  await expect(sky).toHaveAttribute('data-pulse', 'idle');
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(0);
+  await page.clock.install();
+  await page.mouse.click(points.blank.x, points.blank.y);
+  await expect(sky).toHaveAttribute('data-pulse', 'expanding');
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
+  await page.clock.fastForward(5000);
+  await expect(sky).toHaveAttribute('data-pulse', 'idle');
+  await page.mouse.click(points.text.x, points.text.y);
+  await expect(sky).toHaveAttribute('data-pulse', 'idle');
+  const titleLink = row.locator('h2 a');
+  const href = await titleLink.getAttribute('href');
+  await titleLink.click();
+  await expect(page).toHaveURL(new RegExp(href! + '$'));
+  await expect(sky).toHaveAttribute('data-pulse', 'idle');
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(0);
+});
 
 test('component surfaces and popup dismissal consume clicks before the sky', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

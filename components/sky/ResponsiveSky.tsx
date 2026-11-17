@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import {
   createCloudRenderer,
+  scatterDrift,
   type SkyMeteor,
   type SkyFrame,
 } from "./cloud-renderer";
@@ -17,12 +18,50 @@ interface Star {
   dy: number;
 }
 const excluded =
-  'a,button,input,textarea,select,label,summary,form,details,nav,header,footer,article,[role="button"],[role="link"],[role="combobox"],[role="listbox"],[role="option"],[role="menu"],[role="menuitem"],[role="dialog"],[role="tab"],[contenteditable],[data-sky-no-interaction],.ant-select,.ant-select-dropdown,.ant-popover,.ant-dropdown,.ant-picker,.ant-modal,.ant-drawer,.ant-pagination,.ant-segmented,.ant-input-affix-wrapper,.ant-input-group,.ant-upload,.ant-message,.ant-notification';
-const blankTags = new Set(["BODY", "DIV", "MAIN", "SECTION", "UL"]);
+  'a,button,input,textarea,select,label,summary,form,details,nav,header,footer,[role="button"],[role="link"],[role="combobox"],[role="listbox"],[role="option"],[role="menu"],[role="menuitem"],[role="dialog"],[role="tab"],[contenteditable],[data-sky-no-interaction],.ant-select,.ant-select-dropdown,.ant-popover,.ant-dropdown,.ant-picker,.ant-modal,.ant-drawer,.ant-pagination,.ant-segmented,.ant-input-affix-wrapper,.ant-input-group,.ant-upload,.ant-message,.ant-notification';
+const blankTags = new Set([
+  "BODY",
+  "DIV",
+  "MAIN",
+  "SECTION",
+  "UL",
+  "LI",
+  "ARTICLE",
+  "P",
+  "SPAN",
+  "TIME",
+  "H1",
+  "H2",
+  "H3",
+  "H4",
+  "H5",
+  "H6",
+]);
 const overlays =
   ".ant-popover,.ant-select-dropdown,.ant-dropdown,.ant-picker-dropdown,.ant-modal,.ant-drawer-open,dialog[open]";
 const pulseDuration = 4800;
 const pulseExpansion = 800;
+
+function hitsText(target: Element, x: number, y: number) {
+  const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    if (!node.textContent?.trim()) continue;
+    range.selectNodeContents(node);
+    if (
+      Array.from(range.getClientRects()).some(
+        (r) =>
+          x >= r.left - 2 &&
+          x <= r.right + 2 &&
+          y >= r.top - 2 &&
+          y <= r.bottom + 2,
+      )
+    )
+      return true;
+  }
+  return false;
+}
 
 function createStars(): Star[] {
   return Array.from({ length: 180 }, (_, i) => {
@@ -214,6 +253,7 @@ export default function ResponsiveSky({
         const pulseField =
           Math.exp(-((Math.hypot(px, py) / pulseRadius) ** 2) * 2.4) *
           pulseFrame[2];
+        const drift = pulseFrame[2] > 0 ? scatterDrift(px, py) : [0, 0];
         const amount = active ? 1 - Math.exp(-dt * 7) : 1;
         const tx =
           distance > 1
@@ -252,8 +292,8 @@ export default function ResponsiveSky({
         ctx.shadowBlur = star.size > 1.5 || influence > 0.25 ? 4 : 0;
         ctx.beginPath();
         ctx.arc(
-          x + star.dx + px * pulseField * 0.65 * star.depth,
-          y + star.dy + py * pulseField * 0.65 * star.depth,
+          x + star.dx + drift[0] * pulseField * star.depth,
+          y + star.dy + drift[1] * pulseField * star.depth,
           star.size / 2,
           0,
           Math.PI * 2,
@@ -349,10 +389,7 @@ export default function ResponsiveSky({
         !(target instanceof Element) ||
         !blankTags.has(target.tagName) ||
         target.closest(excluded) ||
-        Array.from(target.childNodes).some(
-          (node) =>
-            node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
-        ) ||
+        hitsText(target, event.clientX, event.clientY) ||
         window.getSelection()?.isCollapsed === false
       )
         return;

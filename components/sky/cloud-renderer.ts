@@ -16,6 +16,16 @@ export interface SkyFrame {
   pulse: [number, number, number, number];
 }
 
+// Screen-space currents shared below; gas parcels and stars drift through them.
+export function scatterDrift(dx: number, dy: number): [number, number] {
+  const length = Math.sqrt(dx * dx + dy * dy + 8100);
+  const rx = dx / length,
+    ry = dy / length;
+  const nx = Math.sin(dy * 0.021 + Math.sin(dx * 0.009) * 2);
+  const ny = Math.cos(dx * 0.019 - Math.sin(dy * 0.011) * 2);
+  return [rx * 55 - ry * nx * 10 + nx * 12, ry * 55 + rx * nx * 10 + ny * 12];
+}
+
 const vertexSource = `
 attribute vec2 position;
 varying vec2 uv;
@@ -23,7 +33,11 @@ void main() { uv = position * 0.5 + 0.5; gl_Position = vec4(position, 0.0, 1.0);
 `;
 
 const fragmentSource = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
 precision mediump float;
+#endif
 varying vec2 uv;
 uniform sampler2D nebula;
 uniform vec2 size;
@@ -34,6 +48,12 @@ uniform vec3 focus;
 uniform vec3 flash;
 uniform vec4 pulse;
 uniform float time;
+vec2 scatterDrift(vec2 delta) {
+  vec2 radial = delta / sqrt(dot(delta, delta) + 8100.0);
+  vec2 noise = vec2(sin(delta.y * 0.021 + sin(delta.x * 0.009) * 2.0),
+                    cos(delta.x * 0.019 - sin(delta.y * 0.011) * 2.0));
+  return radial * 55.0 + vec2(-radial.y, radial.x) * noise.x * 10.0 + noise * 12.0;
+}
 void main() {
   vec2 px = uv * size;
   vec2 relative = (px - focus.xy) / 220.0;
@@ -51,14 +71,33 @@ void main() {
   vec2 pulseDelta = px - pulse.xy;
   vec2 pulseRelative = pulseDelta / max(pulse.w, 1.0);
   float pulseField = exp(-dot(pulseRelative, pulseRelative) * 2.4) * pulse.z;
-  // Inverse sampling pushes the gas outward, then returns it along the same field.
-  textureUV -= pulseDelta / size * cover * pulseField * 0.65;
   vec3 color = texture2D(nebula, clamp(textureUV, 0.001, 0.999)).rgb;
-  vec3 gas = max(color - vec3(5.0, 7.0, 12.0) / 255.0, 0.0);
+  vec3 sky = vec3(5.0, 7.0, 12.0) / 255.0;
+  vec3 gas = max(color - sky, 0.0);
+  if (pulse.z > 0.001 && pulseField > 0.005) {
+    vec2 screenDelta = vec2(pulseDelta.x, -pulseDelta.y);
+    vec3 dispersedGas = vec3(0.0);
+    for (int i = 0; i < 4; i++) {
+      vec2 parcel = i == 0 ? vec2(-0.5, -0.35) : i == 1 ? vec2(0.5, -0.35)
+                  : i == 2 ? vec2(-0.4, 0.5) : vec2(0.45, 0.5);
+      vec2 drift = scatterDrift(parcel * pulse.w) * pulse.z;
+      vec2 sourceUV = textureUV - vec2(drift.x, -drift.y) / size * cover;
+      vec2 maskUV = vec2(0.5) + (screenDelta - drift) / max(pulse.w, 1.0) * 0.6;
+      float grain = clamp((texture2D(nebula, clamp(maskUV, 0.001, 0.999)).b - sky.b) * 10.0 + 0.25, 0.0, 1.0);
+      vec4 distance = vec4(grain) - vec4(0.125, 0.375, 0.625, 0.875);
+      vec4 portions = exp(-distance * distance * 8.0);
+      portions /= dot(portions, vec4(1.0));
+      float part = i == 0 ? portions.x : i == 1 ? portions.y : i == 2 ? portions.z : portions.w;
+      dispersedGas += max(texture2D(nebula, clamp(sourceUV, 0.001, 0.999)).rgb - sky, 0.0) * part;
+    }
+    // Independently translate complementary gas parcels; never scale the image.
+    color += (dispersedGas * 0.9 - gas) * pulseField;
+    gas = max(color - sky, 0.0);
+  }
   vec2 trail = (px - flash.xy) / 150.0;
   float illumination = exp(-dot(trail, trail) * 2.0) * flash.z;
   // Reveal the existing gas, leaving empty space dark rather than a round glow.
-  color += gas * (influence * 0.85 + illumination * 1.1 + pulseField * 0.35);
+  color += gas * (influence * 0.85 + illumination * 1.1 + pulseField * 0.15);
   gl_FragColor = vec4(color, 1.0);
 }
 `;
