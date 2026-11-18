@@ -1,5 +1,163 @@
 import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
+
+test('quiet stellar landscape keeps meteors occasional and respects motion preferences', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.clock.install({ time: new Date('2026-11-18T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-18T00:00:01Z'));
+  await page.goto('/posts/e2e-public');
+  const sky = page.locator('.responsive-sky');
+  await expect(sky).toHaveAttribute('data-renderer', 'image');
+  await expect(sky).toHaveAttribute('data-interaction', 'none');
+  await expect(page.locator('.site-background canvas')).toHaveCount(0);
+  await expect(page.locator('.sky-picture')).toHaveCSS('background-image', /milky-way/);
+  await page.mouse.click(5, 500);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.clock.fastForward(19000);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.clock.fastForward(21000);
+  await expect(page.locator('.meteor[data-source="ambient"]')).toHaveCount(1);
+  await page.clock.fastForward(1500);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(sky).toHaveAttribute('data-active', 'false');
+  await expect(page.locator('.sky-glimmer').first()).toHaveCSS('animation-name', 'none');
+  await page.clock.fastForward(40000);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
+  await expect(page.locator('.night-sky')).toBeHidden();
+  await page.clock.fastForward(40000);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('.night-sky')).toBeVisible();
+  await page.clock.fastForward(40000);
+  await expect(page.locator('.meteor')).toHaveCount(1);
+});
+
+test('home entry responds with bounded parallax and click meteors then becomes quiet after navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.clock.install({ time: new Date('2026-11-18T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-18T00:00:01Z'));
+  await page.goto('/');
+  const sky = page.locator('.responsive-sky'), scene = page.locator('.sky-scene');
+  await expect(sky).toHaveAttribute('data-interaction', 'entry');
+  const box = await page.locator('[data-sky-entry]').boundingBox();
+  expect(box).not.toBeNull();
+  const point = { x: box!.x + box!.width - 8, y: box!.y + box!.height - 8 };
+  await page.mouse.move(point.x, point.y);
+  await page.clock.runFor(64);
+  await expect(sky).toHaveAttribute('data-field', 'parallax');
+  const transform = await scene.evaluate(el => (el as HTMLElement).style.transform);
+  expect(transform).not.toBe('translate3d(0px, 0px, 0px)');
+  const numbers = transform.match(/-?[0-9.]+(?=px)/g)!.map(Number);
+  expect(Math.abs(numbers[0])).toBeLessThanOrEqual(8);
+  expect(Math.abs(numbers[1])).toBeLessThanOrEqual(5);
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
+  await page.clock.fastForward(1500);
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.clock.fastForward(8000);
+  await page.getByRole('heading', { name: '写代码，也记录生活。' }).click();
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.mouse.move(point.x, point.y); await page.mouse.down();
+  await page.mouse.move(point.x - 25, point.y - 25); await page.mouse.up();
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.mouse.move(5, 600);
+  await expect(sky).toHaveAttribute('data-field', 'idle');
+  await page.mouse.click(5, 600);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.getByRole('link', { name: '文章归档 ↗' }).click();
+  await expect(page).toHaveURL(new RegExp('/archive$'));
+  await expect(sky).toHaveAttribute('data-interaction', 'none');
+  await page.mouse.move(1200, 500); await page.mouse.click(1200, 500);
+  await expect(sky).toHaveAttribute('data-field', 'idle');
+  await expect(page.locator('.meteor')).toHaveCount(0);
+});
+
+test('reading and index pages keep a stable sky without requesting old GPU assets', async ({ page }) => {
+  const oldAssets: string[] = [];
+  page.on('request', request => { if (/nebula-/.test(request.url())) oldAssets.push(request.url()); });
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.addInitScript('HTMLCanvasElement.prototype.getContext = function() { throw new Error("Background must not need a canvas"); };');
+  for (const path of ['/archive', '/allBlogs', '/notes', '/posts/e2e-public']) {
+    await page.goto(path);
+    const sky = page.locator('.responsive-sky');
+    await expect(sky).toHaveAttribute('data-renderer', 'image');
+    await expect(sky).toHaveAttribute('data-interaction', 'none');
+    const before = await page.locator('.sky-scene').evaluate(el => (el as HTMLElement).style.transform);
+    await page.mouse.move(5, 500); await page.mouse.click(5, 500);
+    await expect(sky).toHaveAttribute('data-field', 'idle');
+    await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(0);
+    expect(await page.locator('.sky-scene').evaluate(el => (el as HTMLElement).style.transform)).toBe(before);
+    await expect(page.locator('.site-background canvas')).toHaveCount(0);
+  }
+  expect(oldAssets).toEqual([]);
+});
+
+test('home popup dismissal and text selection consume clicks before the sky', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.goto('/');
+  const box = await page.locator('[data-sky-entry]').boundingBox();
+  const point = { x: box!.x + box!.width - 8, y: box!.y + box!.height - 8 };
+  await page.getByRole('button', { name: '切换主题' }).click();
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('.ant-dropdown')).toBeHidden();
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.evaluate(() => {
+    const range = document.createRange(); range.selectNodeContents(document.querySelector('h1')!);
+    getSelection()?.removeAllRanges(); getSelection()?.addRange(range);
+  });
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.evaluate(() => getSelection()?.removeAllRanges());
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-active', 'false');
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('.meteor')).toHaveCount(0);
+});
+
+test('home touch scrolling cancels interaction while a real tap can launch a meteor', async ({ browser }) => {
+  const context = await browser.newContext({ hasTouch: true, viewport: { width: 390, height: 844 }, colorScheme: 'dark', reducedMotion: 'no-preference' });
+  const page = await context.newPage();
+  await page.goto('/');
+  const box = await page.locator('[data-sky-entry]').boundingBox();
+  const x = box!.x + box!.width - 8, y = box!.y + 8;
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('a'), { x, y })).toBeNull();
+  await page.dispatchEvent('[data-sky-entry]', 'pointerdown', { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, clientX: x, clientY: y });
+  await page.dispatchEvent('[data-sky-entry]', 'pointermove', { pointerType: 'touch', pointerId: 1, isPrimary: true, clientX: x, clientY: y - 50 });
+  await page.dispatchEvent('[data-sky-entry]', 'pointercancel', { pointerType: 'touch', pointerId: 1 });
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await page.touchscreen.tap(x, y);
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
+  await expect(page).toHaveURL(new RegExp('/$'));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-active', 'false');
+  await expect(page.locator('.meteor')).toHaveCount(0);
+  await context.close();
+});
+
+test('sky markup survives disabled JavaScript and image failure keeps content readable', async ({ browser, page }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, colorScheme: 'dark' });
+  const staticPage = await context.newPage();
+  await staticPage.goto('/archive');
+  await expect(staticPage.getByRole('heading', { name: '文章归档', exact: true })).toBeVisible();
+  await expect(staticPage.locator('.sky-picture')).toHaveCSS('background-image', /milky-way/);
+  await expect(staticPage.locator('.site-background canvas')).toHaveCount(0);
+  await expect(staticPage.locator('.sky-glimmer').first()).toHaveCSS('animation-name', 'none');
+  await context.close();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.route('**/backgrounds/milky-way.webp', route => route.abort());
+  await page.goto('/archive');
+  await expect(page.locator('.night-sky')).toHaveCSS('background-color', 'rgb(5, 7, 12)');
+  await expect(page.getByRole('heading', { name: '文章归档', exact: true })).toBeVisible();
+});
+
 test('server body, duplicate Chinese anchors and Mermaid fallback survive disabled JavaScript', async ({
   browser,
 }) => {
@@ -47,6 +205,60 @@ test('malicious Markdown and JSON-LD cannot execute scripts', async ({ page, req
   const blocks = await page.locator('script[type="application/ld+json"]').allTextContents();
   expect(blocks.some((b) => JSON.parse(b).headline?.includes('</script>'))).toBe(true);
 });
+test('encoded tag links show public posts and notes without decoding literal escapes twice', async ({ page, request, browser }) => {
+  const auth = await request.post('/api/login', {
+    data: { username: 'test-admin', password: 'test-only' },
+  });
+  const token = (await auth.json()).data.token;
+  const tag = 'E2E 中文标签 + 100% / %20 # ' + randomUUID();
+  const privateTag = 'E2E 草稿标签 ' + randomUUID();
+  const rows = [];
+  for (const [resource, title, published] of [
+    ['posts', 'Tag Aggregation Post', true],
+    ['notes', 'Tag Aggregation Note', true],
+    ['posts', 'E2E_TAG_DRAFT_MARKER', false],
+  ] as const) {
+    const created = await request.post('/api/' + resource, {
+      headers: { Authorization: 'Bearer ' + token, 'Idempotency-Key': randomUUID() },
+      data: {
+        title, content: 'Tag aggregation body', published,
+        slug: 'e2e-tag-' + randomUUID(), tags: published ? [tag] : [tag, privateTag],
+      },
+    });
+    expect(created.status()).toBe(200);
+    rows.push((await created.json()).data);
+  }
+  await page.goto('/posts/' + rows[0].slug);
+  await page.getByRole('link', { name: '#' + tag, exact: true }).click();
+  await expect(page.getByRole('heading', { name: '#' + tag, exact: true })).toBeVisible();
+  await expect(page.locator('.editorial-article-row')).toHaveCount(1);
+  await expect(page.locator('.editorial-note-row')).toHaveCount(1);
+  await expect(page.locator('main')).not.toContainText('E2E_TAG_DRAFT_MARKER');
+  const searched = page.waitForResponse((r) => {
+    const url = new URL(r.url());
+    return url.pathname === '/api/posts' && url.searchParams.get('q') === 'Tag Aggregation Post';
+  });
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).first().fill('Tag Aggregation Post');
+  const searchResponse = await searched;
+  expect(new URL(searchResponse.url()).searchParams.get('tags')).toBe(tag);
+  expect((await searchResponse.json()).total).toBe(1);
+  await expect(page.locator('.editorial-article-row')).toContainText('Tag Aggregation Post');
+  await expect(page.locator('.editorial-list').first()).toHaveAttribute('aria-busy', 'false');
+  const path = '/tags/' + encodeURIComponent(tag);
+  const response = await request.get(path);
+  expect(response.status()).toBe(200);
+  expect(await response.text()).not.toContain('E2E_TAG_DRAFT_MARKER');
+  expect((await request.get('/tags/' + encodeURIComponent(privateTag))).status()).toBe(404);
+  expect((await request.get('/tags/' + encodeURIComponent('E2E missing ' + randomUUID()))).status()).toBe(404);
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const serverPage = await context.newPage();
+  await serverPage.goto(path);
+  await expect(serverPage.getByRole('heading', { name: '#' + tag, exact: true })).toBeVisible();
+  await expect(serverPage.locator('.editorial-article-row')).toHaveCount(1);
+  await expect(serverPage.locator('.editorial-note-row')).toHaveCount(1);
+  await context.close();
+});
+
 test('drafts remain absent from every public entry', async ({ request }) => {
   const response = await request.get('/posts/e2e-private');
   expect(response.status()).toBe(404);
@@ -56,6 +268,7 @@ test('drafts remain absent from every public entry', async ({ request }) => {
     '/allBlogs',
     '/api/posts',
     '/feed.xml',
+    '/subscribe',
     '/archive',
     '/sitemap.xml',
     '/tags/E2E%20Public%20Tag',
@@ -122,4 +335,119 @@ test('real HTTP sync uses separate credentials and never republishes hidden cont
     ).status(),
   ).toBe(400);
   expect((await request.get('/api/notes/meta')).status()).toBe(401);
+});
+
+test('editorial indexes retain covers, note filters and recoverable search failures', async ({
+  page,
+  browser,
+  request,
+}) => {
+  const auth = await request.post('/api/login', {
+    data: { username: 'test-admin', password: 'test-only' },
+  });
+  expect(auth.ok()).toBe(true);
+  const token = (await auth.json()).data.token;
+  for (const cover of [null, '/imgs/head-img.jpg', '/imgs/head-img.jpg']) {
+    const created = await request.post('/api/posts', {
+      headers: { Authorization: 'Bearer ' + token, 'Idempotency-Key': randomUUID() },
+      data: {
+        title: 'Editorial cover fixture',
+        slug: 'e2e-cover-' + randomUUID(),
+        content: 'Editorial cover body',
+        excerpt: 'Editorial cover summary',
+        cover,
+        published: true,
+      },
+    });
+    expect(created.status()).toBe(200);
+  }
+  await page.goto('/allBlogs');
+  await expect(page.locator('.editorial-feature')).toHaveCount(1);
+  await expect(page.locator('main article')).toHaveCount(10);
+  await expect(page.locator('.editorial-feature-cover img')).toBeVisible();
+  await expect(page.locator('.editorial-article-row.has-cover img').first()).toBeVisible();
+  await expect(page.locator('.editorial-article-row:not(.has-cover) img')).toHaveCount(0);
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E_KEYBOARD');
+  await expect(page.getByRole('status').filter({ hasText: '21 条内容' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '搜索标题或正文' })).toHaveCSS(
+    'outline-style',
+    'none',
+  );
+  await expect(page.locator('.editorial-search')).toHaveCSS('box-shadow', 'none');
+  const pagination = page.getByRole('navigation', { name: '分页', exact: true });
+  const next = pagination.getByRole('button', { name: '下一页' });
+  for (let i = 0; i < 50; i++) {
+    await page.keyboard.press('Tab');
+    if (await next.evaluate((button) => button === document.activeElement)) break;
+  }
+  await expect(next).toBeFocused();
+  await pagination.getByRole('button', { name: '下一页' }).press('Enter');
+  await expect(pagination).toContainText(/2\s*\/\s*3/);
+  await expect(page.locator('main article')).toHaveCount(10);
+  await page.route('**/api/posts?**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await route.continue();
+  });
+  await pagination.getByRole('button', { name: '下一页' }).click();
+  await expect(pagination.getByRole('button', { name: '下一页' })).toBeDisabled();
+  await expect(pagination.getByRole('button', { name: '上一页' })).toBeDisabled();
+  await expect(page.locator('main article')).toHaveCount(1);
+  await page.unroute('**/api/posts?**');
+  await page.getByRole('button', { name: '清除筛选' }).click();
+  let failed = false;
+  await page.route('**/api/posts?**', async (route) => {
+    if (!failed && new URL(route.request().url()).searchParams.get('q') === 'E2E_SEARCH') {
+      failed = true;
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{"ok":false}' });
+    } else await route.continue();
+  });
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E_SEARCH');
+  await expect(page.locator('main').getByRole('alert')).toContainText('加载失败');
+  await page.getByRole('button', { name: '重新加载' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '12 条内容' })).toBeVisible();
+  await expect(page.locator('.editorial-feature')).toHaveCount(0);
+  await expect(page.locator('main').getByRole('alert')).toHaveCount(0);
+
+  await page.getByRole('button', { name: '清除筛选' }).click();
+  await page.getByRole('button', { name: '筛选', exact: true }).click();
+  await page.getByRole('combobox', { name: '分类', exact: true }).fill('E2E Category');
+  await page.getByRole('combobox', { name: '分类', exact: true }).press('Enter');
+  await expect(page.locator('main article')).toHaveCount(1);
+  await expect(page.locator('main article')).toContainText('E2E Public');
+  await page.getByRole('combobox', { name: '标签', exact: true }).fill('E2E Public Tag');
+  await page.getByRole('combobox', { name: '标签', exact: true }).press('Enter');
+  await expect(page.locator('main article')).toHaveCount(1);
+  await page.getByRole('heading', { name: '博客', exact: true }).click();
+  await page.getByRole('button', { name: '清除筛选' }).click();
+  await expect(page.locator('.editorial-feature')).toHaveCount(1);
+  for (const route of ['/', '/allBlogs', '/notes', '/allStatus']) {
+    await page.goto(route);
+    await expect(page.locator('main')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  }
+
+  await page.goto('/notes');
+  await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E');
+  await page.locator('.ant-segmented-item-label').getByText('生活随笔', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: '生活随笔', exact: true })).toBeChecked();
+  await expect(page.locator('.editorial-note-row')).toHaveCount(1);
+  await expect(page.locator('.editorial-note-row')).toContainText('E2E Note');
+  await page.locator('.ant-segmented-item-label').getByText('技术笔记', { exact: true }).click();
+  await expect(page.getByRole('radio', { name: '技术笔记', exact: true })).toBeChecked();
+  await expect(page.locator('.editorial-note-row')).toHaveCount(1);
+  await expect(page.locator('.editorial-note-row')).toContainText('E2E Technical Note');
+  await page.goto('/allStatus');
+  await expect(page.locator('.editorial-timeline')).toBeVisible();
+
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const serverPage = await context.newPage();
+  await serverPage.goto('/');
+  await expect(serverPage.getByRole('heading', { name: '最近写下', exact: true })).toBeVisible();
+  await expect(serverPage.getByRole('heading', { name: '最近的笔记', exact: true })).toBeVisible();
+  await expect(serverPage.getByRole('heading', { name: '最近动态', exact: true })).toBeVisible();
+  await expect(serverPage.locator('.editorial-feature-cover img')).toBeVisible();
+  await serverPage.goto('/notes');
+  await expect(serverPage.locator('style[data-antd-ssr]').first()).toBeAttached();
+  await expect(serverPage.locator('.ant-segmented-group')).toHaveCSS('display', 'flex');
+  await expect(serverPage.locator('.ant-segmented-item-input').first()).toHaveCSS('opacity', '0');
+  await context.close();
 });

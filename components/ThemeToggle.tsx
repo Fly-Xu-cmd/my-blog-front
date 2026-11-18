@@ -1,7 +1,7 @@
 "use client";
 import { useRef } from "react";
 import { Moon, Sun, Monitor } from "lucide-react";
-import { Dropdown } from "antd";
+import { Button, Dropdown } from "antd";
 import { useTheme, type Theme } from "@/components/ThemeProvider";
 
 const options: { key: Theme; label: string; icon: React.ReactNode }[] = [
@@ -17,8 +17,6 @@ const options: { key: Theme; label: string; icon: React.ReactNode }[] = [
 export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const btnRef = useRef<HTMLButtonElement>(null);
-
-  const current = options.find((o) => o.key === theme) || options[2];
 
   const items = options.map((o) => ({
     key: o.key,
@@ -56,13 +54,20 @@ export default function ThemeToggle() {
       getPopupContainer={() => document.body}
       overlayStyle={{ marginTop: 8 }}
     >
-      <button
+      <Button
+        type="text"
+        shape="circle"
+        icon={
+          <span className="theme-toggle-symbol" aria-hidden="true">
+            <Sun size={16} className="theme-icon-light" />
+            <Moon size={16} className="theme-icon-dark" />
+            <Monitor size={16} className="theme-icon-system" />
+          </span>
+        }
         ref={btnRef}
         aria-label="切换主题"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10"
-      >
-        {current.icon}
-      </button>
+        className="theme-toggle flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+      />
     </Dropdown>
   );
 }

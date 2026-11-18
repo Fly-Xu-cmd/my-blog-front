@@ -24,19 +24,6 @@ export default async function Article({
   resource: 'post' | 'note' | 'dynamic';
 }) {
   const headings = markdownHeadings(data.content);
-  const related =
-    resource === 'post'
-      ? await prisma.post.findMany({
-          where: {
-            published: true,
-            id: { not: data.id },
-            ...(data.category ? { category: { name: data.category.name } } : {}),
-          },
-          select: { slug: true, title: true },
-          orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-          take: 3,
-        })
-      : [];
   const series = data.seriesId
     ? await prisma.series.findUnique({
         where: { id: data.seriesId },
@@ -50,6 +37,21 @@ export default async function Article({
       })
     : null;
   const position = series?.posts.findIndex((p) => p.id === data.id) ?? -1;
+  const previous = series && position > 0 ? series.posts[position - 1] : null;
+  const next = series && position >= 0 ? series.posts[position + 1] : null;
+  const related =
+    resource === 'post'
+      ? await prisma.post.findMany({
+          where: {
+            published: true,
+            id: { notIn: [data.id, ...(previous ? [previous.id] : []), ...(next ? [next.id] : [])] },
+            ...(data.category ? { category: { name: data.category.name } } : {}),
+          },
+          select: { slug: true, title: true },
+          orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+          take: 2,
+        })
+      : [];
   return (
     <div className="max-w-6xl mx-auto w-full px-4 py-10 grid lg:grid-cols-[minmax(0,1fr)_240px] gap-8">
       <article
@@ -72,36 +74,47 @@ export default async function Article({
           </div>
         </header>
         <Markdown source={data.content} />
-        {series && (
-          <nav className="mt-10 border-t pt-6 flex flex-wrap justify-between gap-4">
-            <Link href={'/series/' + series.slug}>
-              {series.name} · 第 {position + 1}/{series.posts.length} 篇
-            </Link>
-            {position > 0 && (
-              <Link href={'/posts/' + series.posts[position - 1].slug}>
-                上一篇：{series.posts[position - 1].title}
-              </Link>
+        {((series && position >= 0) || related.length > 0) && (
+          <footer className="article-reading-footer mt-7 border-t border-gray-200 dark:border-white/10 pt-4 space-y-3">
+            {series && position >= 0 && (
+              <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                <Link className="min-w-0 max-w-full text-sm text-gray-500 dark:text-gray-400 [overflow-wrap:anywhere] hover:text-cyan-600 dark:hover:text-cyan-400" href={'/series/' + series.slug}>
+                  <span className="underline decoration-gray-400/60 underline-offset-4">{series.name}</span>{' '}
+                  <span className="whitespace-nowrap text-xs">· {position + 1}/{series.posts.length}</span>
+                </Link>
+                {(previous || next) && (
+                  <nav aria-label="系列上下篇" className="min-w-0 basis-full sm:basis-auto sm:flex-1 flex flex-wrap justify-end gap-x-5 gap-y-2 text-sm">
+                    {previous && (
+                      <Link className="min-w-0 max-w-full flex items-baseline gap-2 hover:text-cyan-600 dark:hover:text-cyan-400" href={'/posts/' + previous.slug}>
+                        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">上一篇</span>
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{previous.title}</span>
+                      </Link>
+                    )}
+                    {next && (
+                      <Link className="min-w-0 max-w-full flex items-baseline justify-end gap-2 text-right hover:text-cyan-600 dark:hover:text-cyan-400" href={'/posts/' + next.slug}>
+                        <span className="shrink-0 text-xs text-gray-500 dark:text-gray-400">下一篇</span>
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{next.title} <span aria-hidden="true">→</span></span>
+                      </Link>
+                    )}
+                  </nav>
+                )}
+              </div>
             )}
-            {position >= 0 && position < series.posts.length - 1 && (
-              <Link href={'/posts/' + series.posts[position + 1].slug}>
-                下一篇：{series.posts[position + 1].title}
-              </Link>
+            {related.length > 0 && (
+              <nav aria-label="推荐阅读" className="flex items-baseline gap-3 text-sm text-gray-500 dark:text-gray-400">
+                <span className="shrink-0 text-xs">另读</span>
+                <ul className="min-w-0 flex flex-wrap gap-x-5 gap-y-1">
+                  {related.map((p) => (
+                    <li className="min-w-0 max-w-full [overflow-wrap:anywhere]" key={p.slug}>
+                      <Link className="hover:text-cyan-600 dark:hover:text-cyan-400" href={'/posts/' + p.slug}>
+                        {p.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
             )}
-          </nav>
-        )}
-        {related.length > 0 && (
-          <section className="mt-10 border-t pt-6">
-            <h2 className="font-bold mb-4">继续阅读</h2>
-            <ul className="space-y-3">
-              {related.map((p) => (
-                <li key={p.slug}>
-                  <Link className="text-cyan-600" href={'/posts/' + p.slug}>
-                    {p.title}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
+          </footer>
         )}
       </article>
       <aside className="lg:sticky lg:top-28 h-fit">
