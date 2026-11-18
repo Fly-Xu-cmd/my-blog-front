@@ -7,11 +7,13 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:3197', locale: 'zh-CN', trace: 'retain-on-failure' },
   webServer: [
     {
-      command: 'pnpm exec tsx tests/e2e/seed.ts && pnpm start --hostname 127.0.0.1 --port 3197',
+      command: 'pnpm exec tsx tests/e2e/seed.ts && pnpm start',
       url: 'http://127.0.0.1:3197',
       reuseExistingServer: false,
       timeout: 120000,
       env: {
+        HOSTNAME: '127.0.0.1',
+        PORT: '3197',
         DATABASE_URL: 'mysql://root:local-test-only@127.0.0.1:13316/blog_test',
         REDIS_HOST: '127.0.0.1',
         REDIS_PORT: '16386',

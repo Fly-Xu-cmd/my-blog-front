@@ -8,6 +8,7 @@ env:
   DEPLOY_PATH: /home/www/my-blog
   UPLOAD_DIR: /home/www/uploads
   RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+  BLOG_DEPLOY_NPM_REGISTRY: ${{ vars.BLOG_DEPLOY_NPM_REGISTRY || 'https://registry.npmmirror.com' }}
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
@@ -30,6 +31,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm exec prisma generate
           pnpm build
+          bash scripts/prepare-standalone-release.sh "$RELEASE_ID"
         env:
           DATABASE_URL: mysql://placeholder:placeholder@localhost:3306/placeholder
           NEXT_PUBLIC_SITE_URL: https://xylxf.xyz
@@ -57,17 +59,17 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > "$key_file"
           chmod 600 "$key_file"
           rsync -azR -e "ssh -i $key_file -o StrictHostKeyChecking=no" \
-            --exclude 'node_modules' --exclude '.next/cache' --exclude '.env*' \
-            ./.next ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml \
-            ./ecosystem.config.cjs ./next.config.mjs ./prisma ./public ./scripts/deploy-release.sh ./scripts/deployment-db.mjs \
+            ./standalone-release.tar.gz ./standalone-release.json \
+            ./scripts/deploy-release.sh ./scripts/standalone-release.mjs \
             '${{ env.DEPLOY_USER }}@${{ secrets.ALIYUN_SERVER_IP }}:${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/'
-      - name: Prepare dependencies and inspect migration plan
+      - name: Verify standalone release and inspect migration plan
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
           username: ${{ env.DEPLOY_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
-          command_timeout: 30m
+          command_timeout: 10m
+          envs: BLOG_DEPLOY_NPM_REGISTRY
           script: |
             bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
               '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' prepare
@@ -98,6 +100,7 @@ jobs:
           username: ${{ env.DEPLOY_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           command_timeout: 30m
+          envs: BLOG_DEPLOY_NPM_REGISTRY
           script: |
             bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
               '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' backup
@@ -113,6 +116,7 @@ jobs:
           username: ${{ env.DEPLOY_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           command_timeout: 30m
+          envs: BLOG_DEPLOY_NPM_REGISTRY
           script: |
             bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
               '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' activate

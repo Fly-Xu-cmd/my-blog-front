@@ -1,3 +1,10 @@
+packages:
+  - deployment
+
+# Deployment tools have their own production roots; do not inherit app build peers.
+resolvePeersFromWorkspaceRoot: false
+dedupePeerDependents: false
+
 allowBuilds:
   '@prisma/client': false
   '@prisma/engines': false

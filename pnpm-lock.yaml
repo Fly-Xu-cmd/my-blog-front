@@ -237,6 +237,18 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@20.19.22)(vite@8.3.8(@types/node@20.19.22)(esbuild@0.28.2)(jiti@2.6.1)(tsx@4.23.15))
 
+  deployment:
+    dependencies:
+      '@next/env':
+        specifier: 15.5.9
+        version: 15.5.9
+      mysql2:
+        specifier: 3.16.0
+        version: 3.16.0
+      prisma:
+        specifier: 6.17.1
+        version: 6.17.1
+
 packages:
 
   '@alloc/quick-lru@5.2.0':
@@ -8204,6 +8216,13 @@ snapshots:
   prelude-ls@1.2.1: {}
 
   prettier@3.10.1: {}
+
+  prisma@6.17.1:
+    dependencies:
+      '@prisma/config': 6.17.1
+      '@prisma/engines': 6.17.1
+    transitivePeerDependencies:
+      - magicast
 
   prisma@6.17.1(typescript@5.9.3):
     dependencies:
