@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { readFeedEntries } from '@/lib/feed';
 import { absoluteUrl, SITE_NAME, SITE_DESCRIPTION } from '@/lib/seo';
 export const dynamic = 'force-dynamic';
 const xml = (s: string) =>
@@ -8,26 +8,7 @@ const xml = (s: string) =>
   );
 export async function GET() {
   try {
-    const [posts, notes] = await Promise.all([
-      prisma.post.findMany({
-        where: { published: true },
-        select: { slug: true, title: true, excerpt: true, publishedAt: true },
-        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-        take: 50,
-      }),
-      prisma.note.findMany({
-        where: { published: true },
-        select: { slug: true, title: true, excerpt: true, publishedAt: true },
-        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-        take: 50,
-      }),
-    ]);
-    const rows = [
-      ...posts.map((p) => ({ ...p, url: absoluteUrl('/posts/' + p.slug) })),
-      ...notes.map((p) => ({ ...p, url: absoluteUrl('/notes/' + p.slug) })),
-    ]
-      .sort((a, b) => +(b.publishedAt ?? 0) - +(a.publishedAt ?? 0) || a.url.localeCompare(b.url))
-      .slice(0, 50);
+    const rows = await readFeedEntries();
     const entries = rows
       .map(
         (p) =>

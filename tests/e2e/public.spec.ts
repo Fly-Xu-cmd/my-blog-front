@@ -268,6 +268,7 @@ test('drafts remain absent from every public entry', async ({ request }) => {
     '/allBlogs',
     '/api/posts',
     '/feed.xml',
+    '/subscribe',
     '/archive',
     '/sitemap.xml',
     '/tags/E2E%20Public%20Tag',

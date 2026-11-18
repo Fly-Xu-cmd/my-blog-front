@@ -35,7 +35,7 @@ export default function HomeFeed({
             也留下生活中的思考。
           </p>
           <div className="editorial-home-links">
-            <Link href="/feed.xml">RSS 订阅 ↗</Link>
+            <Link href="/subscribe">RSS 订阅 ↗</Link>
             <Link href="/archive">文章归档 ↗</Link>
           </div>
         </div>

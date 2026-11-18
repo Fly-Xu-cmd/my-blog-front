@@ -75,6 +75,7 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <meta name="referrer" content="no-referrer" />
+        <link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} RSS`} href={absoluteUrl('/feed.xml')} />
         <meta name="baidu-site-verification" content="codeva-4lXFAVteOq" />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

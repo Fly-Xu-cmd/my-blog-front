@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { path: '/allStatus', label: '动态', icon: '\ue61d' },
   { path: '/notes', label: '笔记', icon: '\ue612' },
   { path: '/archive', label: '归档', icon: '\ue61d' },
-  { path: '/feed.xml', label: '订阅', icon: '\ue612' },
+  { path: '/subscribe', label: '订阅', icon: '\ue612' },
   { path: '/about', label: '关于我', icon: '\ue63d' },
 ];
 
@@ -111,6 +111,7 @@ export default function Header() {
               <li key={item.path}>
                 <Link
                   href={item.path}
+                  aria-current={isActive(item.path) ? 'page' : undefined}
                   className={`flex items-center px-4 py-3 rounded-xl transition-all ${
                     isActive(item.path)
                       ? 'bg-cyan-50 text-cyan-600 font-semibold dark:bg-cyan-400/10 dark:text-cyan-400'
@@ -118,7 +119,7 @@ export default function Header() {
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <i className="iconfont mr-3 text-lg">{item.icon}</i>
+                  <i className="iconfont mr-3 text-lg" aria-hidden="true">{item.icon}</i>
                   {item.label}
                 </Link>
               </li>
