@@ -2,6 +2,7 @@ name: Deploy Next.js App to Aliyun
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 env:
   DEPLOY_USER: appuser
   DEPLOY_PATH: /home/www/my-blog
@@ -12,20 +13,19 @@ jobs:
     uses: ./.github/workflows/checks.yml
   build-and-deploy:
     needs: checks
+    if: github.ref == 'refs/heads/main'
     environment: production
     concurrency:
       group: blog-production-release
       cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Verify migration and paired admin readiness
         env:
-          BACKUP_RESTORE_VERIFIED: ${{ vars.BLOG_BACKUP_RESTORE_VERIFIED }}
-          ADMIN_READY: ${{ vars.BLOG_ADMIN_COMPAT_READY }}
-        run: |
-          test "$BACKUP_RESTORE_VERIFIED" = "202611160001_blog_optimization"
-          test "$ADMIN_READY" = "true"
-      - uses: actions/checkout@v4
+          BLOG_BACKUP_RESTORE_VERIFIED: ${{ vars.BLOG_BACKUP_RESTORE_VERIFIED }}
+          BLOG_ADMIN_COMPAT_READY: ${{ vars.BLOG_ADMIN_COMPAT_READY }}
+        run: bash scripts/check-deploy-readiness.sh front
       - uses: actions/setup-node@v4
         with:
           node-version: 24
