@@ -1,0 +1,11 @@
+allowBuilds:
+  '@prisma/client': false
+  '@prisma/engines': false
+  '@tailwindcss/oxide': false
+  esbuild: true
+  prisma: false
+  sharp: false
+  unrs-resolver: false
+
+# CI 和部署显式安装 packageManager 指定版本；版本不符直接失败，不隐式下载切换。
+pmOnFail: error

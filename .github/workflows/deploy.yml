@@ -30,23 +30,19 @@ jobs:
       - name: 🧱 Checkout code
         uses: actions/checkout@v4
 
-      - name: 📦 Install pnpm
-        # 固定 pnpm 9：默认运行依赖构建脚本，无 pnpm 10+ 的构建批准机制，
-        # 与 lockfile v9.0 完全兼容（最新版 pnpm 11 需 Node>=22.13 且有 ERR_PNPM_IGNORED_BUILDS 限制）
-        run: npm install -g pnpm@9
-
       - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # Node 20 已弃用且最新 pnpm 需要 Node >= 22.13（使用 node:sqlite）
           node-version: 24
-          cache: pnpm
+
+      - name: 📦 Install pnpm
+        run: npm install -g pnpm@12.3.4
 
       - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: 🔧 Generate Prisma client
-        run: pnpm prisma generate
+        run: pnpm exec prisma generate
         env:
           # 只要 schema.prisma 不需要连接真实 DB，这里可以用假的 URL
           DATABASE_URL: 'mysql://placeholder:placeholder@localhost:3306/placeholder'
@@ -100,7 +96,7 @@ jobs:
             --exclude 'node_modules' \
             --exclude '.next/cache' \
             --exclude '.env*' \
-            ./.next ./package.json ./pnpm-lock.yaml ./prisma ./public \
+            ./.next ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml ./ecosystem.config.cjs ./prisma ./public \
             ${{ env.DEPLOY_USER }}@${{ secrets.ALIYUN_SERVER_IP }}:${{ env.DEPLOY_PATH }}/tmp-deploy
 
           # 清理私钥
@@ -118,7 +114,17 @@ jobs:
           # 1. 必须加：延长超时时间到 30分钟 (解决 Run Command Timeout)
           command_timeout: 30m
           script: |
+            set -eu
             cd ${{ env.DEPLOY_PATH }}
+
+            # 发布前服务器需准备 Node 24；工具安装不修改系统全局 pnpm。
+            test "$(node -p "process.versions.node.split('.')[0]")" = "24"
+            PNPM_VERSION=$(node -p "require('./tmp-deploy/package.json').packageManager.split('@')[1]")
+            test "$PNPM_VERSION" = "12.3.4"
+            npm install --prefix "$HOME/.local/share/blog-tools" --no-save --package-lock=false \
+              "pnpm@$PNPM_VERSION" --registry=https://registry.npmmirror.com
+            export PATH="$HOME/.local/share/blog-tools/node_modules/.bin:$PATH"
+            test "$(pnpm --version)" = "$PNPM_VERSION"
 
             echo "📦 Update files from tmp-deploy"
             rsync -a tmp-deploy/ .
@@ -129,21 +135,35 @@ jobs:
             mkdir -p ${{ env.UPLOAD_DIR }}
 
             echo "📦 Installing production deps"
-            # 2. 必须加：使用淘宝/阿里云镜像源 (解决下载速度只有几KB/s的问题)
-            pnpm config set registry https://registry.npmmirror.com
-            pnpm install --prod --frozen-lockfile --ignore-scripts
+            CI=true pnpm install --prod --frozen-lockfile --ignore-scripts \
+              --registry=https://registry.npmmirror.com
 
             echo "🔧 Prisma & Database"
             # 既然目录下已有 .env，Prisma 会自动读取它，不需要额外配置 export
-            pnpm prisma generate
-            pnpm prisma migrate deploy
+            pnpm exec prisma generate
+            pnpm exec prisma migrate deploy
 
             echo "🔥 Reloading PM2"
-            if pm2 list | grep -q "my-blog"; then
-              # 如果你的 .env 有变动，Next.js 重启时会自动重新加载文件
-              pm2 reload my-blog --update-env
-            else
-              pm2 start "pnpm start" --name my-blog --time
+            # 仅更新 PATH 无法替换 PM2 保存的旧 pnpm / Node 绝对入口。
+            # 首次迁移入口不符时重建本应用；后续通过明确配置重载。
+            test -x "$(node -p "require('./ecosystem.config.cjs').apps[0].script")"
+            pm2 ping > /dev/null
+            pm2 jlist > .pm2-current.json
+            PM2_ACTION=$(node -e '
+              const fs = require("node:fs");
+              const target = require("./ecosystem.config.cjs").apps[0];
+              const apps = JSON.parse(fs.readFileSync(".pm2-current.json", "utf8"));
+              const matches = apps.filter(app => app.name === target.name);
+              const sameEntry = matches.every(app =>
+                app.pm2_env.pm_exec_path === target.script &&
+                app.pm2_env.exec_interpreter === target.interpreter
+              );
+              process.stdout.write(sameEntry ? "keep" : "replace");
+            ')
+            rm .pm2-current.json
+            if [ "$PM2_ACTION" = "replace" ]; then
+              pm2 delete my-blog
             fi
+            pm2 startOrReload ecosystem.config.cjs --only my-blog --update-env
 
             echo "🎉 Deployment Success!"
