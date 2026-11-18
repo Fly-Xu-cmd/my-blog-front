@@ -25,7 +25,7 @@ export default function HomeFeed({
   const series = posts.data.find((post) => post.series)?.series;
   return (
     <main className="editorial-page editorial-home">
-      <section className="editorial-home-intro">
+      <section className="editorial-home-intro" data-sky-entry>
         <div>
           <span className="editorial-eyebrow">你好，我是若木</span>
           <h1>写代码，也记录生活。</h1>

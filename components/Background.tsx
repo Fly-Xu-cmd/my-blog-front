@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import ResponsiveSky from "@/components/sky/ResponsiveSky";
-import type { SkyMeteor } from "@/components/sky/cloud-renderer";
+import ResponsiveSky, { type SkyMeteor } from "@/components/sky/ResponsiveSky";
+import { usePathname } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
 import {
   motion,
@@ -137,6 +137,7 @@ function GlowOrbView({
  * 随机值都在客户端 useEffect 里生成，避免 SSR 与客户端不一致触发 hydration 报错。
  */
 export default function Background() {
+  const pathname = usePathname();
   const { resolvedTheme } = useTheme();
   const [meteor, setMeteor] = useState<SkyMeteor | null>(null);
   const requestMeteorRef = useRef<(point: { x: number; y: number }) => boolean>(
@@ -205,7 +206,7 @@ export default function Background() {
       clearTimeout(next);
       clearTimeout(finish);
     };
-  }, [motionActive, resolvedTheme]);
+  }, [motionActive, resolvedTheme, pathname]);
 
   // 鼠标位置（供光晕“吹拂”联动）
   const mouseX = useMotionValue(0);
@@ -251,11 +252,11 @@ export default function Background() {
       className="site-background pointer-events-none fixed inset-0 -z-10 overflow-hidden"
       data-motion={motionActive ? "active" : "paused"}
     >
-      {/* 阅读区压淡星光，保留上方与两侧的纵深。 */}
+      {/* 全站使用同一星空构图，明显回应只发生在首页介绍区。 */}
       <div className="night-sky hidden dark:block absolute inset-0">
         <ResponsiveSky
           active={motionActive && resolvedTheme === "dark"}
-          meteor={meteor}
+          interactive={pathname === "/"}
           onMeteor={requestMeteor}
         />
 

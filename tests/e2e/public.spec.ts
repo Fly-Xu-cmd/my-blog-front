@@ -1,27 +1,29 @@
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { randomUUID } from 'crypto';
 
-test('night sky keeps meteors occasional and stops motion when preferences change', async ({ page }) => {
+test('quiet stellar landscape keeps meteors occasional and respects motion preferences', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
-  await page.clock.install({ time: new Date('2026-11-17T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-11-17T00:00:01Z'));
+  await page.clock.install({ time: new Date('2026-11-18T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-18T00:00:01Z'));
   await page.goto('/posts/e2e-public');
-  const background = page.locator('.site-background');
-  await expect(background).toHaveAttribute('data-motion', 'active');
+  const sky = page.locator('.responsive-sky');
+  await expect(sky).toHaveAttribute('data-renderer', 'image');
+  await expect(sky).toHaveAttribute('data-interaction', 'none');
+  await expect(page.locator('.site-background canvas')).toHaveCount(0);
+  await expect(page.locator('.sky-picture')).toHaveCSS('background-image', /milky-way/);
+  await page.mouse.click(5, 500);
   await expect(page.locator('.meteor')).toHaveCount(0);
   await page.clock.fastForward(19000);
   await expect(page.locator('.meteor')).toHaveCount(0);
   await page.clock.fastForward(21000);
-  await expect(page.locator('.meteor')).toHaveCount(1);
+  await expect(page.locator('.meteor[data-source="ambient"]')).toHaveCount(1);
   await page.clock.fastForward(1500);
   await expect(page.locator('.meteor')).toHaveCount(0);
-
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(background).toHaveAttribute('data-motion', 'paused');
-  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-renderer', 'static');
+  await expect(sky).toHaveAttribute('data-active', 'false');
+  await expect(page.locator('.sky-glimmer').first()).toHaveCSS('animation-name', 'none');
   await page.clock.fastForward(40000);
   await expect(page.locator('.meteor')).toHaveCount(0);
-
   await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
   await expect(page.locator('.night-sky')).toBeHidden();
   await page.clock.fastForward(40000);
@@ -32,220 +34,128 @@ test('night sky keeps meteors occasional and stops motion when preferences chang
   await expect(page.locator('.meteor')).toHaveCount(1);
 });
 
-test('sky responds locally and reserves click meteors for blank-space gestures', async ({ page }) => {
+test('home entry responds with bounded parallax and click meteors then becomes quiet after navigation', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
-  await page.clock.install({ time: new Date('2026-11-17T00:00:00Z') });
-  await page.clock.pauseAt(new Date('2026-11-17T00:00:01Z'));
-  await page.goto('/archive');
-  const sky = page.locator('.responsive-sky');
-  await expect(sky).toHaveAttribute('data-renderer', /webgl|fallback/);
-  await page.mouse.move(1200, 500);
-  await page.clock.runFor(500);
-  await expect(sky).toHaveAttribute('data-field', 'responding');
-  await page.mouse.click(1200, 500);
+  await page.clock.install({ time: new Date('2026-11-18T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-11-18T00:00:01Z'));
+  await page.goto('/');
+  const sky = page.locator('.responsive-sky'), scene = page.locator('.sky-scene');
+  await expect(sky).toHaveAttribute('data-interaction', 'entry');
+  const box = await page.locator('[data-sky-entry]').boundingBox();
+  expect(box).not.toBeNull();
+  const point = { x: box!.x + box!.width - 8, y: box!.y + box!.height - 8 };
+  await page.mouse.move(point.x, point.y);
+  await page.clock.runFor(64);
+  await expect(sky).toHaveAttribute('data-field', 'parallax');
+  const transform = await scene.evaluate(el => (el as HTMLElement).style.transform);
+  expect(transform).not.toBe('translate3d(0px, 0px, 0px)');
+  const numbers = transform.match(/-?[0-9.]+(?=px)/g)!.map(Number);
+  expect(Math.abs(numbers[0])).toBeLessThanOrEqual(8);
+  expect(Math.abs(numbers[1])).toBeLessThanOrEqual(5);
+  await page.mouse.click(point.x, point.y);
   await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
-  await expect(sky).toHaveAttribute('data-pulse', 'expanding');
-  await page.clock.runFor(900);
-  await expect(sky).toHaveAttribute('data-pulse', 'gathering');
   await page.clock.fastForward(1500);
-  await page.mouse.click(900, 650);
+  await page.mouse.click(point.x, point.y);
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await expect(sky).toHaveAttribute('data-pulse', 'expanding');
-  await expect(sky).toHaveAttribute('data-pulse-count', '2');
-  await page.clock.runFor(500);
-  await page.mouse.click(1200, 500);
-  await expect(sky).toHaveAttribute('data-pulse', 'expanding');
-  await expect(sky).toHaveAttribute('data-pulse-count', '3');
+  await page.clock.fastForward(8000);
+  await page.getByRole('heading', { name: '写代码，也记录生活。' }).click();
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await page.clock.fastForward(12000);
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await page.getByRole('heading', { name: '文章归档', exact: true }).click({ position: { x: 20, y: 15 } });
+  await page.mouse.move(point.x, point.y); await page.mouse.down();
+  await page.mouse.move(point.x - 25, point.y - 25); await page.mouse.up();
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await page.evaluate(() => {
-    const selection = getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(document.querySelector('h1')!);
-    selection?.removeAllRanges(); selection?.addRange(range);
-  });
-  await page.mouse.click(1200, 500);
+  await page.mouse.move(5, 600);
+  await expect(sky).toHaveAttribute('data-field', 'idle');
+  await page.mouse.click(5, 600);
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await page.mouse.move(1200, 500); await page.mouse.down();
-  await page.mouse.move(1100, 600, { steps: 4 }); await page.mouse.up();
-  await expect(page.locator('.meteor')).toHaveCount(0);
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await page.evaluate(() => getSelection()?.removeAllRanges());
-  await page.mouse.click(1200, 500);
-  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await expect(sky).toHaveAttribute('data-renderer', 'static');
-  await expect(page.locator('.meteor')).toHaveCount(0);
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await page.mouse.click(1200, 500);
+  await page.getByRole('link', { name: '文章归档 ↗' }).click();
+  await expect(page).toHaveURL(new RegExp('/archive$'));
+  await expect(sky).toHaveAttribute('data-interaction', 'none');
+  await page.mouse.move(1200, 500); await page.mouse.click(1200, 500);
+  await expect(sky).toHaveAttribute('data-field', 'idle');
   await expect(page.locator('.meteor')).toHaveCount(0);
 });
 
-
-test('summary whitespace responds while actual text and article links stay protected', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
+test('reading and index pages keep a stable sky without requesting old GPU assets', async ({ page }) => {
+  const oldAssets: string[] = [];
+  page.on('request', request => { if (/nebula-/.test(request.url())) oldAssets.push(request.url()); });
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
-  await page.goto('/allBlogs');
-  await page.getByRole('textbox', { name: '搜索标题或正文' }).fill('E2E_KEYBOARD');
-  await expect(page.getByRole('status').filter({ hasText: '21 条内容' })).toBeVisible();
-  const sky = page.locator('.responsive-sky');
-  await expect(sky).toHaveAttribute('data-renderer', /webgl|fallback/);
-  const row = page.locator('.editorial-article-row').first();
-  const summary = row.locator('p');
-  await summary.scrollIntoViewIfNeeded();
-  const points = await summary.evaluate((element) => {
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    const text = range.getClientRects()[0];
-    const box = element.getBoundingClientRect();
-    return {
-      text: { x: text.left + 10, y: (text.top + text.bottom) / 2 },
-      blank: { x: box.right - 12, y: (text.top + text.bottom) / 2 },
-      textRight: text.right,
-    };
-  });
-  expect(points.blank.x).toBeGreaterThan(points.textRight + 2);
-  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.tagName, points.blank)).toBe('P');
-  await page.mouse.click(points.text.x, points.text.y);
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(0);
-  await page.clock.install();
-  await page.mouse.click(points.blank.x, points.blank.y);
-  await expect(sky).toHaveAttribute('data-pulse', 'expanding');
-  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
-  await page.clock.fastForward(12000);
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await page.mouse.click(points.text.x, points.text.y);
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  const titleLink = row.locator('h2 a');
-  const href = await titleLink.getAttribute('href');
-  await titleLink.click();
-  await expect(page).toHaveURL(new RegExp(href! + '$'));
-  await expect(sky).toHaveAttribute('data-pulse', 'idle');
-  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(0);
+  await page.addInitScript('HTMLCanvasElement.prototype.getContext = function() { throw new Error("Background must not need a canvas"); };');
+  for (const path of ['/archive', '/allBlogs', '/notes', '/posts/e2e-public']) {
+    await page.goto(path);
+    const sky = page.locator('.responsive-sky');
+    await expect(sky).toHaveAttribute('data-renderer', 'image');
+    await expect(sky).toHaveAttribute('data-interaction', 'none');
+    const before = await page.locator('.sky-scene').evaluate(el => (el as HTMLElement).style.transform);
+    await page.mouse.move(5, 500); await page.mouse.click(5, 500);
+    await expect(sky).toHaveAttribute('data-field', 'idle');
+    await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(0);
+    expect(await page.locator('.sky-scene').evaluate(el => (el as HTMLElement).style.transform)).toBe(before);
+    await expect(page.locator('.site-background canvas')).toHaveCount(0);
+  }
+  expect(oldAssets).toEqual([]);
 });
 
-test('component surfaces and popup dismissal consume clicks before the sky', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 900 });
+test('home popup dismissal and text selection consume clicks before the sky', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
-  await page.goto('/allBlogs');
-  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-renderer', /webgl|fallback/);
+  await page.goto('/');
+  const box = await page.locator('[data-sky-entry]').boundingBox();
+  const point = { x: box!.x + box!.width - 8, y: box!.y + box!.height - 8 };
   await page.getByRole('button', { name: '切换主题' }).click();
-  await expect(page.locator('.meteor')).toHaveCount(0);
-  await page.mouse.click(1250, 650);
+  await page.mouse.click(point.x, point.y);
   await expect(page.locator('.ant-dropdown')).toBeHidden();
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await page.getByRole('button', { name: '筛选', exact: true }).click();
-  await page.locator('.ant-popover-inner').click({ position: { x: 6, y: 6 } });
+  await page.evaluate(() => {
+    const range = document.createRange(); range.selectNodeContents(document.querySelector('h1')!);
+    getSelection()?.removeAllRanges(); getSelection()?.addRange(range);
+  });
+  await page.mouse.click(point.x, point.y);
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await page.locator('.ant-select-selector').first().click({ position: { x: 2, y: 16 } });
+  await page.evaluate(() => getSelection()?.removeAllRanges());
+  await page.mouse.click(point.x, point.y);
+  await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-active', 'false');
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await page.getByRole('combobox', { name: '分类', exact: true }).click();
-  await page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').click({ position: { x: 2, y: 2 } });
+  await page.mouse.click(point.x, point.y);
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await page.mouse.click(1250, 650);
-  await expect(page.locator('.ant-popover')).toBeHidden();
-  await expect(page.locator('.meteor')).toHaveCount(0);
-  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-pulse', 'idle');
-  await page.mouse.click(1250, 650);
-  await expect(page.locator('.meteor[data-source=interaction]')).toHaveCount(1);
 });
 
-test('sky falls back without WebGL and touch scrolling does not launch meteors', async ({ browser }) => {
+test('home touch scrolling cancels interaction while a real tap can launch a meteor', async ({ browser }) => {
   const context = await browser.newContext({ hasTouch: true, viewport: { width: 390, height: 844 }, colorScheme: 'dark', reducedMotion: 'no-preference' });
-  await context.addInitScript(`const get = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function(type, ...args) {
-      return type === 'webgl' ? null : get.call(this, type, ...args);
-    };`);
   const page = await context.newPage();
-  await page.goto('/archive');
-  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-renderer', 'fallback');
-  await page.dispatchEvent('section', 'pointerdown', { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, clientX: 5, clientY: 500 });
-  await page.dispatchEvent('section', 'pointermove', { pointerType: 'touch', pointerId: 1, isPrimary: true, clientX: 5, clientY: 400 });
-  await page.dispatchEvent('section', 'pointercancel', { pointerType: 'touch', pointerId: 1 });
+  await page.goto('/');
+  const box = await page.locator('[data-sky-entry]').boundingBox();
+  const x = box!.x + box!.width - 8, y = box!.y + 8;
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('a'), { x, y })).toBeNull();
+  await page.dispatchEvent('[data-sky-entry]', 'pointerdown', { pointerType: 'touch', pointerId: 1, isPrimary: true, button: 0, clientX: x, clientY: y });
+  await page.dispatchEvent('[data-sky-entry]', 'pointermove', { pointerType: 'touch', pointerId: 1, isPrimary: true, clientX: x, clientY: y - 50 });
+  await page.dispatchEvent('[data-sky-entry]', 'pointercancel', { pointerType: 'touch', pointerId: 1 });
   await expect(page.locator('.meteor')).toHaveCount(0);
-  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-pulse', 'idle');
-  await page.touchscreen.tap(5, 500);
+  await page.touchscreen.tap(x, y);
   await expect(page.locator('.meteor[data-source="interaction"]')).toHaveCount(1);
-  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-pulse', 'expanding');
+  await expect(page).toHaveURL(new RegExp('/$'));
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('.responsive-sky')).toHaveAttribute('data-active', 'false');
+  await expect(page.locator('.meteor')).toHaveCount(0);
   await context.close();
 });
 
-test('depth sheets render opacity while far stars stay stable during nearby touch impulses', async () => {
-  const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
-  try {
-    const page = await browser.newPage({ hasTouch: true, viewport: { width: 1280, height: 900 }, colorScheme: 'dark', reducedMotion: 'no-preference' });
-    await page.clock.install({ time: new Date('2026-11-17T00:00:00Z') });
-    await page.clock.pauseAt(new Date('2026-11-17T00:00:01Z'));
-    await page.addInitScript(`
-      const original = WebGLRenderingContext.prototype.drawArrays;
-      window.skyProbeRequested = true;
-      WebGLRenderingContext.prototype.drawArrays = function(...args) {
-        original.apply(this, args);
-        if (!window.skyProbeRequested || !this.canvas.classList.contains('responsive-cloud')) return;
-        window.skyProbeRequested = false;
-        const width = this.drawingBufferWidth, height = this.drawingBufferHeight;
-        const pixels = new Uint8Array(width * height * 4);
-        this.readPixels(0, 0, width, height, this.RGBA, this.UNSIGNED_BYTE, pixels);
-        let min = 255, max = 0, blue = 0;
-        for (let i = 3; i < pixels.length; i += 4) { min = Math.min(min, pixels[i]); max = Math.max(max, pixels[i]); blue = Math.max(blue, pixels[i - 1]); }
-        window.skyOpacity = {min, max, blue};
-      };
-    `);
-    await page.goto('http://127.0.0.1:3197/archive');
-    const sky = page.locator('.responsive-sky');
-    await expect(sky).toHaveAttribute('data-renderer', 'webgl');
-    await page.clock.runFor(32);
-    const opacity = await page.evaluate('window.skyOpacity') as { min: number; max: number; blue: number };
-    expect(opacity.max).toBeGreaterThan(40);
-    expect(opacity.min).toBeLessThan(opacity.max - 30);
-    expect(opacity.blue).toBeGreaterThan(20);
-    await expect(page.locator('.night-sky')).toHaveCSS('background-image', 'none');
-    const distant = await page.locator('.responsive-stars').evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL());
-    await page.touchscreen.tap(1200, 500);
-    await page.clock.runFor(180);
-    await page.touchscreen.tap(900, 650);
-    await page.clock.runFor(180);
-    await expect(sky).toHaveAttribute('data-pulse-count', '2');
-    expect(await page.locator('.responsive-stars').evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL())).toBe(distant);
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await expect(sky).toHaveAttribute('data-renderer', 'static');
-    await expect(page.locator('.night-sky')).toHaveCSS('background-image', /nebula-dust\.webp/);
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await expect(sky).toHaveAttribute('data-renderer', 'webgl');
-    await page.evaluate('window.skyProbeRequested = true');
-    await page.clock.runFor(32);
-    const restored = await page.evaluate('window.skyOpacity') as { min: number; max: number; blue: number };
-    expect(restored.max).toBeGreaterThan(40);
-    expect(restored.blue).toBeGreaterThan(20);
-    await page.emulateMedia({ colorScheme: 'light' });
-    await expect(sky).toHaveAttribute('data-renderer', 'static');
-    await page.emulateMedia({ colorScheme: 'dark' });
-    await expect(sky).toHaveAttribute('data-renderer', 'webgl');
-    await page.evaluate('window.skyProbeRequested = true');
-    await page.clock.runFor(32);
-    expect((await page.evaluate('window.skyOpacity') as { blue: number }).blue).toBeGreaterThan(20);
-  } finally { await browser.close(); }
-});
-
-test('surface atlas failure preserves the static sky and gesture handling', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
-  await page.route('**/backgrounds/nebula-surfaces.webp', (route) => route.abort());
+test('sky markup survives disabled JavaScript and image failure keeps content readable', async ({ browser, page }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, colorScheme: 'dark' });
+  const staticPage = await context.newPage();
+  await staticPage.goto('/archive');
+  await expect(staticPage.getByRole('heading', { name: '文章归档', exact: true })).toBeVisible();
+  await expect(staticPage.locator('.sky-picture')).toHaveCSS('background-image', /milky-way/);
+  await expect(staticPage.locator('.site-background canvas')).toHaveCount(0);
+  await expect(staticPage.locator('.sky-glimmer').first()).toHaveCSS('animation-name', 'none');
+  await context.close();
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.route('**/backgrounds/milky-way.webp', route => route.abort());
   await page.goto('/archive');
-  const sky = page.locator('.responsive-sky');
-  await expect(sky).toHaveAttribute('data-renderer', 'fallback');
-  await expect(page.locator('.night-sky')).toHaveCSS('background-image', /nebula-dust\.webp/);
-  await page.mouse.click(5, 500);
-  await expect(sky).toHaveAttribute('data-pulse-count', '1');
-  await page.getByRole('heading', { name: '文章归档', exact: true }).click({ position: { x: 20, y: 15 } });
-  await expect(sky).toHaveAttribute('data-pulse-count', '1');
+  await expect(page.locator('.night-sky')).toHaveCSS('background-color', 'rgb(5, 7, 12)');
+  await expect(page.getByRole('heading', { name: '文章归档', exact: true })).toBeVisible();
 });
 
 test('server body, duplicate Chinese anchors and Mermaid fallback survive disabled JavaScript', async ({

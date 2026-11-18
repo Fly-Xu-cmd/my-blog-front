@@ -72,27 +72,43 @@ body {
   color: #05060a;
 }
 
-/* ============ 分层星空 ============ */
-.night-sky {
-  background: #05060a url('/backgrounds/nebula-dust.webp') center / cover no-repeat;
+/* ============ 银河星空：静态构图与少量星光 ============ */
+.night-sky { background: #05070c; }
+.sky-scene {
+  position: absolute;
+  inset: -16px;
+  transition: transform 1s cubic-bezier(.22,1,.36,1);
 }
-
-/* The premultiplied cloud layer supplies its own light and star occlusion. */
-.night-sky:has(.responsive-sky[data-renderer="webgl"]) {
-  background-image: none;
+.sky-picture {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, calc(160dvh + 51.2px));
+  aspect-ratio: 8 / 5;
+  transform: translate(-50%, -50%);
+  background: url('/backgrounds/milky-way.webp') center / cover no-repeat;
 }
-
+.sky-glimmer {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  margin: -1px;
+  border-radius: 50%;
+  background: #e2e8ef;
+  box-shadow: 0 0 5px 1px rgba(165,191,228,.22);
+  opacity: .2;
+}
+@keyframes sky-glimmer {
+  0%, 100% { opacity: .12; }
+  45% { opacity: .6; }
+}
+.responsive-sky[data-active="true"] .sky-glimmer { animation: sky-glimmer ease-in-out infinite; }
 @media (max-width: 640px) {
-  .night-sky { background-position: 60% center; }
+  .sky-picture { left: 68%; transform: translate(-68%, -50%); }
 }
-
-.responsive-cloud {
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .responsive-cloud { display: none; transition: none; }
+  .sky-scene { transition: none; }
+  .responsive-sky .sky-glimmer { animation: none; }
   .site-background .meteor { display: none; }
 }
 
