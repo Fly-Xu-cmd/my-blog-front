@@ -113,6 +113,14 @@ main().catch(() => { process.exitCode = 1; });
 JS
 chmod +x "$sandbox/bin/npm" "$sandbox/bin/pm2"
 release_id=0123456789012345678901234567890123456789-1-1
+deploy() {
+  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads" prepare || return
+  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads" backup || return
+  if [[ ${TEST_FAIL:-} != verification ]]; then
+    echo fixture > "$root/.deploy-state/$release_id/backup-verified.json"
+  fi
+  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads" activate
+}
 prepare() {
   local name=$1
   export TEST_PM2_STATE="$sandbox/$name/pm2"
@@ -127,6 +135,24 @@ prepare() {
   touch "$release/pnpm-lock.yaml" "$release/pnpm-workspace.yaml"
   cp "$source_root/ecosystem.config.cjs" "$release/"
   cp "$source_root/next.config.mjs" "$release/"
+  mkdir -p "$release/scripts"
+  cat > "$release/scripts/deployment-db.mjs" <<'JS'
+import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
+const [phase, state, id, pnpm] = process.argv.slice(2);
+if (phase === 'inspect') {
+  if (process.env.TEST_FAIL === 'inspect') process.exit(24);
+  fs.writeFileSync(state + '/backup-required', 'yes');
+} else if (phase === 'prepare') {
+  if (process.env.TEST_FAIL === 'backup') process.exit(25);
+  fs.writeFileSync(state + '/backup-manifest.json', JSON.stringify({ releaseId: id }));
+} else {
+  if (!fs.existsSync(state + '/backup-verified.json')) process.exit(26);
+  const config = JSON.parse(fs.readFileSync(state + '/next.json')).apps[0];
+  const result = spawnSync(pnpm, ['exec', 'prisma', 'migrate', 'deploy'], { env: { ...process.env, ...config.env } });
+  if (result.status !== 0) process.exit(result.status || 1);
+}
+JS
   node - "$root" "$TEST_PM2_STATE" <<'JS'
 const fs = require('node:fs');
 const [root, state] = process.argv.slice(2);
@@ -138,14 +164,14 @@ JS
   pm2 start "$TEST_PM2_STATE/legacy.json"
   : > "$TEST_PM2_STATE/events"
 }
-failures=(install generate migrate)
+failures=(install generate inspect backup verification migrate)
 if [[ $("$TEST_REAL_NODE" -p "process.versions.node.split('.')[0]") != 24 ]]; then
   failures=(node-bootstrap "${failures[@]}")
 fi
 for failure in "${failures[@]}"; do
   prepare "$failure"
   export TEST_FAIL="$failure"
-  if bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads"; then exit 1; fi
+  if deploy; then exit 1; fi
   [[ $(cat "$root/node_modules/marker") == old-npm ]]
   [[ ! -s "$TEST_PM2_STATE/events" && ! -e "$root/current" ]]
   pm2 delete my-blog >/dev/null
@@ -153,7 +179,7 @@ done
 for failure in health health_api; do
 prepare "$failure"
 export TEST_FAIL="$failure"
-if bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads"; then exit 1; fi
+if deploy; then exit 1; fi
 [[ $(cat "$root/node_modules/marker") == old-npm && ! -e "$root/current" ]]
 node - "$root" "$TEST_PM2_STATE" <<'JS'
 const fs = require('node:fs');
@@ -165,7 +191,7 @@ pm2 delete my-blog >/dev/null
 done
 prepare success
 unset TEST_FAIL
-bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads"
+deploy
 [[ $(cat "$root/node_modules/marker") == old-npm ]]
 [[ $(cat "$release/node_modules/marker") == fresh-pnpm && $(readlink "$root/current") == "$release" ]]
 [[ $(readlink "$release/.env") == "$root/.env" ]]
@@ -197,5 +223,5 @@ if [[ -x "$BLOG_TOOLS_DIR/node-24.20.0/node_modules/node/bin/node" ]]; then
   [[ $("$TEST_REAL_NODE" -p "process.versions.node.split('.')[0]") != 24 ]]
 fi
 # A used release cannot be reinstalled over its running dependencies.
-if bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads"; then exit 1; fi
+if bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads" prepare; then exit 1; fi
 echo 'Deployment checks passed: Node 24 runtime, private bootstrap, pre-switch failures, health rollback, old modules, environment and reuse rejection'

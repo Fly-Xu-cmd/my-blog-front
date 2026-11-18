@@ -6,12 +6,16 @@ umask 077
 deploy_root=$(realpath -e -- "${1:?deployment root required}")
 release_id=${2:?release id required}
 upload_dir=$(realpath -e -- "${3:?upload directory required}")
+phase=${4:?prepare, backup or activate required}
+[[ $phase == prepare || $phase == backup || $phase == activate ]] || { echo 'Invalid deployment phase' >&2; exit 1; }
 [[ $release_id =~ ^[0-9a-f]{40}-[0-9]+-[0-9]+$ ]] || { echo 'Invalid release id' >&2; exit 1; }
 release=$(realpath -e -- "$deploy_root/releases/$release_id")
 [[ $release == "$deploy_root/releases/$release_id" ]] || { echo 'Invalid release path' >&2; exit 1; }
+if [[ $phase == prepare ]]; then
 [[ ! -e "$release/node_modules" && ! -L "$release/node_modules" ]] || {
   echo 'Release directory already contains dependencies; use a new workflow attempt' >&2; exit 1;
 }
+fi
 [[ ! -e "$deploy_root/current" || -L "$deploy_root/current" ]] || {
   echo 'current must be absent or a release symlink' >&2; exit 1;
 }
@@ -52,14 +56,18 @@ fi
 test "$("$pnpm_bin" --version)" = 12.3.4
 export PATH="$tool_prefix/node_modules/.bin:$PATH"
 export UPLOAD_DIR="$upload_dir"
+export BLOG_DEPLOY_ROOT="$deploy_root"
+if [[ $phase == prepare ]]; then
 for env_file in .env .env.local .env.production .env.production.local; do
   if [[ -f "$deploy_root/$env_file" ]]; then
     ln -s -- "$deploy_root/$env_file" "$release/$env_file"
   fi
 done
+fi
 
 # Store private, app-specific rollback configuration. Do not restart other PM2 applications.
 state="$deploy_root/.deploy-state/$release_id"
+if [[ $phase == prepare ]]; then
 mkdir -p -- "$state"
 pm2 ping >/dev/null
 pm2 jlist > "$state/before.json"
@@ -78,7 +86,7 @@ const rollback = previous.map(app => {
 });
 const target = require(path.join(process.cwd(), 'ecosystem.config.cjs'));
 target.apps[0].env = { ...(previous[0]?.pm2_env.env ?? {}),
-  PATH: process.env.PATH, ...target.apps[0].env };
+  PATH: process.env.PATH, ...target.apps[0].env, BLOG_DEPLOY_ROOT: process.env.BLOG_DEPLOY_ROOT };
 const port = Number(target.apps[0].env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid application port');
 fs.writeFileSync(path.join(state, 'previous.json'), JSON.stringify({ apps: rollback }), { mode: 0o600 });
@@ -96,11 +104,24 @@ const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 const [configPath, pnpm] = process.argv.slice(2);
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8')).apps[0];
-for (const args of [['exec', 'prisma', 'generate'], ['exec', 'prisma', 'migrate', 'deploy']]) {
+for (const args of [['exec', 'prisma', 'generate']]) {
   const result = spawnSync(pnpm, args, { env: { ...process.env, ...config.env }, stdio: 'inherit' });
   if (result.error || result.status !== 0) process.exit(result.status || 1);
 }
 NODE
+node scripts/deployment-db.mjs inspect "$state" "$release_id" "$pnpm_bin"
+echo "Release prepared: $release_id; migration plan inspected"
+exit 0
+fi
+
+# Receipt and migration plan are rechecked before any formal migration or PM2 switch.
+test -f "$state/next.json"
+test -f "$state/previous.json"
+if [[ $phase == backup ]]; then
+  node scripts/deployment-db.mjs prepare "$state" "$release_id" "$pnpm_bin"
+  exit 0
+fi
+node scripts/deployment-db.mjs activate "$state" "$release_id" "$pnpm_bin"
 printf '%s\n' "$release_id" > public/deploy-version.txt
 
 switch_started=false
