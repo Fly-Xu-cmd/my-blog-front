@@ -1,85 +1,44 @@
-import type { Metadata } from "next";
-import NoteDetail from "@/components/NoteDetail";
-import { prisma } from "@/lib/prisma";
-import { absoluteUrl, articleOpenGraph, extractDescription } from "@/lib/seo";
-
-// 详情页按请求渲染，避免构建期连接数据库
-export const dynamic = "force-dynamic";
-
-type Params = Promise<{ slug: string }>;
-
-/**
- * 根据笔记 slug 服务端直查数据库，生成笔记页 SEO 元数据
- * @param params 路由参数（含 slug）
- * @returns 笔记页 metadata（标题/描述/canonical/OG/twitter）
- */
-export async function generateMetadata({
-  params,
-}: {
-  params: Params;
-}): Promise<Metadata> {
-  const { slug } = await params;
-  const url = absoluteUrl(`/notes/${slug}`);
-  try {
-    const note = await prisma.note.findUnique({
-      where: { slug },
-      select: { title: true, content: true },
-    });
-    if (!note) {
-      return { title: "笔记未找到", ...articleOpenGraph("笔记未找到", "笔记不存在", url) };
-    }
-    const description = extractDescription(note.content || "");
-    return {
-      title: note.title,
-      description,
-      ...articleOpenGraph(note.title, description, url),
-    };
-  } catch {
-    return { title: "笔记详情", ...articleOpenGraph("笔记详情", "阅读技术笔记", url) };
-  }
+import type { Metadata } from 'next';
+import { publicContent } from '@/lib/public-content';
+import { absoluteUrl, articleOpenGraph, extractDescription } from '@/lib/seo';
+import { safeJson } from '@/lib/markdown';
+import Article from '@/components/Article';
+export const dynamic = 'force-dynamic';
+type Props = { params: Promise<{ slug: string }> };
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const key = (await params).slug;
+  const data = await publicContent('note', key);
+  return {
+    title: data.title || '笔记',
+    description: data.excerpt || extractDescription(data.content),
+    ...articleOpenGraph(
+      data.title || '笔记',
+      data.excerpt || extractDescription(data.content),
+      absoluteUrl('/notes/' + key),
+      'cover' in data ? data.cover : undefined,
+    ),
+  };
 }
-
-/**
- * 笔记详情页（Server Component 入口）
- * 负责元数据与 Article 结构化数据，内容由客户端组件渲染
- */
-export default async function Page({ params }: { params: Params }) {
-  const { slug } = await params;
-  const url = absoluteUrl(`/notes/${slug}`);
-
-  // 尽力生成 Article JSON-LD（失败不阻塞渲染）
-  let jsonLd: Record<string, unknown> | null = null;
-  try {
-    const note = await prisma.note.findUnique({
-      where: { slug },
-      select: { title: true, content: true, createdAt: true, updatedAt: true },
-    });
-    if (note) {
-      jsonLd = {
-        "@context": "https://schema.org",
-        "@type": "Article",
-        headline: note.title,
-        description: extractDescription(note.content || ""),
-        datePublished: note.createdAt.toISOString(),
-        dateModified: note.updatedAt.toISOString(),
-        author: { "@type": "Person", name: "若木" },
-        url,
-        inLanguage: "zh-CN",
-      };
-    }
-  } catch {
-    // 忽略结构化数据生成失败
-  }
-
+export default async function Page({ params }: Props) {
+  const key = (await params).slug;
+  const data = await publicContent('note', key);
+  const url = '/notes/' + key;
+  const structured = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: data.title,
+    datePublished: (data.publishedAt ?? data.createdAt).toISOString(),
+    dateModified: data.updatedAt.toISOString(),
+    url: absoluteUrl(url),
+    author: { '@type': 'Person', name: '若木' },
+  };
   return (
     <>
-      {jsonLd && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-      )}
-      <NoteDetail slug={slug} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJson(structured) }}
+      />
+      <Article resource="note" data={data} url={url} />
     </>
   );
 }

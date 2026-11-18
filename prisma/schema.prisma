@@ -4,90 +4,103 @@ generator client {
 
 // 1. 数据源改为 MySQL（兼容 MariaDB）
 datasource db {
-  provider = "mysql"  // 从 sqlite 改为 mysql
-  url = env("DATABASE_URL")  // 环境变量保持不变，但值需改为 MySQL 连接地址
-  relationMode = "prisma"  // 显式指定关系模式（MySQL 推荐）
+  provider     = "mysql" // 从 sqlite 改为 mysql
+  url          = env("DATABASE_URL") // 环境变量保持不变，但值需改为 MySQL 连接地址
+  relationMode = "prisma" // 显式指定关系模式（MySQL 推荐）
 }
 
 model Post {
-  id         Int       @id @default(autoincrement())
-  title      String    @db.VarChar(255)  // MySQL 推荐显式指定字符串长度
-  slug       String    @unique @db.VarChar(255)  // 移除默认 uuid()，由后端生成唯一 slug
-  excerpt    String?   @db.Text  // 摘要可能较长，用 Text 类型
-  content    String    @db.Text  // 文章内容用 Text 类型（支持长文本）
-  cover      String?   @db.VarChar(512)  // 封面图 URL 可能较长
-  published  Boolean   @default(false)
-  createdAt  DateTime  @default(now()) @db.DateTime(0)  // 精确到秒级
-  updatedAt  DateTime  @updatedAt @db.DateTime(0)
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(255) // MySQL 推荐显式指定字符串长度
+  slug        String    @unique @db.VarChar(255) // 移除默认 uuid()，由后端生成唯一 slug
+  excerpt     String?   @db.Text // 摘要可能较长，用 Text 类型
+  content     String    @db.LongText // 文章内容用 Text 类型（支持长文本）
+  cover       String?   @db.VarChar(512) // 封面图 URL 可能较长
+  published   Boolean   @default(false)
+  publishedAt DateTime? @db.DateTime(0)
+  seriesId    Int?
+  seriesOrder Int?
+  series      Series?   @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now()) @db.DateTime(0) // 精确到秒级
+  updatedAt   DateTime  @updatedAt @db.DateTime(0)
 
   // 分类关联
   category   Category? @relation(fields: [categoryId], references: [id])
-  @@index([categoryId])  // 手动为外键字段添加索引，避免 relationMode = "prisma" 下的性能问题
   categoryId Int?
 
   // 多对多标签
   tags PostTag[]
 
+  @@unique([seriesId, seriesOrder])
+  @@index([published, publishedAt])
+  @@index([categoryId]) // 手动为外键字段添加索引，避免 relationMode = "prisma" 下的性能问题
   // 新增索引：优化按发布状态、创建时间的查询（如博客列表页）
   @@index([published, createdAt])
 }
 
 model Category {
   id    Int    @id @default(autoincrement())
-  name  String @unique @db.VarChar(100)  // 分类名长度限制
+  name  String @unique @db.VarChar(100) // 分类名长度限制
   posts Post[]
   notes Note[]
 }
 
 model Tag {
-  id    Int    @id @default(autoincrement())
-  name  String @unique @db.VarChar(100)  // 标签名长度限制
+  id    Int       @id @default(autoincrement())
+  name  String    @unique @db.VarChar(100) // 标签名长度限制
   posts PostTag[]
   notes NoteTag[]
 }
 
 model PostTag {
-  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)  // 帖子删除时，关联记录也删除
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade) // 帖子删除时，关联记录也删除
   postId Int
 
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)  // 标签删除时，关联记录也删除
-  @@index([tagId])  // 手动为外键字段添加索引，避免 relationMode = "prisma" 下的性能问题
-  tagId  Int
+  tag   Tag @relation(fields: [tagId], references: [id], onDelete: Cascade) // 标签删除时，关联记录也删除
+  tagId Int
 
-  @@id([postId, tagId])  // 复合主键确保唯一性
+  @@id([postId, tagId]) // 复合主键确保唯一性
+  @@index([tagId]) // 手动为外键字段添加索引，避免 relationMode = "prisma" 下的性能问题
 }
 
 model Dynamic {
-  id        Int       @id @default(autoincrement())
-  content   String    @db.Text  // 动态内容用 Text
-  excerpt   String    @db.VarChar(512)  // 简介长度限制
-  title     String?   @db.VarChar(255)
-  createdAt DateTime  @default(now()) @db.DateTime(0)
-  updatedAt DateTime  @updatedAt @db.DateTime(0)
+  published   Boolean   @default(false)
+  publishedAt DateTime? @db.DateTime(0)
+  id          Int       @id @default(autoincrement())
+  content     String    @db.LongText // 动态内容用 Text
+  excerpt     String    @db.VarChar(512) // 简介长度限制
+  title       String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @db.DateTime(0)
+  updatedAt   DateTime  @updatedAt @db.DateTime(0)
 
+  @@index([published, publishedAt])
   // 新增索引：优化按时间排序查询动态
   @@index([createdAt])
 }
 
 // 笔记表
 model Note {
+  excerpt     String?   @db.Text
+  kind        NoteKind  @default(TECH)
+  publishedAt DateTime? @db.DateTime(0)
   id          Int       @id @default(autoincrement())
   syncId      String    @unique @db.VarChar(512) // 本地文件的唯一标识(如文件相对路径)，专供后端增量同步对账使用
   slug        String    @unique @db.VarChar(255) // 用于前端生成优雅的 URL 短链接路由
-  title       String    @db.VarChar(255)         // 笔记标题
-  content     String    @db.LongText                 // Markdown 原始内容
-  hash        String?   @db.VarChar(128)         // 文件内容的 Hash 值(如 MD5)，用于快速比对内容变化，减少不必要的全量更新
-  published   Boolean   @default(false)          // 是否公开展示在前端页面
+  title       String    @db.VarChar(255) // 笔记标题
+  content     String    @db.LongText // Markdown 原始内容
+  hash        String?   @db.VarChar(128) // 文件内容的 Hash 值(如 MD5)，用于快速比对内容变化，减少不必要的全量更新
+  published   Boolean   @default(false) // 是否公开展示在前端页面
   createdAt   DateTime  @default(now()) @db.DateTime(0)
   updatedAt   DateTime  @updatedAt @db.DateTime(0)
 
   // 关联现有的分类表（替代单纯的 folder 字符串）
-  category    Category? @relation(fields: [categoryId], references: [id])
-  categoryId  Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId Int?
 
   // 关联标签（复用现有的 Tag 模型，建立显式的多对多关系中间表）
-  tags        NoteTag[]
+  tags NoteTag[]
 
+  @@index([published, publishedAt])
   // 建立索引，优化前端列表查询以及外键约束查询
   @@index([categoryId])
   @@index([published, createdAt])
@@ -98,21 +111,21 @@ model NoteTag {
   note   Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
   noteId Int
 
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  tagId  Int
+  tag   Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId Int
 
-  @@id([noteId, tagId])       // 复合主键确保唯一性
-  @@index([tagId])       // 针对 relationMode = "prisma" 的外键索引优化
+  @@id([noteId, tagId]) // 复合主键确保唯一性
+  @@index([tagId]) // 针对 relationMode = "prisma" 的外键索引优化
 }
 
 // 页面访问记录表（PV 明细，UV 按 visitorId 去重）
 model PageView {
   id           Int      @id @default(autoincrement())
-  path         String   @db.VarChar(512)  // 页面路径
-  visitorId    String   @db.VarChar(64)   // 匿名访客 ID（UUID v4，代表匿名浏览器而非用户身份）
-  referrerHost String?  @db.VarChar(255)  // 来源 hostname（服务端解析，不存完整 URL）
-  userAgent    String?  @db.VarChar(512)  // 浏览器 UA（截断存储）
-  isBot        Boolean  @default(false)   // 预留 Bot 识别扩展，第一版恒为 false
+  path         String   @db.VarChar(512) // 页面路径
+  visitorId    String   @db.VarChar(64) // 匿名访客 ID（UUID v4，代表匿名浏览器而非用户身份）
+  referrerHost String?  @db.VarChar(255) // 来源 hostname（服务端解析，不存完整 URL）
+  userAgent    String?  @db.VarChar(512) // 浏览器 UA（截断存储）
+  isBot        Boolean  @default(false) // 预留 Bot 识别扩展，第一版恒为 false
   createdAt    DateTime @default(now()) @db.DateTime(0)
 
   @@index([path, createdAt])
@@ -120,3 +133,30 @@ model PageView {
   @@index([createdAt])
 }
 
+enum NoteKind {
+  TECH
+  ESSAY
+}
+
+model Series {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique @db.VarChar(160)
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @db.DateTime(0)
+  updatedAt   DateTime @updatedAt @db.DateTime(0)
+  posts       Post[]
+}
+
+model CreationRequest {
+  id          Int      @id @default(autoincrement())
+  resource    String   @db.VarChar(16)
+  actor       String   @db.VarChar(255)
+  key         String   @db.VarChar(36)
+  payloadHash String   @db.Char(64)
+  resultId    Int
+  response    Json
+  createdAt   DateTime @default(now()) @db.DateTime(0)
+
+  @@unique([resource, actor, key])
+}

@@ -1,5 +1,4 @@
 import crypto from "crypto";
-import jwt from "jsonwebtoken";
 import { redis } from "@/lib/redis";
 
 // 在线访客 ZSET 的 Redis Key（member 为 visitorId，score 为最近一次心跳的时间戳）
@@ -76,33 +75,7 @@ export async function tryAcquirePvDedup(
   return result === "OK";
 }
 
-/**
- * 校验请求的管理员身份：解析 Authorization: Bearer <token> 并用 JWT_SECRET 验证
- * @param req 请求对象
- * @returns 验证通过返回 { ok: true, username }；token 缺失或无效返回 401；token 有效但用户名不匹配返回 403
- */
-export async function requireAdmin(
-  req: Request
-): Promise<{ ok: true; username: string } | { ok: false; status: 401 | 403 }> {
-  const authHeader = req.headers.get("authorization") || "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  if (!token) {
-    return { ok: false, status: 401 };
-  }
-  try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || "");
-    const username =
-      typeof payload === "object" && payload !== null
-        ? (payload as jwt.JwtPayload).username
-        : undefined;
-    if (typeof username !== "string" || username !== process.env.ADMIN_USERNAME) {
-      return { ok: false, status: 403 };
-    }
-    return { ok: true, username };
-  } catch {
-    return { ok: false, status: 401 };
-  }
-}
+
 
 /**
  * 计算上海时区某自然日零点对应的 UTC Date 对象（用作 Prisma/SQL 中 createdAt 的 WHERE 边界）

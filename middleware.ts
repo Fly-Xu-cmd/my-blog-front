@@ -1,36 +1,30 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export function middleware(req: NextRequest) {
-  // 只对 /api/ 路径生效
-  if (req.nextUrl.pathname.startsWith("/api/")) {
-    // 处理预检请求 (OPTIONS)
-    if (req.method === "OPTIONS") {
-      return new NextResponse(null, {
-        status: 204,
-        headers: corsHeaders,
-      });
-    }
+const ALLOWED_ORIGINS = new Set([
+  'https://xylxf.xyz',
+  'https://admin.xylxf.xyz',
+  'http://localhost:8000',
+  'http://127.0.0.1:8000',
+]);
 
-    // 普通请求
-    const response = NextResponse.next();
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-      response.headers.set(key, value);
-    });
-    return response;
+function withCors(req: NextRequest, res: NextResponse) {
+  const origin = req.headers.get('origin');
+  res.headers.append('Vary', 'Origin');
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.headers.set('Access-Control-Allow-Origin', origin); // 回显，不写死
   }
-
-  return NextResponse.next();
+  res.headers.set('Access-control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.headers.set('Access-Control-Allow-headers', 'Content-Type, Authorization, Idempotency-Key');
+  res.headers.set('Access-Control-Max-Age', '600');
+  return res;
 }
 
-// 公共 CORS 头
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+export function middleware(req: NextRequest) {
+  if (req.method === 'OPTIONS') {
+    return withCors(req, new NextResponse(null, { status: 204 }));
+  }
+  return withCors(req, NextResponse.next());
+}
 
-// 指定要生效的路径
-export const config = {
-  matcher: ["/api/:path*"],
-};
+export const config = { matcher: ['/api/:path*'] };

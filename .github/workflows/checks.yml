@@ -1,0 +1,32 @@
+name: Frontend checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: mysql://root:local-test-only@127.0.0.1:13316/blog_test
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: '16386'
+      REDIS_PASSWORD: local-test-only
+      NEXT_PUBLIC_SITE_URL: https://xylxf.xyz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install -g pnpm@9
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prisma generate
+      - run: docker compose -p blog-optimization-test -f tests/compose.yaml up -d --wait
+      - run: pnpm exec prisma migrate deploy
+      - run: pnpm test
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm build
+      - run: docker compose -p blog-optimization-test -f tests/compose.yaml down -v
+        if: always()
+

@@ -1,16 +1,12 @@
-import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
-import { safeRename } from "@/utils/safeRenameUtil";
+import { admin, endpoint, ApiError } from '@/lib/api';
+import { validateImage } from '@/lib/upload';
+import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
+import { safeRename } from '@/utils/safeRenameUtil';
 
 // 1. 定义允许的上传类型 (白名单)
-const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/svg+xml",
-];
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 // 2. 定义文件大小限制 (例如 5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -18,44 +14,35 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 // 使用外部目录存储上传文件，提高安全性
 // 可以根据服务器环境配置不同的路径
 const getUploadDir = () => {
-  return path.join(
-    process.env.UPLOAD_DIR || path.join(process.cwd(), "..", "uploads"),
-  );
+  return path.join(process.env.UPLOAD_DIR || path.join(process.cwd(), '..', 'uploads'));
 };
 
-export async function POST(req: Request) {
+async function upload(req: Request) {
   try {
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    const file = formData.get('file') as File | null;
 
     // --- 校验 1: 是否有文件 ---
     if (!file) {
-      return NextResponse.json(
-        { ok: false, error: "未检测到文件" },
-        { status: 400 },
-      );
+      return NextResponse.json({ ok: false, error: '未检测到文件' }, { status: 400 });
     }
 
     // --- 校验 2: 文件大小 ---
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { ok: false, error: "文件大小不能超过 5MB" },
-        { status: 400 },
-      );
+      return NextResponse.json({ ok: false, error: '文件大小不能超过 5MB' }, { status: 400 });
     }
 
     // --- 校验 3: 文件类型 (最关键的一步) ---
     // 黑客如果上传 .sh 或 .exe，在这里就会被拦截
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { ok: false, error: "不支持的文件格式，仅允许上传图片" },
+        { ok: false, error: '不支持的文件格式，仅允许上传图片' },
         { status: 403 },
       );
     }
 
     // 读取文件数据
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const buffer = await validateImage(file);
 
     // --- 安全重命名 ---
     // 不管用户上传的文件名叫什么，我们强制重命名为 UUID
@@ -82,10 +69,13 @@ export async function POST(req: Request) {
       url: `/uploads/${uniqueName}`, // 返回给前端的路径
     });
   } catch (err) {
-    console.error("上传服务出错:", err);
-    return NextResponse.json(
-      { ok: false, error: "服务器内部错误" },
-      { status: 500 },
-    );
+    if (err instanceof ApiError) throw err;
+    console.error('上传服务出错:', err);
+    return NextResponse.json({ ok: false, error: '服务器内部错误' }, { status: 500 });
   }
 }
+
+export const POST = endpoint(async (req: Request) => {
+  await admin(req);
+  return upload(req);
+});
