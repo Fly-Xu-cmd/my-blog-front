@@ -6,7 +6,6 @@ export type Resource = 'post' | 'note' | 'dynamic';
 export const relations = { category: true, tags: { include: { tag: true } }, series: true };
 const taxonomy = { category: true, tags: { include: { tag: true } } };
 export const postSummary = {
- content:true,
   id: true,
   title: true,
   slug: true,
@@ -21,7 +20,6 @@ export const postSummary = {
   ...relations,
 };
 export const noteSummary = {
- content:true,
   id: true,
   title: true,
   slug: true,
@@ -35,7 +33,6 @@ export const noteSummary = {
   ...taxonomy,
 };
 const dynamicSummary = {
- content:true,
   id: true,
   title: true,
   excerpt: true,
@@ -62,8 +59,6 @@ export function filter(params: URLSearchParams, isAdmin: boolean) {
 }
 export async function listContent(resource: Resource, params: URLSearchParams, isAdmin = false) {
   const { current, pageSize, skip, take } = pagination(params);
-  const legacy = !isAdmin && !params.has('current') && !params.has('pageSize') && !params.has('size');
-  const page: { skip?: number; take?: number } = legacy ? {} : { skip, take };
   const where = filter(params, isAdmin);
   const category = params.get('category');
   const tag = params.get('tags');
@@ -78,7 +73,7 @@ export async function listContent(resource: Resource, params: URLSearchParams, i
   if (resource === 'post') {
     const [total, rows] = await prisma.$transaction([
       prisma.post.count({ where: classified }),
-      prisma.post.findMany({ where: classified, select: postSummary, orderBy, ...page }),
+      prisma.post.findMany({ where: classified, select: postSummary, orderBy, skip, take }),
     ]);
     return {
       ok: true,
@@ -95,7 +90,7 @@ export async function listContent(resource: Resource, params: URLSearchParams, i
     const noteWhere = { ...classified, ...(kind ? { kind: kind as 'TECH' | 'ESSAY' } : {}) };
     const [total, rows] = await prisma.$transaction([
       prisma.note.count({ where: noteWhere }),
-      prisma.note.findMany({ where: noteWhere, select: noteSummary, orderBy, ...page }),
+      prisma.note.findMany({ where: noteWhere, select: noteSummary, orderBy, skip, take }),
     ]);
     return {
       ok: true,
@@ -108,7 +103,7 @@ export async function listContent(resource: Resource, params: URLSearchParams, i
   }
   const [total, rows] = await prisma.$transaction([
     prisma.dynamic.count({ where }),
-    prisma.dynamic.findMany({ where, select: dynamicSummary, orderBy, ...page }),
+    prisma.dynamic.findMany({ where, select: dynamicSummary, orderBy, skip, take }),
   ]);
   return { ok: true, data: rows, total, current, pageSize, pages: Math.ceil(total / pageSize) };
 }
