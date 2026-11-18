@@ -2,6 +2,7 @@
   "name": "my-blog",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@12.3.4",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
@@ -14,6 +15,7 @@
     "backfill": "tsx scripts/backfill.ts"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "1.24.0",
     "@ant-design/icons": "^6.1.0",
     "@prisma/client": "^6.17.1",
     "@uiw/react-markdown-preview": "^5.1.5",

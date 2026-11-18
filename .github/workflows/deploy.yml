@@ -1,23 +1,22 @@
 name: Deploy Next.js App to Aliyun
-
 on:
   push:
-    branches:
-      - main
-
+    branches: [main]
 env:
   DEPLOY_USER: appuser
   DEPLOY_PATH: /home/www/my-blog
   UPLOAD_DIR: /home/www/uploads
-
+  RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
   build-and-deploy:
     needs: checks
     environment: production
+    concurrency:
+      group: blog-production-release
+      cancel-in-progress: false
     runs-on: ubuntu-latest
-
     steps:
       - name: Verify migration and paired admin readiness
         env:
@@ -26,124 +25,54 @@ jobs:
         run: |
           test "$BACKUP_RESTORE_VERIFIED" = "202611160001_blog_optimization"
           test "$ADMIN_READY" = "true"
-
-      - name: 🧱 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 📦 Install pnpm
-        # 固定 pnpm 9：默认运行依赖构建脚本，无 pnpm 10+ 的构建批准机制，
-        # 与 lockfile v9.0 完全兼容（最新版 pnpm 11 需 Node>=22.13 且有 ERR_PNPM_IGNORED_BUILDS 限制）
-        run: npm install -g pnpm@9
-
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          # Node 20 已弃用且最新 pnpm 需要 Node >= 22.13（使用 node:sqlite）
           node-version: 24
-          cache: pnpm
-
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🔧 Generate Prisma client
-        run: pnpm prisma generate
+      - name: Install pnpm and build
+        run: |
+          npm install -g pnpm@12.3.4
+          pnpm install --frozen-lockfile
+          pnpm exec prisma generate
+          pnpm build
         env:
-          # 只要 schema.prisma 不需要连接真实 DB，这里可以用假的 URL
-          DATABASE_URL: 'mysql://placeholder:placeholder@localhost:3306/placeholder'
-
-      - name: 🏗️ Build Next.js project
-        run: pnpm build
-        env:
-          # SEO（canonical/sitemap/OG）使用的正式站点域名
+          DATABASE_URL: mysql://placeholder:placeholder@localhost:3306/placeholder
           NEXT_PUBLIC_SITE_URL: https://xylxf.xyz
           NEXT_PUBLIC_BASE_URL: http://${{ secrets.ALIYUN_SERVER_ADDRESS }}
-
-      # ----------------------------------------------------------------
-      # 优化点 1: 准备阶段，不进行复制，直接在传输阶段处理
-      # ----------------------------------------------------------------
-
-      - name: ✨ Ensure appuser exists & directories ready (root)
+      - name: Prepare a fresh release directory
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
           username: root
           key: ${{ secrets.ALIYUN_SSH_KEY }}
           script: |
+            set -eu
             id appuser || useradd -m -s /bin/bash appuser
-            mkdir -p ${{ env.DEPLOY_PATH }}
-            mkdir -p ${{ env.UPLOAD_DIR }}
-            chown -R appuser:appuser ${{ env.DEPLOY_PATH }}
-            chown -R appuser:appuser ${{ env.UPLOAD_DIR }}
-
-      # ----------------------------------------------------------------
-      # 优化点 2: 使用 rsync 替代 scp-action (解决 137 内存溢出)
-      # ----------------------------------------------------------------
-      - name: 📤 Sync files via Rsync
+            test ! -e '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/node_modules'
+            mkdir -p '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}'
+            chown appuser:appuser '${{ env.DEPLOY_PATH }}'
+            chown -R appuser:appuser '${{ env.DEPLOY_PATH }}/releases' '${{ env.UPLOAD_DIR }}'
+      - name: Upload release artifacts
+        env:
+          DEPLOY_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
         run: |
-          # 1. 设置 SSH 私钥
-          echo "${{ secrets.ALIYUN_SSH_KEY }}" > private_key
-          chmod 600 private_key
-
-          # 2. 准备需要排除的文件列表 (减少传输体积)
-          # .next/cache 非常大且非必须，建议排除
-
-          # 3. 执行 Rsync 增量传输
-          # -a: 归档模式 (保留权限、时间等)
-          # -v: 显示过程
-          # -z: 压缩传输
-          # --delete: 删除目标目录中源目录没有的文件 (保持同步)
-          # --exclude: 排除不需要上传的大文件
-
-          rsync -avz --delete \
-            -e "ssh -i private_key -o StrictHostKeyChecking=no" \
-            --exclude '.git' \
-            --exclude 'node_modules' \
-            --exclude '.next/cache' \
-            --exclude '.env*' \
-            ./.next ./package.json ./pnpm-lock.yaml ./prisma ./public \
-            ${{ env.DEPLOY_USER }}@${{ secrets.ALIYUN_SERVER_IP }}:${{ env.DEPLOY_PATH }}/tmp-deploy
-
-          # 清理私钥
-          rm private_key
-
-      # ----------------------------------------------------------------
-      # 优化点 3: 部署逻辑优化
-      # ----------------------------------------------------------------
-      - name: 🚀 Deploy application with PM2 (appuser)
+          set -eu
+          key_file=$(mktemp)
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          rsync -azR -e "ssh -i $key_file -o StrictHostKeyChecking=no" \
+            --exclude 'node_modules' --exclude '.next/cache' --exclude '.env*' \
+            ./.next ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml \
+            ./ecosystem.config.cjs ./next.config.mjs ./prisma ./public ./scripts/deploy-release.sh \
+            '${{ env.DEPLOY_USER }}@${{ secrets.ALIYUN_SERVER_IP }}:${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/'
+      - name: Install, switch and check the release
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
           username: ${{ env.DEPLOY_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
-          # 1. 必须加：延长超时时间到 30分钟 (解决 Run Command Timeout)
           command_timeout: 30m
           script: |
-            cd ${{ env.DEPLOY_PATH }}
-
-            echo "📦 Update files from tmp-deploy"
-            rsync -a tmp-deploy/ .
-            rm -rf tmp-deploy
-
-            echo "� Setting up upload directory"
-            # 确保上传目录存在
-            mkdir -p ${{ env.UPLOAD_DIR }}
-
-            echo "📦 Installing production deps"
-            # 2. 必须加：使用淘宝/阿里云镜像源 (解决下载速度只有几KB/s的问题)
-            pnpm config set registry https://registry.npmmirror.com
-            pnpm install --prod --frozen-lockfile --ignore-scripts
-
-            echo "🔧 Prisma & Database"
-            # 既然目录下已有 .env，Prisma 会自动读取它，不需要额外配置 export
-            pnpm prisma generate
-            pnpm prisma migrate deploy
-
-            echo "🔥 Reloading PM2"
-            if pm2 list | grep -q "my-blog"; then
-              # 如果你的 .env 有变动，Next.js 重启时会自动重新加载文件
-              pm2 reload my-blog --update-env
-            else
-              pm2 start "pnpm start" --name my-blog --time
-            fi
-
-            echo "🎉 Deployment Success!"
+            bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
+              '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}'

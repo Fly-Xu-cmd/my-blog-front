@@ -18,8 +18,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install -g pnpm@9
+      - run: npm install -g pnpm@12.3.4
       - run: pnpm install --frozen-lockfile
+      - run: bash -n scripts/deploy-release.sh tests/deploy-release.test.sh
+      - run: bash tests/deploy-release.test.sh
       - run: pnpm exec prisma generate
       - run: docker compose -p blog-optimization-test -f tests/compose.yaml up -d --wait
       - run: pnpm exec prisma migrate deploy

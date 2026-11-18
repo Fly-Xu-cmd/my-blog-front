@@ -1,13 +1,14 @@
 # 若木的小世界
 
-前台与 API 使用 Next.js 15 / React 19 / Prisma 6 / MySQL / Redis，后台在独立的 my-blog-admin 仓库。使用 pnpm，CI 使用 Node 24。旧 /frontend 链接继续重定向；内容 URL 不批量重写。
+前台与 API 使用 Next.js 15 / React 19 / Prisma 6 / MySQL / Redis，后台在独立的 my-blog-admin 仓库。两仓均使用 pnpm 12.3.4，各自保留 pnpm-lock.yaml；CI 和部署使用 Node 24。旧 /frontend 链接继续重定向；内容 URL 不批量重写。
 
 ## 本地开发
 
 配置 DATABASE_URL、JWT_SECRET、ADMIN_USERNAME、ADMIN_PASSWORD、REDIS_HOST/PORT/PASSWORD、SYNC_API_TOKEN。不要把凭据提交到仓库。NEXT_PUBLIC_SITE_URL 控制公开 canonical/RSS 地址。生产进程绑定 127.0.0.1，代理须覆盖 X-Real-IP 后再启用 TRUST_PROXY=true。
 
 ```sh
-pnpm install
+npm install -g pnpm@12.3.4
+pnpm install --frozen-lockfile
 pnpm exec prisma generate
 pnpm dev
 ```
@@ -37,3 +38,5 @@ Playwright 使用 3197，拒绝复用已占用服务器。前后台配对验收�
 新增迁移只扩展结构并保留历史公开状态。Note 摘要使用 scripts/backfill.ts，默认 dry-run；明确设置 BACKFILL_DATABASE_URL 后才运行 --apply。scripts/privacy-audit.ts 只读输出公开内容待审清单，明确设置 AUDIT_DATABASE_URL。不要把隐私清单上传公共仓库。
 
 实施、路由权限、验收与回滚见 [docs/博客优化实施计划.md](docs/博客优化实施计划.md)、[docs/路由权限矩阵.md](docs/路由权限矩阵.md)。正式迁移前验证备份恢复，按阶段评审 PR 后合并。安全回滚不能退回匿名写入或草稿可读的版本。
+
+依赖脚本批准在 pnpm-workspace.yaml；Prisma 使用显式 generate，不依赖安装时自动执行。版本不符会失败，不自动下载替换。部署在服务器检查 Node 24，用现有 npm 安装版本化 pnpm 工具，并在全新 release 目录安装生产依赖。切换 PM2 后检查健康，通过后更新 current；保留旧 node_modules 供回退。保留策略和 PR 汇总见 [docs/main补齐与服务器依赖切换.md](docs/main补齐与服务器依赖切换.md)，前次迁移验收见 [docs/pnpm迁移验收.md](docs/pnpm迁移验收.md)。

@@ -1,6 +1,6 @@
 # Repository guidance
 
-Use pnpm in this Next.js 15 / React 19 frontend and API repository. Admin is an independent sibling repository using npm.
+Use pnpm 12.3.4 in this Next.js 15 / React 19 frontend and API repository. Admin is an independent sibling repository also using pnpm 12.3.4. Keep their lockfiles separate; CI and deployment use Node 24.
 
 Preserve unrelated working changes; stage task files explicitly. Use codex/ branches and reviewed PRs, never push main directly.
 

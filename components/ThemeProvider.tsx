@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { ConfigProvider, theme as antdTheme } from "antd";
+import zhCN from "antd/locale/zh_CN";
 
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -64,6 +65,7 @@ export default function ThemeProvider({
 }) {
   const [theme, setTheme] = useState<Theme>("system");
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
+  const [initialized, setInitialized] = useState(false);
 
   /**
    * 标记本次主题变更是否由用户主动触发（View Transition 路径），
@@ -72,14 +74,19 @@ export default function ThemeProvider({
   const userInitiatedRef = useRef(false);
 
   useEffect(() => {
+    let initialTheme: Theme = "system";
     try {
       const stored = localStorage.getItem("theme") as Theme | null;
       if (stored === "light" || stored === "dark" || stored === "system") {
-        setTheme(stored);
+        initialTheme = stored;
       }
     } catch {
       /* ignore */
     }
+    setTheme(initialTheme);
+    document.documentElement.dataset.themePreference = initialTheme;
+    applyDom(computeDark(initialTheme), setResolvedTheme);
+    setInitialized(true);
   }, []);
 
   /**
@@ -88,7 +95,9 @@ export default function ThemeProvider({
    * 仅处理系统主题监听器的绑定/解绑。
    */
   useEffect(() => {
+    if (!initialized) return;
     const root = document.documentElement;
+    root.dataset.themePreference = theme;
 
     const apply = () => {
       const dark = computeDark(theme);
@@ -107,7 +116,7 @@ export default function ThemeProvider({
       mq.addEventListener("change", apply);
       return () => mq.removeEventListener("change", apply);
     }
-  }, [theme]);
+  }, [theme, initialized]);
 
   /**
    * 用户主动切换主题（含 View Transition 动画）
@@ -123,6 +132,7 @@ export default function ThemeProvider({
 
     const commit = () =>
       flushSync(() => {
+        document.documentElement.dataset.themePreference = t;
         applyDom(dark, setResolvedTheme);
         setTheme(t);
         persistTheme(t);
@@ -158,11 +168,13 @@ export default function ThemeProvider({
         transition.finished?.finally?.(() => styleEl.remove());
       } catch {
         styleEl.remove();
+        document.documentElement.dataset.themePreference = t;
         applyDom(dark, setResolvedTheme);
         setTheme(t);
         persistTheme(t);
       }
     } else {
+      document.documentElement.dataset.themePreference = t;
       applyDom(dark, setResolvedTheme);
       setTheme(t);
       persistTheme(t);
@@ -174,6 +186,7 @@ export default function ThemeProvider({
       value={{ theme, resolvedTheme, setTheme: handleSetTheme }}
     >
       <ConfigProvider
+        locale={zhCN}
         theme={{
           algorithm:
             resolvedTheme === "dark"
@@ -181,6 +194,7 @@ export default function ThemeProvider({
               : antdTheme.defaultAlgorithm,
           token: {
             zIndexPopupBase: 11000,
+            colorPrimary: resolvedTheme === "dark" ? "#78cce0" : "#087f9b",
           },
         }}
       >
