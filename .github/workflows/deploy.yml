@@ -21,11 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify migration and paired admin readiness
-        env:
-          BLOG_BACKUP_RESTORE_VERIFIED: ${{ vars.BLOG_BACKUP_RESTORE_VERIFIED }}
-          BLOG_ADMIN_COMPAT_READY: ${{ vars.BLOG_ADMIN_COMPAT_READY }}
-        run: bash scripts/check-deploy-readiness.sh front
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -64,9 +59,9 @@ jobs:
           rsync -azR -e "ssh -i $key_file -o StrictHostKeyChecking=no" \
             --exclude 'node_modules' --exclude '.next/cache' --exclude '.env*' \
             ./.next ./package.json ./pnpm-lock.yaml ./pnpm-workspace.yaml \
-            ./ecosystem.config.cjs ./next.config.mjs ./prisma ./public ./scripts/deploy-release.sh \
+            ./ecosystem.config.cjs ./next.config.mjs ./prisma ./public ./scripts/deploy-release.sh ./scripts/deployment-db.mjs \
             '${{ env.DEPLOY_USER }}@${{ secrets.ALIYUN_SERVER_IP }}:${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/'
-      - name: Install, switch and check the release
+      - name: Prepare dependencies and inspect migration plan
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.ALIYUN_SERVER_IP }}
@@ -75,4 +70,49 @@ jobs:
           command_timeout: 30m
           script: |
             bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
-              '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}'
+              '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' prepare
+      - name: Prepare dump client only for pending migrations
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: root
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          script: |
+            set -eu
+            required=$(cat '${{ env.DEPLOY_PATH }}/.deploy-state/${{ env.RELEASE_ID }}/backup-required')
+            case "$required" in
+              no) echo 'No migration: dump client preparation skipped'; exit 0 ;;
+              yes) ;;
+              *) echo 'Invalid migration inspection result' >&2; exit 1 ;;
+            esac
+            if ! command -v mysqldump >/dev/null; then
+              command -v apt-get >/dev/null || { echo 'Install a MySQL dump client for this distribution' >&2; exit 1; }
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y --no-install-recommends default-mysql-client
+            fi
+      - name: Create backup only for pending migrations
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
+              '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' backup
+      - name: Verify backup in an isolated CI database
+        env:
+          DEPLOY_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.ALIYUN_SERVER_IP }}
+        run: bash scripts/verify-release-backup.sh
+      - name: Apply verified migrations, switch and check the release
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.ALIYUN_SERVER_IP }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
+              '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' activate

@@ -15,20 +15,19 @@ jobs:
       NEXT_PUBLIC_SITE_URL: https://xylxf.xyz
     steps:
       - uses: actions/checkout@v4
-      - run: bash -n scripts/check-deploy-readiness.sh tests/check-deploy-readiness.test.sh
-      - run: bash tests/check-deploy-readiness.test.sh
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - run: npm install -g pnpm@12.3.4
       - run: pnpm install --frozen-lockfile
-      - run: bash -n scripts/deploy-release.sh tests/deploy-release.test.sh
+      - run: bash -n scripts/deploy-release.sh scripts/verify-release-backup.sh tests/deploy-release.test.sh
       - run: bash tests/deploy-release.test.sh
       - name: Bootstrap private Node 24 from a Node 20 server
         run: docker run --rm -v "$PWD:/work:ro" -w /work node:20.20.0-bookworm-slim bash tests/deploy-release.test.sh
       - run: pnpm exec prisma generate
       - run: docker compose -p blog-optimization-test -f tests/compose.yaml up -d --wait
       - run: pnpm exec prisma migrate deploy
+      - run: node --test tests/deployment-db.test.mjs
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm lint
