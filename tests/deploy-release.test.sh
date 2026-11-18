@@ -10,13 +10,22 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir -p "$sandbox/bin"
+export TEST_REAL_NPM=$(command -v npm)
+export TEST_REAL_NODE=$(command -v node)
 export PATH="$sandbox/bin:$PATH"
 export BLOG_TOOLS_DIR="$sandbox/tools"
 export BLOG_DEPLOY_HEALTH_ATTEMPTS=2
 cat > "$sandbox/bin/npm" <<'SH'
 #!/usr/bin/env bash
 set -eu
-[[ $1 == install && $2 == --prefix ]]
+if [[ ${1:-} != install || ${2:-} != --prefix ]]; then
+  # node-bin-setup invokes npm itself; its nested binary download must stay real.
+  exec "$TEST_REAL_NPM" "$@"
+fi
+if [[ $3 == */node-24.20.0 ]]; then
+  [[ ${TEST_FAIL:-} != node-bootstrap ]] || exit 18
+  exec "$TEST_REAL_NPM" "$@"
+fi
 mkdir -p "$3/node_modules/pnpm" "$3/node_modules/.bin"
 cp "$TEST_FIXTURE_PNPM" "$3/node_modules/pnpm/pnpm"
 chmod +x "$3/node_modules/pnpm/pnpm"
@@ -41,6 +50,7 @@ cat > "$sandbox/server.cjs" <<'JS'
 const http = require('node:http');
 const fs = require('node:fs');
 http.createServer((req, res) => {
+  res.setHeader('X-Node-Major', process.versions.node.split('.')[0]);
   if (req.url.startsWith('/api/posts')) {
     if (process.env.TEST_FAIL === 'health_api' && process.cwd().includes('/releases/')) res.statusCode = 503;
     res.end(JSON.stringify({ ok: res.statusCode === 200, data: [] }));
@@ -77,7 +87,14 @@ async function main() {
   }
   if (!['start', 'startOrReload'].includes(cmd)) throw new Error('Unexpected PM2 command');
   const target = JSON.parse(fs.readFileSync(process.argv[3])).apps[0];
-  const child = spawn(process.execPath, [process.env.TEST_SERVER], {
+  // Resolve the candidate's PATH, rather than inheriting this CLI's Node version.
+  const pathNode = (target.env.PATH || '').split(path.delimiter)
+    .map(dir => path.join(dir, 'node')).find(file => {
+      try { fs.accessSync(file, fs.constants.X_OK); return true; } catch { return false; }
+    });
+  const runtime = target.interpreter && target.interpreter !== 'none' ? target.interpreter : pathNode;
+  if (!runtime) throw new Error('Candidate PATH has no executable Node');
+  const child = spawn(runtime, [process.env.TEST_SERVER], {
     cwd: target.cwd, env: { ...process.env, ...target.env }, detached: true, stdio: 'ignore',
   });
   child.unref();
@@ -121,7 +138,11 @@ JS
   pm2 start "$TEST_PM2_STATE/legacy.json"
   : > "$TEST_PM2_STATE/events"
 }
-for failure in install generate migrate; do
+failures=(install generate migrate)
+if [[ $("$TEST_REAL_NODE" -p "process.versions.node.split('.')[0]") != 24 ]]; then
+  failures=(node-bootstrap "${failures[@]}")
+fi
+for failure in "${failures[@]}"; do
   prepare "$failure"
   export TEST_FAIL="$failure"
   if bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads"; then exit 1; fi
@@ -150,11 +171,31 @@ bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/up
 [[ $(readlink "$release/.env") == "$root/.env" ]]
 node - "$release" "$TEST_PM2_STATE" "$sandbox/uploads" <<'JS'
 const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const [release, state, uploads] = process.argv.slice(2);
 const app = JSON.parse(fs.readFileSync(state + '/app.json'))[0].pm2_env;
 if (app.pm_cwd !== release || app.exec_interpreter !== 'none' ||
   app.env.EXISTING_RUNTIME_SETTING !== 'retained' || app.env.UPLOAD_DIR !== uploads) process.exit(1);
+const runtimeDirs = app.env.PATH.split(path.delimiter);
+const pnpmDir = path.join(process.env.BLOG_TOOLS_DIR, 'pnpm-12.3.4/node_modules/.bin');
+if (runtimeDirs[0] !== pnpmDir) throw new Error('Candidate PATH must prefer the versioned pnpm');
+const hostMajor = execFileSync(process.env.TEST_REAL_NODE,
+  ['-p', "process.versions.node.split('.')[0]"], { encoding: 'utf8' }).trim();
+if (hostMajor !== '24') {
+  const privateNodeDir = path.join(process.env.BLOG_TOOLS_DIR, 'node-24.20.0/node_modules/node/bin');
+  if (runtimeDirs[1] !== privateNodeDir) throw new Error('Candidate PATH must prefer private Node 24');
+}
 JS
+node <<'JS'
+fetch('http://127.0.0.1:48133').then(r => {
+  if (r.headers.get('X-Node-Major') !== '24') process.exitCode = 1;
+}).catch(() => { process.exitCode = 1; });
+JS
+# Private bootstrap must not replace the host's original Node binary or version.
+if [[ -x "$BLOG_TOOLS_DIR/node-24.20.0/node_modules/node/bin/node" ]]; then
+  [[ $("$TEST_REAL_NODE" -p "process.versions.node.split('.')[0]") != 24 ]]
+fi
 # A used release cannot be reinstalled over its running dependencies.
 if bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads"; then exit 1; fi
-echo 'Deployment checks passed: fresh install, three pre-switch failures, health rollback, old modules, environment and reuse rejection'
+echo 'Deployment checks passed: Node 24 runtime, private bootstrap, pre-switch failures, health rollback, old modules, environment and reuse rejection'

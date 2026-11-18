@@ -15,8 +15,21 @@ release=$(realpath -e -- "$deploy_root/releases/$release_id")
 [[ ! -e "$deploy_root/current" || -L "$deploy_root/current" ]] || {
   echo 'current must be absent or a release symlink' >&2; exit 1;
 }
-test "$(node -p "process.versions.node.split('.')[0]")" = 24
 command -v npm >/dev/null
+export BLOG_TOOLS_DIR=${BLOG_TOOLS_DIR:-"$HOME/.local/share/blog-tools"}
+# An existing npm/Node 20 installation can prepare a private Node 24 runtime.
+# Explicit PATH works in non-interactive SSH; nvm and global runtime changes are unnecessary.
+if [[ $(node -p "process.versions.node.split('.')[0]") != 24 ]]; then
+  node_prefix="$BLOG_TOOLS_DIR/node-24.20.0"
+  node_bin="$node_prefix/node_modules/node/bin/node"
+  if [[ ! -x $node_bin ]] || [[ $("$node_bin" --version) != v24.20.0 ]]; then
+    npm install --prefix "$node_prefix" --no-save --package-lock=false \
+      node@24.20.0 --registry=https://registry.npmmirror.com
+  fi
+  test "$("$node_bin" --version)" = v24.20.0
+  export PATH="$node_prefix/node_modules/node/bin:$PATH"
+fi
+test "$(node -p "process.versions.node.split('.')[0]")" = 24
 command -v pm2 >/dev/null
 cd "$release"
 test -f .next/BUILD_ID
@@ -30,7 +43,6 @@ health_attempts=${BLOG_DEPLOY_HEALTH_ATTEMPTS:-30}
 }
 
 # npm bootstraps only the versioned tool. Neither global npm nor old app modules are removed.
-export BLOG_TOOLS_DIR=${BLOG_TOOLS_DIR:-"$HOME/.local/share/blog-tools"}
 tool_prefix="$BLOG_TOOLS_DIR/pnpm-12.3.4"
 pnpm_bin="$tool_prefix/node_modules/pnpm/pnpm"
 if [[ ! -x $pnpm_bin ]] || [[ $("$pnpm_bin" --version) != 12.3.4 ]]; then

@@ -39,4 +39,4 @@ Playwright 使用 3197，拒绝复用已占用服务器。前后台配对验收�
 
 实施、路由权限、验收与回滚见 [docs/博客优化实施计划.md](docs/博客优化实施计划.md)、[docs/路由权限矩阵.md](docs/路由权限矩阵.md)。正式迁移前验证备份恢复，按阶段评审 PR 后合并。安全回滚不能退回匿名写入或草稿可读的版本。
 
-依赖脚本批准在 pnpm-workspace.yaml；Prisma 使用显式 generate，不依赖安装时自动执行。版本不符会失败，不自动下载替换。部署在服务器检查 Node 24，用现有 npm 安装版本化 pnpm 工具，并在全新 release 目录安装生产依赖。切换 PM2 后检查健康，通过后更新 current；保留旧 node_modules 供回退。保留策略和 PR 汇总见 [docs/main补齐与服务器依赖切换.md](docs/main补齐与服务器依赖切换.md)，前次迁移验收见 [docs/pnpm迁移验收.md](docs/pnpm迁移验收.md)。
+依赖脚本批准在 pnpm-workspace.yaml；Prisma 使用显式 generate，不依赖安装时自动执行。pnpm 版本不符会失败，不隐式切换。部署使用已有 Node 24；服务器只有 Node 20 时，通过现有 npm 准备用户目录内的 Node 24，再安装版本化 pnpm 工具，无需 nvm 或全局升级。在全新 release 目录安装生产依赖，切换 PM2 后检查健康，通过后更新 current；保留旧 node_modules 供回退。保留策略和 PR 汇总见 [docs/main补齐与服务器依赖切换.md](docs/main补齐与服务器依赖切换.md)，前次迁移验收见 [docs/pnpm迁移验收.md](docs/pnpm迁移验收.md)。

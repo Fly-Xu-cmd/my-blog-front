@@ -31,7 +31,9 @@
 
 ## npm、pnpm 与旧 node_modules
 
-服务器保留 npm。npm 只负责在 appuser 的版本化工具目录安装 pnpm 12.3.4；项目依赖由 pnpm 按锁文件安装。服务器须先准备 Node 24、npm、PM2、realpath、bash 和 Prisma 所需 OpenSSL；脚本在切换应用前校验 Node/pnpm 版本。工具位于 `~/.local/share/blog-tools/pnpm-12.3.4`，不覆盖全局 npm/pnpm 或上一版工具入口。
+服务器保留 npm。已有 Node 24 时直接使用；Node 20 上可用现有 npm 自动在 appuser 的版本化工具目录准备 Node 24.20.0，再安装 pnpm 12.3.4。无需 nvm，也不替换全局 Node 20。脚本显式设置 PATH，非交互 SSH 和新 PM2 应用都会使用选定的 Node；不能只在 admin 用户的交互 shell 切版本。私有 Node 位于 `~/.local/share/blog-tools/node-24.20.0/node_modules/node/bin/node`，pnpm 位于 `~/.local/share/blog-tools/pnpm-12.3.4`。
+
+服务器需有可用的初始 Node/npm、PM2、realpath、bash 和 Prisma 所需 OpenSSL；工具下载、版本校验和依赖准备失败时在切换前停止。项目依赖仍由 pnpm 按锁文件安装，不覆盖全局 npm/pnpm 或上一版工具入口。全局 `node -v` 仍可能显示 20，发布后的实际进程应核对 PM2 保存的 PATH 与子进程运行版本。
 
 之前脚本直接在运行目录执行 pnpm install，会复用旧 npm 的 node_modules。本轮改为：
 
@@ -55,6 +57,6 @@
 
 ## 验收范围
 
-本轮在隔离 Linux Node 24 环境使用模拟 npm/pnpm/PM2 及真实 HTTP 进程，验证全新依赖、安装/生成/迁移失败不切换、错误版本标识/内容接口不可用触发回退、旧 node_modules 保留、环境/上传路径保留、已使用发布目录拒绝复用。此检查接入 CI，不连接正式数据库。
+本轮在隔离 Linux Node 20.20.0 与 Node 24 环境运行部署回归：Node 20 场景通过真实 npm 下载并安装私有 Node 24.20.0；项目依赖和 PM2 使用模拟实现，HTTP 进程使用候选应用 PATH 选择的 Node，并核对实际版本为 24。验证 Node 下载、依赖安装、生成、迁移失败不切换，错误版本标识/内容接口不可用触发回退，原 Node 二进制与旧 node_modules 保留，环境/上传路径保留，已使用发布目录拒绝复用。两个起点均接入 CI，不连接正式数据库。
 
 真实 pnpm 冻结安装、Prisma、自动化、构建与公开站浏览器另行运行。独立评审和最新提交 CI 结果记录在新 PR。生产服务器 Node/PM2、下载源、磁盘余量、真实备份恢复和正式发布未验收；不把隔离模拟等同于正式部署。
