@@ -1,84 +1,11 @@
-# AGENTS.md
+# Repository guidance
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+Use pnpm in this Next.js 15 / React 19 frontend and API repository. Admin is an independent sibling repository using npm.
 
-## Project Overview
+Preserve unrelated working changes; stage task files explicitly. Use codex/ branches and reviewed PRs, never push main directly.
 
-This is a Next.js 15 personal blog application built with React 18, Tailwind CSS 4, Prisma ORM, and MySQL/MariaDB. The app uses the App Router architecture and supports both blog posts and short "dynamics" (status updates).
+Public reads must apply published visibility before search. scope=admin and every management mutation require JWT; sync endpoints use the separate sync credential. Do not put tokens in URLs. All embedded JSON uses safeJson; Markdown skips raw HTML. Keep existing slugs and first-publication dates stable.
 
-## Commands
+Use database unique constraints for slug and series conflicts. Do not retry non-slug errors as slug allocation. POST retries require the same idempotency key; AI preparation is outside database retries. Do not delete creation records or analytics history.
 
-```bash
-pnpm tunnel           # SSH tunnel to remote MySQL (local 3307 -> remote 3306); run before dev
-pnpm dev              # Start development server with Turbopack
-pnpm build            # Production build with Turbopack
-pnpm start            # Run production server
-pnpm lint             # Run ESLint
-pnpm prisma generate  # Generate Prisma client
-pnpm prisma migrate deploy  # Deploy database migrations
-```
-
-## Architecture
-
-### App Router Structure
-- `app/page.tsx` - Root redirect to `/frontend`
-- `app/layout.tsx` - Root layout with fonts and global styles
-- `app/frontend/` - Main frontend pages (blog, dynamics, about)
-- `app/frontend/layout.tsx` - Frontend layout with Header component
-- `app/api/` - REST API routes for posts, dynamics, categories, tags, auth, uploads
-
-### Key Directories
-- `components/` - Reusable UI components (Header, Contact, NewBlogs, NewStatus, MyEditor)
-- `lib/prisma.ts` - Prisma client singleton (prevents multiple instances in dev)
-- `data/` - Legacy static data files (posts.js, status.js)
-- `prisma/schema.prisma` - Database schema definition
-
-### Database Models (Prisma)
-- **Post**: Blog posts with title, slug, excerpt, content, cover, published status, category, and tags
-- **Dynamic**: Short status updates with content and excerpt
-- **Category**: Post categories (one-to-many with Post)
-- **Tag**: Post tags (many-to-many via PostTag)
-- **PostTag**: Junction table for Post-Tag relationship
-
-### API Route Patterns
-API routes follow REST conventions:
-- `GET /api/posts` - List posts (supports filtering by published, category, tags)
-- `POST /api/posts` - Create post (auto-generates unique slug from title)
-- `GET /api/dynamics` - List dynamics with pagination
-- `POST /api/login` - JWT authentication (uses ADMIN_USERNAME, ADMIN_PASSWORD, JWT_SECRET env vars)
-
-### Frontend Structure
-- Home page (`/frontend`) displays a 3D cube animation toggling between latest blogs and dynamics
-- `/frontend/allBlogs` - Full blog list
-- `/frontend/allStatus` - Full dynamics list
-- `/frontend/posts/[slug]` - Individual blog post detail
-- `/frontend/status/[id]` - Individual dynamic detail
-
-## Environment Variables
-
-Required in `.env`:
-- `DATABASE_URL` - MySQL/MariaDB connection string
-- `JWT_SECRET` - Secret for JWT token signing
-- `ADMIN_USERNAME` - Admin username for authentication
-- `ADMIN_PASSWORD` - Admin password for authentication
-- `NEXT_PUBLIC_BASE_URL` - Public URL for image references
-
-## Deployment
-
-CI/CD via GitHub Actions (`.github/workflows/deploy.yml`) on push to `main` branch:
-- Builds on Ubuntu runner with Node.js 20 and pnpm
-- Deploys to Aliyun server via rsync + SSH
-- Uses PM2 for process management
-- Runs Prisma migrations automatically
-
-## Package Manager
-
-This project uses **pnpm**. Always use `pnpm` commands, not npm or yarn.
-
-## Path Alias
-
-`@/*` maps to the root directory (configured in tsconfig.json). Use this for imports:
-```typescript
-import { prisma } from "@/lib/prisma";
-import Header from "@/components/Header";
-```
+Run pnpm test, pnpm typecheck, pnpm lint and pnpm build. Integration and browser tests use only tests/compose.yaml isolated MySQL/Redis. Never run tests or destructive resets against configured development/production databases. CI uses Node 24. Publication requires a verified backup restore and per-stage review/acceptance.

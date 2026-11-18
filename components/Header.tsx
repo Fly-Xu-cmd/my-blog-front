@@ -1,19 +1,21 @@
-"use client";
-import React, { useState } from "react";
-import Contact from "@/components/Contact";
-import ThemeToggle from "@/components/ThemeToggle";
-import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
-import { Drawer } from "antd";
+'use client';
+import React, { useState } from 'react';
+import Contact from '@/components/Contact';
+import ThemeToggle from '@/components/ThemeToggle';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import { Menu, X } from 'lucide-react';
+import { Drawer } from 'antd';
 
 const NAV_ITEMS = [
-  { path: "/", label: "首页", icon: "\ue606" },
-  { path: "/allBlogs", label: "博客", icon: "\ue634" },
-  { path: "/allStatus", label: "动态", icon: "\ue61d" },
-  { path: "/notes", label: "笔记", icon: "\ue612" },
-  { path: "/about", label: "关于我", icon: "\ue63d" },
+  { path: '/', label: '首页', icon: '\ue606' },
+  { path: '/allBlogs', label: '博客', icon: '\ue634' },
+  { path: '/allStatus', label: '动态', icon: '\ue61d' },
+  { path: '/notes', label: '笔记', icon: '\ue612' },
+  { path: '/archive', label: '归档', icon: '\ue61d' },
+  { path: '/feed.xml', label: '订阅', icon: '\ue612' },
+  { path: '/about', label: '关于我', icon: '\ue63d' },
 ];
 
 /**
@@ -23,8 +25,7 @@ const NAV_ITEMS = [
 export default function Header() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const isActive = (path: string) =>
-    path === "/" ? pathname === "/" : pathname.startsWith(path);
+  const isActive = (path: string) => (path === '/' ? pathname === '/' : pathname.startsWith(path));
 
   return (
     <header className="sticky top-0 z-[9999] w-full border-b border-gray-200/60 bg-white/75 backdrop-blur-xl dark:border-white/10 dark:bg-[#05060a]/75">
@@ -38,9 +39,7 @@ export default function Header() {
             height={36}
             className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-200/60 dark:ring-white/15"
           />
-          <span className="text-2xl font-bold text-gray-900 dark:text-white">
-            若木的小世界
-          </span>
+          <span className="text-2xl font-bold text-gray-900 dark:text-white">若木的小世界</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -52,8 +51,8 @@ export default function Header() {
                   href={item.path}
                   className={`relative flex h-full items-center px-3 text-[15px] font-medium transition-colors ${
                     isActive(item.path)
-                      ? "text-cyan-600 dark:text-cyan-400"
-                      : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+                      ? 'text-cyan-600 dark:text-cyan-400'
+                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                   }`}
                 >
                   {item.label}
@@ -87,19 +86,17 @@ export default function Header() {
         title={
           <div className="flex items-center gap-2 py-1">
             <span className="w-1 h-5 bg-gradient-to-b from-cyan-500 to-violet-500 rounded-full" />
-            <span className="text-lg font-bold text-gray-800 dark:text-white">
-              网站导航
-            </span>
+            <span className="text-lg font-bold text-gray-800 dark:text-white">网站导航</span>
           </div>
         }
         placement="right"
         onClose={() => setIsMobileMenuOpen(false)}
         open={isMobileMenuOpen}
         styles={{
-          body: { padding: "12px 0" },
+          body: { padding: '12px 0' },
           header: {
-            borderBottom: "1px solid #f1f5f9",
-            padding: "16px 24px",
+            borderBottom: '1px solid #f1f5f9',
+            padding: '16px 24px',
           },
         }}
         width={280}
@@ -112,8 +109,8 @@ export default function Header() {
                   href={item.path}
                   className={`flex items-center px-4 py-3 rounded-xl transition-all ${
                     isActive(item.path)
-                      ? "bg-cyan-50 text-cyan-600 font-semibold dark:bg-cyan-400/10 dark:text-cyan-400"
-                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5"
+                      ? 'bg-cyan-50 text-cyan-600 font-semibold dark:bg-cyan-400/10 dark:text-cyan-400'
+                      : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5'
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >

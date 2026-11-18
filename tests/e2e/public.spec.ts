@@ -55,7 +55,11 @@ test('drafts remain absent from every public entry', async ({ request }) => {
     '/',
     '/allBlogs',
     '/api/posts',
+    '/feed.xml',
+    '/archive',
     '/sitemap.xml',
+    '/tags/E2E%20Public%20Tag',
+    '/series/e2e-series',
   ])
     expect(await (await request.get(route)).text()).not.toContain('E2E_PRIVATE_MARKER');
   expect((await request.get('/api/posts/e2e-private?scope=admin')).status()).toBe(401);
