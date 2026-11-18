@@ -10,7 +10,7 @@ function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-standalone-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   for (const file of ['package.json', 'pnpm-lock.yaml', '.next/BUILD_ID', 'server.js', 'ecosystem.config.cjs',
-    'deployment/node_modules/prisma/build/index.js', 'deployment/scripts/deployment-db.mjs', 'prisma/schema.prisma',
+    'deployment/node_modules/prisma/build/index.js', 'deployment/scripts/deployment-db.mjs', 'scripts/prune-releases.mjs', 'prisma/schema.prisma',
     'public/deploy-version.txt', 'standalone-release.tar.gz']) {
     fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     fs.writeFileSync(path.join(root, file), 'fixture');

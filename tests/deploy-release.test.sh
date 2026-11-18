@@ -109,6 +109,9 @@ prepare() {
   export TEST_PM2_STATE="$sandbox/$name/pm2"
   root="$sandbox/$name/blog"
   release="$root/releases/$release_id"
+  obsolete="$root/releases/$(printf 'b%.0s' {1..40})-7-1"
+  mkdir -p "$obsolete"
+  echo retain-until-healthy > "$obsolete/marker"
   mkdir -p "$TEST_PM2_STATE" "$root/node_modules" "$root/public" "$release/.next" "$release/public" "$sandbox/uploads"
   echo old-npm > "$root/node_modules/marker"
   echo legacy > "$root/public/deploy-version.txt"
@@ -118,7 +121,7 @@ prepare() {
   touch "$release/pnpm-lock.yaml" "$release/pnpm-workspace.yaml"
   cp "$source_root/ecosystem.config.cjs" "$release/"
   mkdir -p "$release/scripts"
-  cp "$source_root/scripts/standalone-release.mjs" "$release/scripts/"
+  cp "$source_root/scripts/standalone-release.mjs" "$source_root/scripts/prune-releases.mjs" "$release/scripts/"
   mkdir -p "$release/node_modules"
   echo fresh-pnpm > "$release/node_modules/marker"
   cp "$sandbox/server.cjs" "$release/server.js"
@@ -146,7 +149,7 @@ if (phase === 'inspect') {
   if (result.status !== 0) process.exit(result.status || 1);
 }
 JS
-  (cd "$release" && tar -czf standalone-release.tar.gz .next public node_modules package.json pnpm-lock.yaml ecosystem.config.cjs server.js deployment prisma && node scripts/standalone-release.mjs create "$release_id" "$release")
+  (cd "$release" && tar -czf standalone-release.tar.gz .next public node_modules package.json pnpm-lock.yaml ecosystem.config.cjs server.js deployment prisma scripts/prune-releases.mjs && node scripts/standalone-release.mjs create "$release_id" "$release")
   rm -rf -- "$release/.next" "$release/public" "$release/node_modules" "$release/package.json" "$release/pnpm-lock.yaml" "$release/ecosystem.config.cjs" "$release/server.js" "$release/deployment" "$release/prisma"
   if [[ $name == install ]]; then echo damaged >> "$release/standalone-release.tar.gz"; fi
   if [[ $name == receipt ]]; then
@@ -178,6 +181,7 @@ for failure in "${failures[@]}"; do
   if deploy; then exit 1; fi
   [[ $(cat "$root/node_modules/marker") == old-npm ]]
   [[ ! -s "$TEST_PM2_STATE/events" && ! -e "$root/current" ]]
+  [[ -e "$obsolete/marker" ]]
   pm2 delete my-blog >/dev/null
 done
 for failure in health health_api; do
@@ -185,6 +189,7 @@ prepare "$failure"
 export TEST_FAIL="$failure"
 if deploy; then exit 1; fi
 [[ $(cat "$root/node_modules/marker") == old-npm && ! -e "$root/current" ]]
+[[ -e "$obsolete/marker" ]]
 node - "$root" "$TEST_PM2_STATE" <<'JS'
 const fs = require('node:fs');
 const [root, state] = process.argv.slice(2);
@@ -198,6 +203,7 @@ unset TEST_FAIL
 deploy
 [[ $(cat "$root/node_modules/marker") == old-npm ]]
 [[ $(cat "$release/node_modules/marker") == fresh-pnpm && $(readlink "$root/current") == "$release" ]]
+[[ ! -e $obsolete ]]
 [[ $(readlink "$release/.env") == "$root/.env" ]]
 node - "$release" "$TEST_PM2_STATE" "$sandbox/uploads" <<'JS'
 const fs = require('node:fs');
