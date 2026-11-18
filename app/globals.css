@@ -817,3 +817,24 @@ html::-webkit-scrollbar-thumb:hover {
   .subscription-entry-meta { grid-column: 1 / -1; display: flex; gap: 12px; }
   .subscription-entry-copy h3 { font-size: 15px; }
 }
+
+/* First-paint controls follow the root theme before Ant Design hydrates. */
+.theme-toggle.ant-btn { color: var(--editorial-muted); background: transparent; border: 1px solid var(--editorial-line); }
+.theme-toggle.ant-btn:not(:disabled):hover { color: var(--editorial-ink); background: color-mix(in srgb, var(--editorial-ink) 8%, transparent); }
+.theme-toggle-symbol > svg { display: none; }
+.theme-toggle-symbol > .theme-icon-system { display: block; }
+[data-theme-preference="light"] .theme-toggle-symbol > .theme-icon-system,
+[data-theme-preference="dark"] .theme-toggle-symbol > .theme-icon-system { display: none; }
+[data-theme-preference="light"] .theme-toggle-symbol > .theme-icon-light,
+[data-theme-preference="dark"] .theme-toggle-symbol > .theme-icon-dark { display: block; }
+.subscription-tools { --subscription-control-bg: #fff; --subscription-primary-ink: #fff; }
+.dark .subscription-tools { --subscription-control-bg: #141414; --subscription-primary-ink: #07171f; }
+.subscription-address-row > .ant-input { color: var(--editorial-ink); background: var(--subscription-control-bg); border-color: var(--editorial-line); }
+.subscription-address-row > .ant-input:hover,
+.subscription-address-row > .ant-input:focus { border-color: var(--editorial-accent); }
+.subscription-address-row > .ant-btn-primary,
+.subscription-address-row > .ant-btn-primary:not(:disabled):hover { color: var(--subscription-primary-ink); background: var(--editorial-accent); border-color: var(--editorial-accent); box-shadow: none; }
+.subscription-address-row > .ant-btn-primary:disabled { opacity: .5; color: var(--subscription-primary-ink); background: var(--editorial-accent); border-color: var(--editorial-accent); }
+.subscription-reader-row .ant-btn-text { color: var(--editorial-ink); }
+.subscription-reader-row .ant-btn-text:not(:disabled):hover { color: var(--editorial-accent); background: color-mix(in srgb, var(--editorial-ink) 8%, transparent); }
+.subscription-tools .subscription-guide.ant-collapse .ant-collapse-header { color: var(--editorial-ink); }

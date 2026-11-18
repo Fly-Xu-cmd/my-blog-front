@@ -3,13 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Collapse, Input, type InputRef } from "antd";
 import { Check, Copy, ArrowUpRight } from "lucide-react";
 
-export default function SubscriptionTools({ feedUrl }: { feedUrl: string }) {
+export default function SubscriptionTools({ initialFeedUrl }: { initialFeedUrl: string }) {
   const input = useRef<InputRef>(null);
+  const [feedUrl, setFeedUrl] = useState(initialFeedUrl);
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState<"idle" | "copying" | "copied" | "error">(
     "idle",
   );
   useEffect(() => {
+    setFeedUrl(new URL("/feed.xml", window.location.origin).href);
     setReady(true);
   }, []);
   async function copy() {

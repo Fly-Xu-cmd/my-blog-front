@@ -64,7 +64,7 @@ const websiteJsonLd = {
 };
 
 // 首屏前应用主题，避免闪烁
-const themeInitScript = `(function(){try{var t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}})();`;
+const themeInitScript = `(function(){var t='system';try{var s=localStorage.getItem('theme');if(s==='light'||s==='dark'||s==='system')t=s}catch(e){}var r=document.documentElement;r.dataset.themePreference=t;r.classList.toggle('dark',t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches))})();`;
 
 export default function RootLayout({
   children,
@@ -75,7 +75,7 @@ export default function RootLayout({
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <meta name="referrer" content="no-referrer" />
-        <link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} RSS`} href={absoluteUrl('/feed.xml')} />
+        <link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} RSS`} href="/feed.xml" />
         <meta name="baidu-site-verification" content="codeva-4lXFAVteOq" />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

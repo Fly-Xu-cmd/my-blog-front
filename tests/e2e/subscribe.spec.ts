@@ -1,5 +1,55 @@
 import { test, expect } from "@playwright/test";
 
+test("subscription controls and theme icon retain their theme before hydration", async ({ browser, baseURL }) => {
+  for (const scenario of [
+    { stored: "dark", system: "light", dark: true, icon: "dark" },
+    { stored: "light", system: "dark", dark: false, icon: "light" },
+    { stored: "system", system: "dark", dark: true, icon: "system" },
+  ] as const) {
+    const context = await browser.newContext({ colorScheme: scenario.system });
+    await context.addInitScript(({ stored }) => {
+      localStorage.setItem("theme", stored);
+      const samples: boolean[] = [];
+      (window as unknown as { themeSamples: boolean[] }).themeSamples = samples;
+      new MutationObserver(records => {
+        if (records.some(r => r.target === document.documentElement)) {
+          samples.push(document.documentElement.classList.contains("dark"));
+        }
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ["class"] });
+    }, scenario);
+    let blockHydration = true;
+    await context.route("**/_next/static/**/*.js", route => blockHydration ? route.abort() : route.continue());
+    const page = await context.newPage();
+    await page.goto(baseURL + "/subscribe");
+    const input = page.getByRole("textbox", { name: "RSS 订阅地址" });
+    await expect(input).toHaveCSS("background-color", scenario.dark ? "rgb(20, 20, 20)" : "rgb(255, 255, 255)");
+    await expect(page.getByRole("button", { name: "复制地址", exact: true })).toBeDisabled();
+    await expect(page.locator(".theme-icon-" + scenario.icon)).toBeVisible();
+    const sample = async () => page.evaluate(() => {
+      const input = getComputedStyle(document.querySelector(".subscription-address-row input")!);
+      const primary = getComputedStyle(document.querySelector(".subscription-address-row button")!);
+      return {
+        background: input.backgroundColor, text: input.color,
+        primaryBackground: primary.backgroundColor, primaryText: primary.color,
+        reader: getComputedStyle(document.querySelector(".subscription-reader-row .ant-btn")!).color,
+        guide: getComputedStyle(document.querySelector(".subscription-guide .ant-collapse-header")!).color,
+        icon: getComputedStyle(document.querySelector(".theme-toggle")!).color,
+      };
+    });
+    const before = await sample();
+    blockHydration = false;
+    await page.reload();
+    await expect(page.getByRole("button", { name: "复制地址", exact: true })).toBeEnabled();
+    await expect(page.locator(".theme-icon-" + scenario.icon)).toBeVisible();
+    expect(await sample()).toEqual(before);
+    expect(await page.evaluate(() => (window as unknown as { themeSamples: boolean[] }).themeSamples.every(
+      dark => dark === document.documentElement.classList.contains("dark"),
+    ))).toBe(true);
+    expect(await page.locator("html").evaluate(el => el.classList.contains("dark"))).toBe(scenario.dark);
+    await context.close();
+  }
+});
+
 test("subscription navigation, preview and copy retain a human-facing blog page", async ({
   page,
   request,
@@ -59,10 +109,35 @@ test("subscription navigation, preview and copy retain a human-facing blog page"
   expect(
     await page
       .locator('head link[rel=alternate][type="application/rss+xml"]')
-      .getAttribute("href"),
+      .evaluate((el) => (el as HTMLLinkElement).href),
   ).toBe(address);
   await page.locator(".subscription-entries h3 a").first().click();
   await expect(page).toHaveURL(/\/(posts|notes)\//);
+});
+
+test("subscription addresses and reader links follow the current origin", async ({ page, baseURL }) => {
+  await page.addInitScript(
+    `Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.copiedSubscription = text; } } });`,
+  );
+  const alternate = new URL(baseURL!);
+  alternate.hostname = "localhost";
+  for (const origin of [new URL(baseURL!).origin, alternate.origin]) {
+    await page.goto(origin + "/subscribe");
+    const expected = origin + "/feed.xml";
+    await expect(page.getByRole("textbox", { name: "RSS 订阅地址" })).toHaveValue(expected);
+    await expect(page.getByRole("link", { name: /用 Feedly 订阅/ })).toHaveAttribute(
+      "href", "https://feedly.com/i/subscription/feed/" + encodeURIComponent(expected),
+    );
+    await expect(page.getByRole("link", { name: /用 Inoreader 订阅/ })).toHaveAttribute(
+      "href", "https://www.inoreader.com/?add_feed=" + encodeURIComponent(expected),
+    );
+    expect(await page.locator('head link[rel=alternate][type="application/rss+xml"]').evaluate(
+      el => (el as HTMLLinkElement).href,
+    )).toBe(expected);
+    await page.getByRole("button", { name: "复制地址", exact: true }).click();
+    await expect(page.getByRole("button", { name: "已复制", exact: true })).toBeVisible();
+    expect(await page.evaluate("window.copiedSubscription")).toBe(expected);
+  }
 });
 
 test("clipboard failure offers manual selection and the mobile subscription entry works", async ({

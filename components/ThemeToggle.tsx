@@ -18,8 +18,6 @@ export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  const current = options.find((o) => o.key === theme) || options[2];
-
   const items = options.map((o) => ({
     key: o.key,
     label: (
@@ -59,10 +57,16 @@ export default function ThemeToggle() {
       <Button
         type="text"
         shape="circle"
-        icon={current.icon}
+        icon={
+          <span className="theme-toggle-symbol" aria-hidden="true">
+            <Sun size={16} className="theme-icon-light" />
+            <Moon size={16} className="theme-icon-dark" />
+            <Monitor size={16} className="theme-icon-system" />
+          </span>
+        }
         ref={btnRef}
         aria-label="切换主题"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition-colors hover:bg-gray-100 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10"
+        className="theme-toggle flex h-9 w-9 items-center justify-center rounded-full transition-colors"
       />
     </Dropdown>
   );

@@ -50,7 +50,7 @@ export default async function Subscribe() {
           </div>
         </dl>
       </header>
-      <SubscriptionTools feedUrl={absoluteUrl("/feed.xml")} />
+      <SubscriptionTools initialFeedUrl={absoluteUrl("/feed.xml")} />
       <section
         className="subscription-preview"
         aria-labelledby="subscription-recent"
