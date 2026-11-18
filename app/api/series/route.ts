@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { admin, adminScope, ApiError, body, endpoint, idField, json, textField } from '@/lib/api';
-import { manualSlug } from '@/lib/slug';
+import { createWithSlug } from '@/lib/slug';
 export const GET = endpoint(async (req: Request) => {
   const isAdmin = await adminScope(req);
   return json({
@@ -14,17 +14,13 @@ export const GET = endpoint(async (req: Request) => {
 export const POST = endpoint(async (req: Request) => {
   await admin(req);
   const data = await body(req);
-  const slug = manualSlug(data.slug);
-  if (!slug) throw new ApiError(400, 'SLUG_REQUIRED');
+  const name = textField(data.name, 100, true)!;
+  const description = textField(data.description, 65535);
   return json({
     ok: true,
-    data: await prisma.series.create({
-      data: {
-        slug,
-        name: textField(data.name, 100, true)!,
-        description: textField(data.description, 65535),
-      },
-    }),
+    data: await createWithSlug(name, 'series', data.slug, (slug) =>
+      prisma.series.create({ data: { slug, name, description } }),
+    ),
   });
 });
 export const PUT = endpoint(async (req: Request) => {
