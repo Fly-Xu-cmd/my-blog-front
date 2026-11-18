@@ -1,0 +1,11 @@
+{
+  "name": "@my-blog/deployment",
+  "version": "0.1.0",
+  "private": true,
+  "files": [],
+  "dependencies": {
+    "@next/env": "15.5.9",
+    "mysql2": "3.16.0",
+    "prisma": "6.17.1"
+  }
+}

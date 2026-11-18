@@ -8,7 +8,6 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import mysql from 'mysql2/promise';
 
-const require = createRequire(import.meta.url);
 export const digest = (value) => crypto.createHash('sha256').update(value).digest('hex');
 const fail = (code) => { throw Object.assign(new Error(code), { deployCode: code }); };
 const save = (file, value) => fs.writeFileSync(file, JSON.stringify(value), { mode: 0o600 });
@@ -169,8 +168,8 @@ export async function fileDigest(file) {
   return hash.digest('hex');
 }
 
-export async function activateDatabase({ state, migrations, databaseUrl, releaseId, pnpm, env,
-  migrationRunner = () => spawnSync(pnpm, ['exec', 'prisma', 'migrate', 'deploy'], { env, stdio: 'inherit' }) }) {
+export async function activateDatabase({ state, migrations, databaseUrl, releaseId, prismaCli, env,
+  migrationRunner = () => spawnSync(process.execPath, [prismaCli, 'migrate', 'deploy'], { env, stdio: 'inherit' }) }) {
   const manifestFile = path.join(state, 'backup-manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestFile));
   const receipt = JSON.parse(fs.readFileSync(path.join(state, 'backup-verified.json')));
@@ -192,14 +191,15 @@ export async function activateDatabase({ state, migrations, databaseUrl, release
 }
 
 async function main() {
-  const [phase, state, releaseId, pnpm] = process.argv.slice(2);
+  const [phase, state, releaseId, prismaCli] = process.argv.slice(2);
   if (!['inspect', 'prepare', 'activate'].includes(phase)) fail('INVALID_DEPLOY_PHASE');
   const config = JSON.parse(fs.readFileSync(path.join(state, 'next.json'))).apps[0];
   Object.assign(process.env, config.env);
-  const nextEnv = require(require.resolve('@next/env', { paths: [path.dirname(require.resolve('next/package.json'))] }));
+  const toolRequire = createRequire(path.resolve('deployment/package.json'));
+  const nextEnv = toolRequire('@next/env');
   nextEnv.loadEnvConfig(process.cwd(), false, { info() {}, error() { fail('ENV_CONFIG_INVALID'); } });
   const options = { state, migrations: path.join(process.cwd(), 'prisma/migrations'),
-    databaseUrl: process.env.DATABASE_URL, releaseId, pnpm, env: process.env };
+    databaseUrl: process.env.DATABASE_URL, releaseId, prismaCli, env: process.env };
   if (phase === 'inspect') await inspectDatabase(options);
   else if (phase === 'prepare') {
     if (!fs.existsSync(path.join(state, 'migration-plan.json'))) fail('MIGRATION_INSPECTION_MISSING');

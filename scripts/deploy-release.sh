@@ -19,16 +19,21 @@ fi
 [[ ! -e "$deploy_root/current" || -L "$deploy_root/current" ]] || {
   echo 'current must be absent or a release symlink' >&2; exit 1;
 }
-command -v npm >/dev/null
+command -v timeout >/dev/null
+export BLOG_DEPLOY_NPM_REGISTRY=${BLOG_DEPLOY_NPM_REGISTRY:-https://registry.npmmirror.com}
+[[ $BLOG_DEPLOY_NPM_REGISTRY =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$ ]] || {
+  echo 'Invalid deployment npm registry: use an HTTPS URL without credentials' >&2; exit 1;
+}
 export BLOG_TOOLS_DIR=${BLOG_TOOLS_DIR:-"$HOME/.local/share/blog-tools"}
 # An existing npm/Node 20 installation can prepare a private Node 24 runtime.
 # Explicit PATH works in non-interactive SSH; nvm and global runtime changes are unnecessary.
 if [[ $(node -p "process.versions.node.split('.')[0]") != 24 ]]; then
+  command -v npm >/dev/null
   node_prefix="$BLOG_TOOLS_DIR/node-24.20.0"
   node_bin="$node_prefix/node_modules/node/bin/node"
   if [[ ! -x $node_bin ]] || [[ $("$node_bin" --version) != v24.20.0 ]]; then
-    npm install --prefix "$node_prefix" --no-save --package-lock=false \
-      node@24.20.0 --registry=https://registry.npmmirror.com
+    timeout --signal=TERM --kill-after=10s 180s npm install --prefix "$node_prefix" --no-save --package-lock=false \
+      node@24.20.0 "--registry=$BLOG_DEPLOY_NPM_REGISTRY" --fetch-timeout=60000 --fetch-retries=1
   fi
   test "$("$node_bin" --version)" = v24.20.0
   export PATH="$node_prefix/node_modules/node/bin:$PATH"
@@ -36,25 +41,29 @@ fi
 test "$(node -p "process.versions.node.split('.')[0]")" = 24
 command -v pm2 >/dev/null
 cd "$release"
+if [[ $phase == prepare ]]; then
+  echo 'Validating official standalone archive (no application dependency install)'
+  node scripts/standalone-release.mjs validate-archive "$release_id"
+  if ! tar -tzf standalone-release.tar.gz | awk '
+    /^\// || /(^|\/)\.\.($|\/)/ { invalid = 1 }
+    END { exit invalid }
+  '; then
+    echo 'Invalid standalone archive path' >&2; exit 1
+  fi
+  timeout --signal=TERM --kill-after=10s 180s tar -xzf standalone-release.tar.gz --no-same-owner
+  node scripts/standalone-release.mjs validate-files "$release_id"
+  echo 'Standalone application and separate production deployment tools extracted'
+fi
+test -f server.js
 test -f .next/BUILD_ID
-test -f pnpm-lock.yaml
-test -f pnpm-workspace.yaml
-test -f next.config.mjs
+test -f deployment/node_modules/prisma/build/index.js
 test "$(node -p "require('./package.json').packageManager")" = pnpm@12.3.4
 health_attempts=${BLOG_DEPLOY_HEALTH_ATTEMPTS:-30}
 [[ $health_attempts =~ ^[1-9][0-9]?$ && $health_attempts -le 60 ]] || {
   echo 'Invalid health check attempts' >&2; exit 1;
 }
 
-# npm bootstraps only the versioned tool. Neither global npm nor old app modules are removed.
-tool_prefix="$BLOG_TOOLS_DIR/pnpm-12.3.4"
-pnpm_bin="$tool_prefix/node_modules/pnpm/pnpm"
-if [[ ! -x $pnpm_bin ]] || [[ $("$pnpm_bin" --version) != 12.3.4 ]]; then
-  npm install --prefix "$tool_prefix" --no-save --package-lock=false \
-    pnpm@12.3.4 --registry=https://registry.npmmirror.com
-fi
-test "$("$pnpm_bin" --version)" = 12.3.4
-export PATH="$tool_prefix/node_modules/.bin:$PATH"
+prisma_cli="$release/deployment/node_modules/prisma/build/index.js"
 export UPLOAD_DIR="$upload_dir"
 export BLOG_DEPLOY_ROOT="$deploy_root"
 if [[ $phase == prepare ]]; then
@@ -95,21 +104,7 @@ fs.writeFileSync(path.join(state, 'port'), String(port));
 fs.writeFileSync(path.join(state, 'had-app'), previous.length ? 'yes' : 'no');
 NODE
 
-echo 'Installing fresh production dependencies'
-CI=true "$pnpm_bin" install --prod --frozen-lockfile --ignore-scripts \
-  --registry=https://registry.npmmirror.com
-# Prisma and the new application use the same preserved environment, including PM2-only settings.
-node - "$state/next.json" "$pnpm_bin" <<'NODE'
-const fs = require('node:fs');
-const { spawnSync } = require('node:child_process');
-const [configPath, pnpm] = process.argv.slice(2);
-const config = JSON.parse(fs.readFileSync(configPath, 'utf8')).apps[0];
-for (const args of [['exec', 'prisma', 'generate']]) {
-  const result = spawnSync(pnpm, args, { env: { ...process.env, ...config.env }, stdio: 'inherit' });
-  if (result.error || result.status !== 0) process.exit(result.status || 1);
-}
-NODE
-node scripts/deployment-db.mjs inspect "$state" "$release_id" "$pnpm_bin"
+node deployment/scripts/deployment-db.mjs inspect "$state" "$release_id" "$prisma_cli"
 echo "Release prepared: $release_id; migration plan inspected"
 exit 0
 fi
@@ -118,10 +113,10 @@ fi
 test -f "$state/next.json"
 test -f "$state/previous.json"
 if [[ $phase == backup ]]; then
-  node scripts/deployment-db.mjs prepare "$state" "$release_id" "$pnpm_bin"
+  node deployment/scripts/deployment-db.mjs prepare "$state" "$release_id" "$prisma_cli"
   exit 0
 fi
-node scripts/deployment-db.mjs activate "$state" "$release_id" "$pnpm_bin"
+node deployment/scripts/deployment-db.mjs activate "$state" "$release_id" "$prisma_cli"
 printf '%s\n' "$release_id" > public/deploy-version.txt
 
 switch_started=false

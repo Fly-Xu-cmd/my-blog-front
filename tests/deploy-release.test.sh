@@ -26,26 +26,9 @@ if [[ $3 == */node-24.20.0 ]]; then
   [[ ${TEST_FAIL:-} != node-bootstrap ]] || exit 18
   exec "$TEST_REAL_NPM" "$@"
 fi
-mkdir -p "$3/node_modules/pnpm" "$3/node_modules/.bin"
-cp "$TEST_FIXTURE_PNPM" "$3/node_modules/pnpm/pnpm"
-chmod +x "$3/node_modules/pnpm/pnpm"
-ln -sf "$3/node_modules/pnpm/pnpm" "$3/node_modules/.bin/pnpm"
+echo 'Standalone deployment must not bootstrap pnpm' >&2
+exit 19
 SH
-cat > "$sandbox/pnpm" <<'SH'
-#!/usr/bin/env bash
-set -eu
-if [[ $1 == --version ]]; then echo 12.3.4; exit; fi
-if [[ $1 == install ]]; then
-  [[ ! -e node_modules ]]
-  [[ ${TEST_FAIL:-} != install ]] || exit 19
-  mkdir node_modules
-  echo fresh-pnpm > node_modules/marker
-elif [[ $1 == exec && $2 == prisma ]]; then
-  [[ ${EXISTING_RUNTIME_SETTING:-} == retained ]]
-  [[ ${TEST_FAIL:-} != "$3" ]] || exit 20
-else exit 21; fi
-SH
-export TEST_FIXTURE_PNPM="$sandbox/pnpm"
 cat > "$sandbox/server.cjs" <<'JS'
 const http = require('node:http');
 const fs = require('node:fs');
@@ -134,12 +117,22 @@ prepare() {
   echo '{"packageManager":"pnpm@12.3.4"}' > "$release/package.json"
   touch "$release/pnpm-lock.yaml" "$release/pnpm-workspace.yaml"
   cp "$source_root/ecosystem.config.cjs" "$release/"
-  cp "$source_root/next.config.mjs" "$release/"
   mkdir -p "$release/scripts"
-  cat > "$release/scripts/deployment-db.mjs" <<'JS'
+  cp "$source_root/scripts/standalone-release.mjs" "$release/scripts/"
+  mkdir -p "$release/node_modules"
+  echo fresh-pnpm > "$release/node_modules/marker"
+  cp "$sandbox/server.cjs" "$release/server.js"
+  echo "$release_id" > "$release/public/deploy-version.txt"
+  mkdir -p "$release/deployment/scripts" "$release/deployment/node_modules/prisma/build" "$release/prisma"
+  touch "$release/prisma/schema.prisma"
+  cat > "$release/deployment/node_modules/prisma/build/index.js" <<'JS'
+if (process.env.EXISTING_RUNTIME_SETTING !== 'retained') process.exit(21);
+if (process.env.TEST_FAIL === 'migrate') process.exit(20);
+JS
+  cat > "$release/deployment/scripts/deployment-db.mjs" <<'JS'
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
-const [phase, state, id, pnpm] = process.argv.slice(2);
+const [phase, state, id, prismaCli] = process.argv.slice(2);
 if (phase === 'inspect') {
   if (process.env.TEST_FAIL === 'inspect') process.exit(24);
   fs.writeFileSync(state + '/backup-required', 'yes');
@@ -149,10 +142,21 @@ if (phase === 'inspect') {
 } else {
   if (!fs.existsSync(state + '/backup-verified.json')) process.exit(26);
   const config = JSON.parse(fs.readFileSync(state + '/next.json')).apps[0];
-  const result = spawnSync(pnpm, ['exec', 'prisma', 'migrate', 'deploy'], { env: { ...process.env, ...config.env } });
+  const result = spawnSync(process.execPath, [prismaCli, 'migrate', 'deploy'], { env: { ...process.env, ...config.env } });
   if (result.status !== 0) process.exit(result.status || 1);
 }
 JS
+  (cd "$release" && tar -czf standalone-release.tar.gz .next public node_modules package.json pnpm-lock.yaml ecosystem.config.cjs server.js deployment prisma && node scripts/standalone-release.mjs create "$release_id" "$release")
+  rm -rf -- "$release/.next" "$release/public" "$release/node_modules" "$release/package.json" "$release/pnpm-lock.yaml" "$release/ecosystem.config.cjs" "$release/server.js" "$release/deployment" "$release/prisma"
+  if [[ $name == install ]]; then echo damaged >> "$release/standalone-release.tar.gz"; fi
+  if [[ $name == receipt ]]; then
+    node - "$release/standalone-release.json" <<'JS'
+const fs = require('node:fs');
+const receipt = JSON.parse(fs.readFileSync(process.argv[2]));
+receipt.releaseId = 'wrong-release';
+fs.writeFileSync(process.argv[2], JSON.stringify(receipt));
+JS
+  fi
   node - "$root" "$TEST_PM2_STATE" <<'JS'
 const fs = require('node:fs');
 const [root, state] = process.argv.slice(2);
@@ -164,7 +168,7 @@ JS
   pm2 start "$TEST_PM2_STATE/legacy.json"
   : > "$TEST_PM2_STATE/events"
 }
-failures=(install generate inspect backup verification migrate)
+failures=(install receipt inspect backup verification migrate)
 if [[ $("$TEST_REAL_NODE" -p "process.versions.node.split('.')[0]") != 24 ]]; then
   failures=(node-bootstrap "${failures[@]}")
 fi
@@ -201,16 +205,17 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const [release, state, uploads] = process.argv.slice(2);
 const app = JSON.parse(fs.readFileSync(state + '/app.json'))[0].pm2_env;
-if (app.pm_cwd !== release || app.exec_interpreter !== 'none' ||
+if (app.pm_cwd !== release || app.pm_exec_path !== path.join(release, 'server.js') ||
+  !app.exec_interpreter || app.env.HOSTNAME !== '127.0.0.1' ||
   app.env.EXISTING_RUNTIME_SETTING !== 'retained' || app.env.UPLOAD_DIR !== uploads) process.exit(1);
 const runtimeDirs = app.env.PATH.split(path.delimiter);
-const pnpmDir = path.join(process.env.BLOG_TOOLS_DIR, 'pnpm-12.3.4/node_modules/.bin');
-if (runtimeDirs[0] !== pnpmDir) throw new Error('Candidate PATH must prefer the versioned pnpm');
+if (execFileSync(app.exec_interpreter, ['-p', "process.versions.node.split('.')[0]"], { encoding: 'utf8' }).trim() !== '24')
+  throw new Error('Standalone PM2 interpreter must use Node 24 directly');
 const hostMajor = execFileSync(process.env.TEST_REAL_NODE,
   ['-p', "process.versions.node.split('.')[0]"], { encoding: 'utf8' }).trim();
 if (hostMajor !== '24') {
   const privateNodeDir = path.join(process.env.BLOG_TOOLS_DIR, 'node-24.20.0/node_modules/node/bin');
-  if (runtimeDirs[1] !== privateNodeDir) throw new Error('Candidate PATH must prefer private Node 24');
+  if (runtimeDirs[0] !== privateNodeDir) throw new Error('Candidate PATH must prefer private Node 24');
 }
 JS
 node <<'JS'

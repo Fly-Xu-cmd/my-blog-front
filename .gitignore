@@ -19,6 +19,8 @@
 
 # production
 /build
+/standalone-release.tar.gz
+/standalone-release.json
 
 # misc
 .DS_Store

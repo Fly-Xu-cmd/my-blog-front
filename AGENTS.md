@@ -2,6 +2,8 @@
 
 Use pnpm 12.3.4 in this Next.js 15 / React 19 frontend and API repository. Admin is an independent sibling repository also using pnpm 12.3.4. Keep their lockfiles separate; CI and deployment use Node 24.
 
+Production uses official Next.js standalone output built on Linux x64. Copy public and .next/static into the standalone tree; PM2 runs its server.js directly with Node 24. Prepare deployment/ Prisma and database tools with production dependencies in CI, sharing this repository's lockfile. Do not install application dependencies or pnpm on the production server. Preserve external uploads and old releases for rollback.
+
 Preserve unrelated working changes; stage task files explicitly. Use codex/ branches and reviewed PRs, never push main directly.
 
 Public reads must apply published visibility before search. scope=admin and every management mutation require JWT; sync endpoints use the separate sync credential. Do not put tokens in URLs. All embedded JSON uses safeJson; Markdown skips raw HTML. Keep existing slugs and first-publication dates stable.

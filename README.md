@@ -41,4 +41,4 @@ Playwright 使用 3197，拒绝复用已占用服务器。前后台配对验收�
 
 自动备份、恢复核验、API 能力检测和健康回退见 [docs/部署前置检查与发布顺序.md](docs/部署前置检查与发布顺序.md)。日常更新合并 main 后通过 CI 自动部署，不再手填就绪标志；手动 Run workflow → main 可重跑当前版本。
 
-依赖脚本批准在 pnpm-workspace.yaml；Prisma 使用显式 generate，不依赖安装时自动执行。pnpm 版本不符会失败，不隐式切换。部署使用已有 Node 24；服务器只有 Node 20 时，通过现有 npm 准备用户目录内的 Node 24，再安装版本化 pnpm 工具，无需 nvm 或全局升级。在全新 release 目录安装生产依赖，切换 PM2 后检查健康，通过后更新 current；保留旧 node_modules 供回退。保留策略和 PR 汇总见 [docs/main补齐与服务器依赖切换.md](docs/main补齐与服务器依赖切换.md)，前次迁移验收见 [docs/pnpm迁移验收.md](docs/pnpm迁移验收.md)。
+依赖脚本批准在 pnpm-workspace.yaml；Prisma 使用显式 generate，不依赖安装时自动执行。CI 按 Next.js 官方 output: standalone 生成运行包，补齐 public/.next/static，另打包 deployment/ 的生产迁移与数据库工具；两者共用前台锁文件。服务器核对发布、构建和 SHA256 后解压，PM2 直接用 Node 启动 server.js，无需安装应用依赖或 pnpm。运行环境为 Linux x64/glibc/Node 24，Prisma 包含 OpenSSL 1.1/3 引擎。服务器只有 Node 20 时，通过现有 npm 准备 appuser 私有 Node 24，保留全局版本；首次准备沿用国内源，可通过 BLOG_DEPLOY_NPM_REGISTRY 更换 HTTPS 源，最多 180 秒。健康通过后更新 current，旧依赖和 release 保留供回退。部署结构、环境与验收见 [docs/Next.js自建服务器standalone部署.md](docs/Next.js自建服务器standalone部署.md)。
