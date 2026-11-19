@@ -1,4 +1,12 @@
-import { admin, adminScope, body, endpoint, json, textField, booleanField } from '@/lib/api';
+import {
+  admin,
+  adminScope,
+  body,
+  endpoint,
+  json,
+  textField,
+  booleanField,
+} from "@/lib/api";
 import {
   categoryField,
   contentFields,
@@ -9,13 +17,20 @@ import {
   tagWrite,
   publishTime,
   names,
-} from '@/lib/content';
-import { createWithSlug, manualSlug } from '@/lib/slug';
-import { createOnce } from '@/lib/idempotency';
-import { extractDescription } from '@/lib/seo';
-import { generateAITitle, generateAISummary } from '@/lib/ai';
+} from "@/lib/content";
+import { createWithSlug, manualSlug } from "@/lib/slug";
+import { createOnce } from "@/lib/idempotency";
+import { extractDescription } from "@/lib/seo";
+import { generateAITitle, generateAISummary } from "@/lib/ai";
+import { recordRevision } from "@/lib/post-revisions";
 export const GET = endpoint(async (req: Request) =>
-  json(await listContent('post', new URL(req.url).searchParams, await adminScope(req))),
+  json(
+    await listContent(
+      "post",
+      new URL(req.url).searchParams,
+      await adminScope(req),
+    ),
+  ),
 );
 export const POST = endpoint(async (req: Request) => {
   const actor = await admin(req);
@@ -40,9 +55,10 @@ export const POST = endpoint(async (req: Request) => {
     seriesOrder: data.seriesOrder ?? null,
   };
   return json(
-    await createOnce(req, actor, 'post', payload, async () => {
+    await createOnce(req, actor, "post", payload, async () => {
       const title = textField(
-        fields.title || (autoTitle ? await generateAITitle(fields.content!) : ''),
+        fields.title ||
+          (autoTitle ? await generateAITitle(fields.content!) : ""),
         255,
         true,
       )!;
@@ -54,8 +70,11 @@ export const POST = endpoint(async (req: Request) => {
         const categoryId = await categoryField(data.categoryId, tx);
         const series = await seriesFields(data, null, tx);
         const relationTags = await tagWrite(tags, tx);
-        return createWithSlug(title, 'post', supplied, async (slug) =>
-          format(
+        const created = await createWithSlug(
+          title,
+          "post",
+          supplied,
+          async (slug) =>
             await tx.post.create({
               data: {
                 title,
@@ -71,8 +90,9 @@ export const POST = endpoint(async (req: Request) => {
               },
               include: relations,
             }),
-          ),
         );
+        await recordRevision(tx, created, actor);
+        return format(created);
       };
     }),
   );

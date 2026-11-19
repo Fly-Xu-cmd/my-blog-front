@@ -19,7 +19,7 @@ export const POST = endpoint(async (req: Request, ctx: { params: Promise<{ id: s
       throw new ApiError(409, 'SERIES_CHANGED');
     await tx.post.updateMany({ where: { seriesId: id }, data: { seriesOrder: null } });
     for (let i = 0; i < ids.length; i++)
-      await tx.post.update({ where: { id: ids[i]! }, data: { seriesOrder: i + 1 } });
+      await tx.post.update({ where: { id: ids[i]! }, data: { seriesOrder: i + 1, revision: { increment: 1 } } });
   });
   return json({ ok: true });
 });

@@ -12,6 +12,7 @@ datasource db {
 
 model Post {
   id          Int       @id @default(autoincrement())
+  revision    Int       @default(1)
   title       String    @db.VarChar(255) // MySQL 推荐显式指定字符串长度
   slug        String    @unique @db.VarChar(255) // 移除默认 uuid()，由后端生成唯一 slug
   excerpt     String?   @db.Text // 摘要可能较长，用 Text 类型
@@ -169,4 +170,16 @@ model AboutPage {
   content   String   @db.LongText
   revision  Int      @default(1)
   updatedAt DateTime @updatedAt @db.DateTime(0)
+}
+
+// Snapshots remain private and retained even when their article is deleted.
+model PostRevision {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  revision  Int
+  snapshot  Json
+  actor     String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.DateTime(0)
+
+  @@unique([postId, revision])
 }
