@@ -97,12 +97,12 @@ JS
 chmod +x "$sandbox/bin/npm" "$sandbox/bin/pm2"
 release_id=0123456789012345678901234567890123456789-1-1
 deploy() {
-  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads" prepare || return
-  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads" backup || return
+  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" prepare || return
+  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" backup || return
   if [[ ${TEST_FAIL:-} != verification ]]; then
     echo fixture > "$root/.deploy-state/$release_id/backup-verified.json"
   fi
-  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads" activate
+  bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" activate
 }
 prepare() {
   local name=$1
@@ -112,7 +112,7 @@ prepare() {
   obsolete="$root/releases/$(printf 'b%.0s' {1..40})-7-1"
   mkdir -p "$obsolete"
   echo retain-until-healthy > "$obsolete/marker"
-  mkdir -p "$TEST_PM2_STATE" "$root/node_modules" "$root/public" "$release/.next" "$release/public" "$sandbox/uploads"
+  mkdir -p "$TEST_PM2_STATE" "$root/node_modules" "$root/public" "$release/.next" "$release/public"
   echo old-npm > "$root/node_modules/marker"
   echo legacy > "$root/public/deploy-version.txt"
   echo fixture > "$root/.env"
@@ -165,7 +165,7 @@ const fs = require('node:fs');
 const [root, state] = process.argv.slice(2);
 fs.writeFileSync(state + '/legacy.json', JSON.stringify({ apps: [{ name: 'my-blog',
   script: '/legacy/npm', cwd: root, interpreter: process.execPath, args: ['start'],
-  env: { PORT: '48133', EXISTING_RUNTIME_SETTING: 'retained' },
+  env: { PORT: '48133', EXISTING_RUNTIME_SETTING: 'retained', UPLOAD_DIR: '/legacy/unused-uploads' },
 }] }));
 JS
   pm2 start "$TEST_PM2_STATE/legacy.json"
@@ -195,6 +195,7 @@ const fs = require('node:fs');
 const [root, state] = process.argv.slice(2);
 const app = JSON.parse(fs.readFileSync(state + '/app.json'))[0];
 if (app.pm2_env.pm_cwd !== root || app.pm2_env.pm_exec_path !== '/legacy/npm') process.exit(1);
+if (app.pm2_env.env.UPLOAD_DIR !== '/legacy/unused-uploads') process.exit(1);
 JS
 pm2 delete my-blog >/dev/null
 done
@@ -205,15 +206,15 @@ deploy
 [[ $(cat "$release/node_modules/marker") == fresh-pnpm && $(readlink "$root/current") == "$release" ]]
 [[ ! -e $obsolete ]]
 [[ $(readlink "$release/.env") == "$root/.env" ]]
-node - "$release" "$TEST_PM2_STATE" "$sandbox/uploads" <<'JS'
+node - "$release" "$TEST_PM2_STATE" <<'JS'
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const [release, state, uploads] = process.argv.slice(2);
+const [release, state] = process.argv.slice(2);
 const app = JSON.parse(fs.readFileSync(state + '/app.json'))[0].pm2_env;
 if (app.pm_cwd !== release || app.pm_exec_path !== path.join(release, 'server.js') ||
   !app.exec_interpreter || app.env.HOSTNAME !== '127.0.0.1' ||
-  app.env.EXISTING_RUNTIME_SETTING !== 'retained' || app.env.UPLOAD_DIR !== uploads) process.exit(1);
+  app.env.EXISTING_RUNTIME_SETTING !== 'retained' || Object.hasOwn(app.env, 'UPLOAD_DIR')) process.exit(1);
 const runtimeDirs = app.env.PATH.split(path.delimiter);
 if (execFileSync(app.exec_interpreter, ['-p', "process.versions.node.split('.')[0]"], { encoding: 'utf8' }).trim() !== '24')
   throw new Error('Standalone PM2 interpreter must use Node 24 directly');
@@ -234,5 +235,5 @@ if [[ -x "$BLOG_TOOLS_DIR/node-24.20.0/node_modules/node/bin/node" ]]; then
   [[ $("$TEST_REAL_NODE" -p "process.versions.node.split('.')[0]") != 24 ]]
 fi
 # A used release cannot be reinstalled over its running dependencies.
-if bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" "$sandbox/uploads" prepare; then exit 1; fi
+if bash "$source_root/scripts/deploy-release.sh" "$root" "$release_id" prepare; then exit 1; fi
 echo 'Deployment checks passed: Node 24 runtime, private bootstrap, pre-switch failures, health rollback, old modules, environment and reuse rejection'

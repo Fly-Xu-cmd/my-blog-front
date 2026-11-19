@@ -6,7 +6,6 @@ on:
 env:
   DEPLOY_USER: appuser
   DEPLOY_PATH: /home/www/my-blog
-  UPLOAD_DIR: /home/www/uploads
   RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
   BLOG_DEPLOY_NPM_REGISTRY: ${{ vars.BLOG_DEPLOY_NPM_REGISTRY || 'https://registry.npmmirror.com' }}
 jobs:
@@ -45,7 +44,7 @@ jobs:
         timeout-minutes: 3
         env:
           SSH_USER: root
-        run: bash scripts/deploy-ssh.sh prepare-directories 120 "$DEPLOY_PATH" "$RELEASE_ID" "$UPLOAD_DIR" < scripts/prepare-release-directory.sh
+        run: bash scripts/deploy-ssh.sh prepare-directories 120 "$DEPLOY_PATH" "$RELEASE_ID" < scripts/prepare-release-directory.sh
       - name: Upload release artifacts
         timeout-minutes: 12
         run: |
@@ -60,9 +59,9 @@ jobs:
       - name: Verify standalone release and inspect migration plan
         timeout-minutes: 8
         run: |
-          bash scripts/deploy-ssh.sh prepare-release 360 "$DEPLOY_PATH" "$RELEASE_ID" "$UPLOAD_DIR" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
-          export BLOG_DEPLOY_NPM_REGISTRY=$4
-          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" "$3" prepare
+          bash scripts/deploy-ssh.sh prepare-release 360 "$DEPLOY_PATH" "$RELEASE_ID" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
+          export BLOG_DEPLOY_NPM_REGISTRY=$3
+          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" prepare
           REMOTE
       - name: Prepare dump client only for pending migrations
         timeout-minutes: 7
@@ -86,9 +85,9 @@ jobs:
       - name: Create backup only for pending migrations
         timeout-minutes: 18
         run: |
-          bash scripts/deploy-ssh.sh backup 900 "$DEPLOY_PATH" "$RELEASE_ID" "$UPLOAD_DIR" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
-          export BLOG_DEPLOY_NPM_REGISTRY=$4
-          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" "$3" backup
+          bash scripts/deploy-ssh.sh backup 900 "$DEPLOY_PATH" "$RELEASE_ID" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
+          export BLOG_DEPLOY_NPM_REGISTRY=$3
+          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" backup
           REMOTE
       - name: Verify backup in an isolated CI database
         timeout-minutes: 20
@@ -96,7 +95,7 @@ jobs:
       - name: Apply verified migrations, switch and check the release
         timeout-minutes: 13
         run: |
-          bash scripts/deploy-ssh.sh activate 600 "$DEPLOY_PATH" "$RELEASE_ID" "$UPLOAD_DIR" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
-          export BLOG_DEPLOY_NPM_REGISTRY=$4
-          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" "$3" activate
+          bash scripts/deploy-ssh.sh activate 600 "$DEPLOY_PATH" "$RELEASE_ID" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
+          export BLOG_DEPLOY_NPM_REGISTRY=$3
+          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" activate
           REMOTE
