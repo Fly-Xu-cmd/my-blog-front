@@ -170,3 +170,10 @@ model AboutPage {
   revision  Int      @default(1)
   updatedAt DateTime @updatedAt @db.DateTime(0)
 }
+
+model SiteSettings {
+  id        Int      @id
+  fields    Json
+  revision  Int      @default(1)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
+}

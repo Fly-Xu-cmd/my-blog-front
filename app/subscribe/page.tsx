@@ -5,13 +5,17 @@ import { absoluteUrl } from "@/lib/seo";
 import { readFeedEntries, type FeedEntry } from "@/lib/feed";
 import { shanghaiDate } from "@/lib/markdown";
 import SubscriptionTools from "./SubscriptionTools";
+import { siteForPage } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
-  title: "RSS 订阅",
-  description: "用 RSS 订阅若木的小世界，在你习惯的阅读器里收到新文章和笔记。",
-  alternates: { canonical: "/subscribe" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await siteForPage();
+  return {
+    title: "RSS 订阅",
+    description: `用 RSS 订阅${site.name}，在你习惯的阅读器里收到新文章和笔记。`,
+    alternates: { canonical: "/subscribe" },
+  };
+}
 
 export default async function Subscribe() {
   let entries: FeedEntry[] = [];

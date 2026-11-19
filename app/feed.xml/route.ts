@@ -1,5 +1,6 @@
 import { readFeedEntries } from '@/lib/feed';
-import { absoluteUrl, SITE_NAME, SITE_DESCRIPTION } from '@/lib/seo';
+import { absoluteUrl } from '@/lib/seo';
+import { siteForPage } from '@/lib/site-settings';
 export const dynamic = 'force-dynamic';
 const xml = (s: string) =>
   s.replace(
@@ -9,6 +10,7 @@ const xml = (s: string) =>
 export async function GET() {
   try {
     const rows = await readFeedEntries();
+    const site = await siteForPage();
     const entries = rows
       .map(
         (p) =>
@@ -27,11 +29,11 @@ export async function GET() {
       .join('');
     return new Response(
       '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>' +
-        xml(SITE_NAME) +
+        xml(site.name) +
         '</title><link>' +
         xml(absoluteUrl()) +
         '</link><description>' +
-        xml(SITE_DESCRIPTION) +
+        xml(site.description) +
         '</description>' +
         entries +
         '</channel></rss>',
