@@ -14,12 +14,17 @@ jobs:
     uses: ./.github/workflows/checks.yml
   build-and-deploy:
     needs: checks
+    timeout-minutes: 60
     if: github.ref == 'refs/heads/main'
     environment: production
     concurrency:
       group: blog-production-release
       cancel-in-progress: false
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.ALIYUN_SERVER_IP }}
+      DEPLOY_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+      SSH_USER: appuser
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,86 +42,61 @@ jobs:
           NEXT_PUBLIC_SITE_URL: https://xylxf.xyz
           NEXT_PUBLIC_BASE_URL: http://${{ secrets.ALIYUN_SERVER_ADDRESS }}
       - name: Prepare a fresh release directory
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: root
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          script: |
-            set -eu
-            id appuser || useradd -m -s /bin/bash appuser
-            test ! -e '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/node_modules'
-            mkdir -p '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}'
-            chown appuser:appuser '${{ env.DEPLOY_PATH }}'
-            chown -R appuser:appuser '${{ env.DEPLOY_PATH }}/releases' '${{ env.UPLOAD_DIR }}'
-      - name: Upload release artifacts
+        timeout-minutes: 3
         env:
-          DEPLOY_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
+          SSH_USER: root
+        run: bash scripts/deploy-ssh.sh prepare-directories 120 "$DEPLOY_PATH" "$RELEASE_ID" "$UPLOAD_DIR" < scripts/prepare-release-directory.sh
+      - name: Upload release artifacts
+        timeout-minutes: 12
         run: |
           set -eu
-          key_file=$(mktemp)
-          trap 'rm -f "$key_file"' EXIT
-          printf '%s\n' "$DEPLOY_KEY" > "$key_file"
-          chmod 600 "$key_file"
-          rsync -azR -e "ssh -i $key_file -o StrictHostKeyChecking=no" \
+          source scripts/deploy-transport.sh
+          ssh_ready
+          printf -v ssh_command '%q ' ssh "${ssh_options[@]}" -p "${DEPLOY_PORT:-22}"
+          bounded_transport upload-artifacts 600 rsync -aR --timeout=60 -e "$ssh_command" \
             ./standalone-release.tar.gz ./standalone-release.json \
             ./scripts/deploy-release.sh ./scripts/standalone-release.mjs \
-            '${{ env.DEPLOY_USER }}@${{ secrets.ALIYUN_SERVER_IP }}:${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/'
+            "$ssh_target:$DEPLOY_PATH/releases/$RELEASE_ID/"
       - name: Verify standalone release and inspect migration plan
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: ${{ env.DEPLOY_USER }}
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          command_timeout: 10m
-          envs: BLOG_DEPLOY_NPM_REGISTRY
-          script: |
-            bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
-              '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' prepare
+        timeout-minutes: 8
+        run: |
+          bash scripts/deploy-ssh.sh prepare-release 360 "$DEPLOY_PATH" "$RELEASE_ID" "$UPLOAD_DIR" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
+          export BLOG_DEPLOY_NPM_REGISTRY=$4
+          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" "$3" prepare
+          REMOTE
       - name: Prepare dump client only for pending migrations
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: root
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          script: |
-            set -eu
-            required=$(cat '${{ env.DEPLOY_PATH }}/.deploy-state/${{ env.RELEASE_ID }}/backup-required')
-            case "$required" in
-              no) echo 'No migration: dump client preparation skipped'; exit 0 ;;
-              yes) ;;
-              *) echo 'Invalid migration inspection result' >&2; exit 1 ;;
-            esac
-            if ! command -v mysqldump >/dev/null; then
-              command -v apt-get >/dev/null || { echo 'Install a MySQL dump client for this distribution' >&2; exit 1; }
-              export DEBIAN_FRONTEND=noninteractive
-              apt-get update -qq
-              apt-get install -y --no-install-recommends default-mysql-client
-            fi
-      - name: Create backup only for pending migrations
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: ${{ env.DEPLOY_USER }}
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          command_timeout: 30m
-          envs: BLOG_DEPLOY_NPM_REGISTRY
-          script: |
-            bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
-              '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' backup
-      - name: Verify backup in an isolated CI database
+        timeout-minutes: 7
         env:
-          DEPLOY_KEY: ${{ secrets.ALIYUN_SSH_KEY }}
-          DEPLOY_HOST: ${{ secrets.ALIYUN_SERVER_IP }}
+          SSH_USER: root
+        run: |
+          bash scripts/deploy-ssh.sh dump-client 300 "$DEPLOY_PATH" "$RELEASE_ID" <<'REMOTE'
+          required=$(cat "$1/.deploy-state/$2/backup-required")
+          case "$required" in
+            no) echo 'No migration: dump client preparation skipped'; exit 0 ;;
+            yes) ;;
+            *) echo 'Invalid migration inspection result' >&2; exit 1 ;;
+          esac
+          if ! command -v mysqldump >/dev/null; then
+            command -v apt-get >/dev/null || { echo 'Install a MySQL dump client for this distribution' >&2; exit 1; }
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y --no-install-recommends default-mysql-client
+          fi
+          REMOTE
+      - name: Create backup only for pending migrations
+        timeout-minutes: 18
+        run: |
+          bash scripts/deploy-ssh.sh backup 900 "$DEPLOY_PATH" "$RELEASE_ID" "$UPLOAD_DIR" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
+          export BLOG_DEPLOY_NPM_REGISTRY=$4
+          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" "$3" backup
+          REMOTE
+      - name: Verify backup in an isolated CI database
+        timeout-minutes: 20
         run: bash scripts/verify-release-backup.sh
       - name: Apply verified migrations, switch and check the release
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.ALIYUN_SERVER_IP }}
-          username: ${{ env.DEPLOY_USER }}
-          key: ${{ secrets.ALIYUN_SSH_KEY }}
-          command_timeout: 30m
-          envs: BLOG_DEPLOY_NPM_REGISTRY
-          script: |
-            bash '${{ env.DEPLOY_PATH }}/releases/${{ env.RELEASE_ID }}/scripts/deploy-release.sh' \
-              '${{ env.DEPLOY_PATH }}' '${{ env.RELEASE_ID }}' '${{ env.UPLOAD_DIR }}' activate
+        timeout-minutes: 13
+        run: |
+          bash scripts/deploy-ssh.sh activate 600 "$DEPLOY_PATH" "$RELEASE_ID" "$UPLOAD_DIR" "$BLOG_DEPLOY_NPM_REGISTRY" <<'REMOTE'
+          export BLOG_DEPLOY_NPM_REGISTRY=$4
+          bash "$1/releases/$2/scripts/deploy-release.sh" "$1" "$2" "$3" activate
+          REMOTE

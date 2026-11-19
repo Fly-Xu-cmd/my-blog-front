@@ -87,6 +87,11 @@ const state = process.argv[2];
 const previous = JSON.parse(fs.readFileSync(path.join(state, 'before.json'), 'utf8'))
   .filter(app => app.name === 'my-blog');
 if (previous.length > 1) throw new Error('Existing cluster requires a separate migration');
+const deployRoot = fs.realpathSync(process.env.BLOG_DEPLOY_ROOT);
+const legacyMarker = path.join(deployRoot, '.deploy-state', 'legacy-runtime.json');
+if (previous[0] && path.resolve(previous[0].pm2_env.pm_cwd) === deployRoot && !fs.existsSync(legacyMarker)) {
+  fs.writeFileSync(legacyMarker, JSON.stringify({ version: 1, root: deployRoot }), { flag: 'wx', mode: 0o600 });
+}
 const rollback = previous.map(app => {
   const e = app.pm2_env;
   return { name: app.name, script: e.pm_exec_path, cwd: e.pm_cwd,
@@ -121,6 +126,7 @@ printf '%s\n' "$release_id" > public/deploy-version.txt
 
 switch_started=false
 committed=false
+previous_release=$(readlink -f -- "$deploy_root/current" 2>/dev/null || true)
 on_exit() {
   code=$?
   trap - EXIT
@@ -165,3 +171,4 @@ ln -s -- "$release" "$deploy_root/.current-$release_id"
 mv -Tf -- "$deploy_root/.current-$release_id" "$deploy_root/current"
 committed=true
 echo "Deployment healthy: $release_id; previous modules and rollback configuration retained"
+node scripts/prune-releases.mjs "$deploy_root" "$release_id" "$previous_release"

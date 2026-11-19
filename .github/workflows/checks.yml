@@ -7,6 +7,7 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       DATABASE_URL: mysql://root:local-test-only@127.0.0.1:13316/blog_test
       REDIS_HOST: 127.0.0.1
@@ -20,8 +21,10 @@ jobs:
           node-version: 24
       - run: npm install -g pnpm@12.3.4
       - run: pnpm install --frozen-lockfile
-      - run: bash -n scripts/deploy-release.sh scripts/verify-release-backup.sh scripts/prepare-standalone-release.sh tests/deploy-release.test.sh
-      - run: node --test tests/standalone-release.test.mjs
+      - run: bash -n scripts/deploy-release.sh scripts/verify-release-backup.sh scripts/prepare-standalone-release.sh scripts/deploy-ssh.sh scripts/deploy-remote.sh scripts/deploy-transport.sh scripts/prepare-release-directory.sh tests/deploy-release.test.sh tests/deploy-transport.test.sh
+      - run: node --test tests/standalone-release.test.mjs tests/prune-releases.test.mjs
+      - run: bash tests/deploy-transport.test.sh
+      - run: node --test tests/deploy-ssh.integration.test.mjs
       - run: bash tests/deploy-release.test.sh
       - name: Bootstrap private Node 24 from a Node 20 server
         run: docker run --rm -v "$PWD:/work:ro" -w /work node:20.20.0-bookworm-slim bash tests/deploy-release.test.sh

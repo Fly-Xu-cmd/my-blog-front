@@ -39,7 +39,7 @@ export function validateFiles(root, releaseId) {
   const expected = createReceipt(root, releaseId);
   if (Object.keys(expected).some((key) => receipt[key] !== expected[key])) fail('RELEASE_FILES_MISMATCH');
   for (const file of ['server.js', 'ecosystem.config.cjs', 'deployment/node_modules/prisma/build/index.js',
-    'deployment/scripts/deployment-db.mjs', 'prisma/schema.prisma', 'public/deploy-version.txt']) {
+    'deployment/scripts/deployment-db.mjs', 'scripts/prune-releases.mjs', 'prisma/schema.prisma', 'public/deploy-version.txt']) {
     if (!fs.existsSync(path.join(root, file))) fail('INCOMPLETE_STANDALONE_RELEASE');
   }
 }

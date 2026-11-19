@@ -21,7 +21,7 @@ timeout --signal=TERM --kill-after=10s 600s pnpm --filter @my-blog/deployment \
   --reporter=append-only --network-concurrency=8 --fetch-timeout=60000 --config.fetchRetries=1 "$stage/deployment"
 mkdir -p "$stage/deployment/scripts" "$stage/prisma" "$stage/scripts"
 cp scripts/deployment-db.mjs "$stage/deployment/scripts/"
-cp scripts/deploy-release.sh scripts/standalone-release.mjs "$stage/scripts/"
+cp scripts/deploy-release.sh scripts/standalone-release.mjs scripts/prune-releases.mjs "$stage/scripts/"
 cp -a prisma/migrations prisma/schema.prisma "$stage/prisma/"
 cp ecosystem.config.cjs pnpm-lock.yaml "$stage/"
 printf '%s\n' "$release_id" > "$stage/public/deploy-version.txt"
