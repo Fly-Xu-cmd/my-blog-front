@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+.article-feedback { margin-top:1.5rem; padding-top:.5rem; }
+
 /* 让 dark: 变体基于 .dark class（配合主题切换），而非仅系统偏好 */
 @custom-variant dark (&:where(.dark, .dark *));
 

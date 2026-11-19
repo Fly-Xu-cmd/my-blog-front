@@ -1,9 +1,18 @@
 import { PrismaClient } from '@prisma/client';
+import Redis from 'ioredis';
+import { createHash } from 'node:crypto';
 const db = new PrismaClient();
 if (!process.env.DATABASE_URL?.includes('127.0.0.1:13316/blog_test'))
   throw new Error('Isolated test database required');
 async function main() {
   try {
+    if (process.env.REDIS_PORT !== '16386') throw new Error('Isolated Redis required');
+    const testRedis = new Redis({ host: '127.0.0.1', port: 16386, password: 'local-test-only' });
+    try {
+      await testRedis.del('feedback:rate:' + createHash('sha256').update('untrusted').digest('hex'));
+    } finally {
+      await testRedis.quit();
+    }
     const category = await db.category.upsert({
       where: { name: 'E2E Category' },
       create: { name: 'E2E Category' },

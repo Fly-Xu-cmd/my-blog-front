@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Markdown from './Markdown';
 import ReadingTools from './ReadingTools';
+import ArticleConversation from './ArticleConversation';
 import { markdownHeadings, shanghaiDate } from '@/lib/markdown';
 import { prisma } from '@/lib/prisma';
 type ArticleData = {
@@ -13,6 +14,7 @@ type ArticleData = {
   category?: { name: string } | null;
   seriesId?: number | null;
   seriesOrder?: number | null;
+  cover?: string | null;
 };
 export default async function Article({
   data,
@@ -74,6 +76,7 @@ export default async function Article({
           </div>
         </header>
         <Markdown source={data.content} />
+        {resource !== 'dynamic' && <ArticleConversation resource={resource} contentId={data.id} title={data.title || '笔记'} path={url} cover={data.cover} />}
         {((series && position >= 0) || related.length > 0) && (
           <footer className="article-reading-footer mt-7 border-t border-gray-200 dark:border-white/10 pt-4 space-y-3">
             {series && position >= 0 && (
