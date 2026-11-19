@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+.search-page header h1 { font-size: clamp(1.7rem,3vw,2.5rem); font-weight:600; margin:.5rem 0; }
+.search-controls { max-width:680px; display:flex; flex-direction:column; gap:1rem; margin:2rem 0; align-items:flex-start; }
+.search-count,.search-result-meta { font-size:.8rem; opacity:.7; }
+.search-results { list-style:none; padding:0; }
+.search-results li { padding:1.4rem 0; max-width:800px; }
+.search-result-meta { display:flex; gap:1rem; }
+.search-results h2 { font-size:1.2rem; font-weight:600; margin:.5rem 0; overflow-wrap:anywhere; }
+.search-results p { line-height:1.8; opacity:.85; overflow-wrap:anywhere; }
+.search-results mark { color:inherit; background:rgba(34,211,238,.2); padding:0 .08em; border-radius:2px; }
+.search-results a:hover { text-decoration:underline; text-underline-offset:4px; }
+.search-controls .ant-input-search { width: min(100%,680px); }
+
 /* 让 dark: 变体基于 .dark class（配合主题切换），而非仅系统偏好 */
 @custom-variant dark (&:where(.dark, .dark *));
 
