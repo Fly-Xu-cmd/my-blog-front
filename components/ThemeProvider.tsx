@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { ConfigProvider, theme as antdTheme } from "antd";
+import { App, ConfigProvider, theme as antdTheme } from "antd";
 import zhCN from "antd/locale/zh_CN";
 
 export type Theme = "light" | "dark" | "system";
@@ -198,7 +198,7 @@ export default function ThemeProvider({
           },
         }}
       >
-        {children}
+        <App component={false}>{children}</App>
       </ConfigProvider>
     </ThemeContext.Provider>
   );

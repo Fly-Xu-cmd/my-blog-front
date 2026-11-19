@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { path: '/allStatus', label: '动态', icon: '\ue61d' },
   { path: '/notes', label: '笔记', icon: '\ue612' },
   { path: '/archive', label: '归档', icon: '\ue61d' },
+  { path: '/reading', label: '我的阅读', icon: '\ue612' },
   { path: '/subscribe', label: '订阅', icon: '\ue612' },
   { path: '/about', label: '关于我', icon: '\ue63d' },
 ];

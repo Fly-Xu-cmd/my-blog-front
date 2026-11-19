@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Markdown from './Markdown';
 import ReadingTools from './ReadingTools';
+import ReadingMemory from './ReadingMemory';
 import { markdownHeadings, shanghaiDate } from '@/lib/markdown';
 import { prisma } from '@/lib/prisma';
 type ArticleData = {
@@ -65,6 +66,7 @@ export default async function Article({
             {data.category?.name}
             <ReadingTools path={url} />
           </div>
+          {resource !== 'dynamic' && <ReadingMemory kind={resource} id={data.id} />}
           <div className="flex gap-3 mt-4 flex-wrap">
             {data.tags?.map((tag) => (
               <Link className="text-cyan-600" href={'/tags/' + encodeURIComponent(tag)} key={tag}>

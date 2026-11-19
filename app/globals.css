@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+.reading-memory { display:flex; flex-wrap:wrap; gap:.25rem; align-items:center; margin-top:.75rem; }
+.reading-library { list-style:none; padding:0; margin-top:1.5rem; }
+.reading-library li { max-width:800px; padding:1rem 0; }
+.reading-library h2 { font-size:1.2rem; font-weight:600; margin:.5rem 0; overflow-wrap:anywhere; }
+.reading-library p { opacity:.7; line-height:1.8; }
+.reading-library a:hover { text-decoration:underline; text-underline-offset:4px; }
+
 /* 让 dark: 变体基于 .dark class（配合主题切换），而非仅系统偏好 */
 @custom-variant dark (&:where(.dark, .dark *));
 
