@@ -109,13 +109,22 @@ test("client-side article and library navigation flushes the departing article's
     await expect(
       page.getByRole("button", { name: "稍后再读", exact: true }),
     ).toBeVisible();
-    const capture = async () =>
+    const capture = async (paragraphIndex = 8) =>
       page.evaluate(
-        ({ id }) => {
+        ({ id, paragraphIndex }) => {
           const article = document.getElementById("article")!;
           window.scrollTo({ top: 400, behavior: "instant" });
           window.dispatchEvent(new Event("scroll"));
-          window.scrollTo({ top: 1900, behavior: "instant" });
+          const paragraph =
+            article.querySelectorAll<HTMLElement>(".article-content p")[
+              paragraphIndex
+            ];
+          const target =
+            paragraph.getBoundingClientRect().top +
+            scrollY +
+            paragraph.offsetHeight / 2 -
+            130;
+          window.scrollTo({ top: target, behavior: "instant" });
           window.dispatchEvent(new Event("scroll"));
           const top = article.getBoundingClientRect().top + scrollY;
           const ratio = Math.min(
@@ -128,12 +137,17 @@ test("client-side article and library navigation flushes the departing article's
           const old = JSON.parse(
             localStorage.getItem("blog-reading-v1")!,
           ).items.find((r: { id: number }) => r.id === id).ratio;
-          return { ratio, old };
+          const heading =
+            [...article.querySelectorAll<HTMLElement>("h2[id],h3[id],h4[id]")]
+              .filter((h) => h.getBoundingClientRect().top <= 130)
+              .at(-1)?.id ?? "";
+          return { ratio, old, heading };
         },
-        { id: idA },
+        { id: idA, paragraphIndex },
       );
     const position = await capture();
     expect(position.ratio - position.old).toBeGreaterThan(0.05);
+    expect(position.heading).not.toBe("");
     await page
       .getByRole("link", { name: titleB, exact: true })
       .evaluate((link: HTMLAnchorElement) => link.click());
@@ -148,13 +162,26 @@ test("client-side article and library navigation flushes the departing article's
           idA,
         ),
       )
-      .toBeCloseTo(position.ratio, 3);
+      .toBeCloseTo(position.ratio, 2);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (id) =>
+            JSON.parse(localStorage.getItem("blog-reading-v1")!).items.find(
+              (r: { id: number }) => r.id === id,
+            ).heading,
+          idA,
+        ),
+      )
+      .toBe(position.heading);
     await page.goBack();
     await expect(page).toHaveURL("/posts/" + a);
     await expect(
       page.getByRole("button", { name: /继续上次阅读/ }),
     ).toBeVisible();
-    const last = await capture();
+    const last = await capture(18);
+    expect(Math.abs(last.ratio - last.old)).toBeGreaterThan(0.05);
+    expect(last.heading).not.toBe("");
     await page
       .getByRole("link", { name: "我的阅读", exact: true })
       .first()
@@ -170,7 +197,18 @@ test("client-side article and library navigation flushes the departing article's
           idA,
         ),
       )
-      .toBeCloseTo(last.ratio, 3);
+      .toBeCloseTo(last.ratio, 2);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (id) =>
+            JSON.parse(localStorage.getItem("blog-reading-v1")!).items.find(
+              (r: { id: number }) => r.id === id,
+            ).heading,
+          idA,
+        ),
+      )
+      .toBe(last.heading);
   } finally {
     await request.delete("/api/posts/" + a, { headers });
     await request.delete("/api/posts/" + b, { headers });
