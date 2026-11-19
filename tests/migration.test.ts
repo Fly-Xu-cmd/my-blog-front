@@ -15,12 +15,15 @@ it('additive migration preserves old URLs/visibility, historical publication and
     await db.query('CREATE DATABASE ' + name);
     await db.query('USE ' + name);
     const dirs = (await readdir('prisma/migrations')).filter((d) => /^\d/.test(d)).sort();
-    for (const dir of dirs.slice(0, -1))
+    const optimizationIndex = dirs.indexOf('202611160001_blog_optimization');
+    expect(optimizationIndex).toBeGreaterThanOrEqual(0);
+    for (const dir of dirs.slice(0, optimizationIndex))
       await db.query(await readFile('prisma/migrations/' + dir + '/migration.sql', 'utf8'));
     await db.query(
       "INSERT INTO Post(title,slug,content,published,createdAt,updatedAt) VALUES ('old','old-url','body',1,'2020-01-01','2020-01-01'),('draft','draft-url','body',0,'2020-01-01','2020-01-01'); INSERT INTO Dynamic(content,excerpt,createdAt,updatedAt) VALUES('old status','summary','2020-01-01','2020-01-01'); INSERT INTO Note(syncId,slug,title,content,published,createdAt,updatedAt) VALUES('old/note','old-note','old note','body',1,'2020-01-01','2020-01-01')",
     );
-    await db.query(await readFile('prisma/migrations/' + dirs.at(-1) + '/migration.sql', 'utf8'));
+    for (const dir of dirs.slice(optimizationIndex))
+      await db.query(await readFile('prisma/migrations/' + dir + '/migration.sql', 'utf8'));
     const [posts] = await db.query<mysql.RowDataPacket[]>(
       'SELECT slug,published,publishedAt FROM Post ORDER BY id',
     );
@@ -50,6 +53,8 @@ it('additive migration preserves old URLs/visibility, historical publication and
       [name],
     );
     expect(columns.every((r) => r.DATA_TYPE === 'longtext')).toBe(true);
+    const [about] = await db.query<mysql.RowDataPacket[]>('SELECT * FROM AboutPage');
+    expect(about).toHaveLength(0);
   } finally {
     await db.query('DROP DATABASE ' + name);
     await db.end();

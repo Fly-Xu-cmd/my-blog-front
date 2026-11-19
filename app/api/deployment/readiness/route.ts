@@ -21,9 +21,10 @@ export async function GET() {
       prisma.$queryRaw`SELECT published,publishedAt FROM Dynamic LIMIT 0`,
       prisma.$queryRaw`SELECT id,slug FROM Series LIMIT 0`,
       prisma.$queryRaw`SELECT resource,actor,payloadHash,resultId FROM CreationRequest LIMIT 0`,
+      prisma.$queryRaw`SELECT title,subtitle,content,revision FROM AboutPage LIMIT 0`,
     ]);
     return Response.json({ ok: true, contractVersion: 1, capabilities: [
-      'admin-header-auth', 'content-summaries', 'idempotent-create', 'dynamic-drafts', 'series-v1',
+      'admin-header-auth', 'content-summaries', 'idempotent-create', 'dynamic-drafts', 'series-v1', 'about-page-v1',
     ] }, { headers });
   } catch {
     return Response.json({ ok: false, code: 'API_NOT_READY' }, { status: 503, headers });
