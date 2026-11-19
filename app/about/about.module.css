@@ -1,0 +1,38 @@
+.copy :global(.article-content) {
+  color: #374151;
+  line-height: 1.85;
+}
+.copy :global(.article-content) strong {
+  color: #0891b2;
+}
+.copy :global(.article-content) blockquote {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  border: 1px solid #cffafe;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #ecfeff, #f5f3ff);
+}
+.copy :global(.article-content) blockquote h3 {
+  margin-top: 0;
+  color: #111827;
+}
+.copy :global(.article-content) > p:last-child {
+  text-align: center;
+}
+:global(.dark) .copy :global(.article-content) {
+  color: rgb(255 255 255 / 0.7);
+}
+:global(.dark) .copy :global(.article-content) strong {
+  color: #22d3ee;
+}
+:global(.dark) .copy :global(.article-content) blockquote {
+  border-color: rgb(34 211 238 / 0.2);
+  background: linear-gradient(
+    135deg,
+    rgb(34 211 238 / 0.1),
+    rgb(167 139 250 / 0.1)
+  );
+}
+:global(.dark) .copy :global(.article-content) blockquote h3 {
+  color: #fff;
+}
