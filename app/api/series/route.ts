@@ -49,7 +49,7 @@ export const DELETE = endpoint(async (req: Request) => {
     await tx.$queryRaw`SELECT id FROM Series WHERE id = ${id} FOR UPDATE`;
     await tx.post.updateMany({
       where: { seriesId: id },
-      data: { seriesId: null, seriesOrder: null },
+      data: { seriesId: null, seriesOrder: null, revision: { increment: 1 } },
     });
     await tx.series.delete({ where: { id } });
   });
