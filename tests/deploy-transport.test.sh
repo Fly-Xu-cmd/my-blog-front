@@ -89,8 +89,8 @@ chmod +x "$sandbox/bin/id" "$sandbox/bin/chown"
 mkdir -p "$sandbox/blog/releases/legacy" "$sandbox/uploads"
 touch "$sandbox/blog/releases/legacy/retain" "$sandbox/uploads/retain"
 id=$(printf 'a%.0s' {1..40})-1-1
-bash "$root/scripts/prepare-release-directory.sh" "$sandbox/blog" "$id" "$sandbox/uploads"
+bash "$root/scripts/prepare-release-directory.sh" "$sandbox/blog" "$id"
 [[ -e $sandbox/blog/releases/legacy/retain && -e $sandbox/uploads/retain ]]
-[[ $(wc -l < "$sandbox/chown-args") == 6 ]]
+[[ $(wc -l < "$sandbox/chown-args") == 5 ]]
 ! grep -E -- '-R|recursive|/legacy|/retain' "$sandbox/chown-args"
 echo 'SSH connection failure, hung transport, remote timeout, backup TERM/KILL credential cleanup, exit status, argument quoting, key cleanup and bounded directory preparation passed'

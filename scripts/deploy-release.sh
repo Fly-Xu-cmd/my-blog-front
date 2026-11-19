@@ -5,8 +5,7 @@ umask 077
 # Each workflow attempt owns a fresh directory; the running npm installation is untouched.
 deploy_root=$(realpath -e -- "${1:?deployment root required}")
 release_id=${2:?release id required}
-upload_dir=$(realpath -e -- "${3:?upload directory required}")
-phase=${4:?prepare, backup or activate required}
+phase=${3:?prepare, backup or activate required}
 [[ $phase == prepare || $phase == backup || $phase == activate ]] || { echo 'Invalid deployment phase' >&2; exit 1; }
 [[ $release_id =~ ^[0-9a-f]{40}-[0-9]+-[0-9]+$ ]] || { echo 'Invalid release id' >&2; exit 1; }
 release=$(realpath -e -- "$deploy_root/releases/$release_id")
@@ -64,7 +63,6 @@ health_attempts=${BLOG_DEPLOY_HEALTH_ATTEMPTS:-30}
 }
 
 prisma_cli="$release/deployment/node_modules/prisma/build/index.js"
-export UPLOAD_DIR="$upload_dir"
 export BLOG_DEPLOY_ROOT="$deploy_root"
 if [[ $phase == prepare ]]; then
 for env_file in .env .env.local .env.production .env.production.local; do
@@ -101,6 +99,7 @@ const rollback = previous.map(app => {
 const target = require(path.join(process.cwd(), 'ecosystem.config.cjs'));
 target.apps[0].env = { ...(previous[0]?.pm2_env.env ?? {}),
   PATH: process.env.PATH, ...target.apps[0].env, BLOG_DEPLOY_ROOT: process.env.BLOG_DEPLOY_ROOT };
+delete target.apps[0].env.UPLOAD_DIR;
 const port = Number(target.apps[0].env.PORT ?? 3000);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid application port');
 fs.writeFileSync(path.join(state, 'previous.json'), JSON.stringify({ apps: rollback }), { mode: 0o600 });
