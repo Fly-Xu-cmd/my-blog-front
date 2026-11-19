@@ -1,6 +1,7 @@
 import HomeFeed from './HomeFeed';
 import { listContent } from '@/lib/content';
 import { serialize } from '@/lib/public-content';
+import ReadingEntry from '@/components/ReadingEntry';
 export const dynamic = 'force-dynamic';
 const empty = { data: [], total: 0, current: 1, pageSize: 10, pages: 0 };
 export default async function Home() {
@@ -11,6 +12,7 @@ export default async function Home() {
   ]);
   return (
     <HomeFeed
+      readingEntry={<ReadingEntry />}
       posts={posts.status === 'fulfilled' ? serialize(posts.value) : empty}
       notes={notes.status === 'fulfilled' ? serialize(notes.value) : empty}
       dynamics={dynamics.status === 'fulfilled' ? serialize(dynamics.value) : empty}

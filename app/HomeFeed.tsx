@@ -14,6 +14,7 @@ export default function HomeFeed({
   postError,
   noteError,
   dynamicError,
+  readingEntry,
 }: {
   posts: Listing;
   notes: Listing;
@@ -21,6 +22,7 @@ export default function HomeFeed({
   postError?: boolean;
   noteError?: boolean;
   dynamicError?: boolean;
+  readingEntry?: React.ReactNode;
 }) {
   const series = posts.data.find((post) => post.series)?.series;
   return (
@@ -52,6 +54,7 @@ export default function HomeFeed({
           </aside>
         )}
       </section>
+      {readingEntry}
       <section aria-labelledby="recent-posts">
         <div className="editorial-section-head">
           <h2 id="recent-posts">最近写下</h2>

@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+.reading-entry-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 2rem; padding: 1.25rem 0 2rem; }
+.reading-entry-columns h3 { font-size: .9rem; font-weight: 600; margin-bottom: .75rem; }
+.reading-entry-columns li { margin: .65rem 0; overflow-wrap: anywhere; }
+.reading-entry-columns a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.reading-entry-columns p { font-size: .85rem; opacity: .7; margin-top: .25rem; }
+@media(max-width:640px) { .reading-entry-columns { grid-template-columns:1fr; gap:1rem; } }
+
 /* 让 dark: 变体基于 .dark class（配合主题切换），而非仅系统偏好 */
 @custom-variant dark (&:where(.dark, .dark *));
 
