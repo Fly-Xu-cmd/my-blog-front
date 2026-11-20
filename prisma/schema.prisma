@@ -3,6 +3,41 @@ generator client {
   binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
 }
 
+model InteractionDaily {
+  day DateTime @db.Date
+  event String @db.VarChar(24)
+  target String @db.VarChar(32)
+  count Int @default(0)
+  @@id([day, event, target])
+}
+
+model ReadingEntry {
+  id Int @id
+  fields Json
+  revision Int @default(1)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
+}
+
+model Feedback {
+  id Int @id @default(autoincrement())
+  submissionId String @unique @db.VarChar(36)
+  payloadHash String @db.VarChar(64)
+  resource String @db.VarChar(8)
+  contentId Int
+  type String @db.VarChar(16)
+  message String @db.Text
+  contact String? @db.VarChar(160)
+  status String @default("NEW") @db.VarChar(16)
+  createdAt DateTime @default(now()) @db.DateTime(0)
+  @@index([status,createdAt])
+}
+model FeedbackSettings {
+  id Int @id
+  githubUrl String @db.VarChar(512)
+  revision Int @default(1)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
+}
+
 // 1. 数据源改为 MySQL（兼容 MariaDB）
 datasource db {
   provider     = "mysql" // 从 sqlite 改为 mysql
@@ -12,6 +47,7 @@ datasource db {
 
 model Post {
   id          Int       @id @default(autoincrement())
+  revision    Int       @default(1)
   title       String    @db.VarChar(255) // MySQL 推荐显式指定字符串长度
   slug        String    @unique @db.VarChar(255) // 移除默认 uuid()，由后端生成唯一 slug
   excerpt     String?   @db.Text // 摘要可能较长，用 Text 类型
@@ -167,6 +203,25 @@ model AboutPage {
   title     String   @db.VarChar(80)
   subtitle  String   @db.VarChar(240)
   content   String   @db.LongText
+  revision  Int      @default(1)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
+}
+
+// Snapshots remain private and retained even when their article is deleted.
+model PostRevision {
+  id        Int      @id @default(autoincrement())
+  postId    Int
+  revision  Int
+  snapshot  Json
+  actor     String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.DateTime(0)
+
+  @@unique([postId, revision])
+}
+
+model SiteSettings {
+  id        Int      @id
+  fields    Json
   revision  Int      @default(1)
   updatedAt DateTime @updatedAt @db.DateTime(0)
 }

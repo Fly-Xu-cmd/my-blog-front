@@ -40,6 +40,8 @@ import {
 import { POST as reorder } from '@/app/api/series/[id]/reorder/route';
 import { cached } from '@/lib/analytics-cache';
 import { GET as stats } from '@/app/api/analytics/stats/route';
+import { GET as overview } from '@/app/api/admin/content-stats/route';
+import { shanghaiDayStartUtc } from '@/lib/analytics';
 import { GET as site } from '@/app/api/analytics/site/route';
 import { POST as track } from '@/app/api/analytics/track/route';
 import { POST as oldAuth } from '@/app/api/login/[token]/route';
@@ -353,8 +355,164 @@ describe('failure boundaries', () => {
     });
     const data = await (await stats(request('/api/analytics/stats?range=7d'))).json();
     expect(data.trend).toHaveLength(7);
-    expect(data.topPages).toEqual([{ path: '/posts/a', count: 2 }]);
+    expect(data.topPages).toEqual([{ path: '/posts/a', count: 2, title: '/posts/a', kind: '页面', url: null }]);
     expect(data.referrers).toEqual([{ host: 'recent.example', count: 2 }]);
     expect(data.trend.reduce((sum: number, row: { pv: number }) => sum + row.pv, 0)).toBe(2);
+    expect(data.period).toEqual({ pv: 2, uv: 2 });
+    expect(data.range).toBe('7d');
   });
+});
+
+it("custom reports share Shanghai date boundaries across analytics and content trends", async () => {
+  const visitor = randomUUID(),
+    other = randomUUID(),
+    slug = randomUUID();
+  const start = new Date("2000-02-28T00:00:00+08:00"),
+    end = new Date("2000-03-02T00:00:00+08:00");
+  const cacheKeys = [
+    `analytics:cache:stats-v3:/blog_test:custom:2000-02-28:2000-03-01:all:${shanghaiDayStartUtc().toISOString()}`,
+    "analytics:cache:content-overview-v3:/blog_test:2000-02-28:2000-03-01",
+  ];
+  const req = (path: string) => request(path);
+
+  expect(process.env.DATABASE_URL).toContain(":13316/blog_test");
+  await redis.del(...cacheKeys);
+  const post = await prisma.post.create({
+    data: {
+      slug,
+      title: "Report range fixture",
+      content: "range body",
+      createdAt: start,
+      publishedAt: new Date(end.getTime() - 1000),
+      published: true,
+    },
+  });
+  const postId = post.id;
+  await prisma.pageView.createMany({
+    data: [
+      {
+        visitorId: visitor,
+        path: "/posts/" + slug,
+        referrerHost: "range.invalid",
+        createdAt: new Date(start.getTime() - 1000),
+      },
+      {
+        visitorId: visitor,
+        path: "/posts/" + slug,
+        referrerHost: "range.invalid",
+        createdAt: start,
+      },
+      {
+        visitorId: visitor,
+        path: "/posts/" + slug,
+        referrerHost: "range.invalid",
+        createdAt: new Date(end.getTime() - 1000),
+      },
+      {
+        visitorId: other,
+        path: "/posts/" + slug,
+        referrerHost: "range.invalid",
+        createdAt: new Date(end.getTime() - 1000),
+      },
+      {
+        visitorId: other,
+        path: "/posts/" + slug,
+        referrerHost: "range.invalid",
+        createdAt: end,
+      },
+    ],
+  });
+  await prisma.interactionDaily.createMany({
+    data: [
+      {
+        day: new Date("2000-02-27"),
+        event: "search_click",
+        target: "post:" + postId,
+        count: 100,
+      },
+      {
+        day: new Date("2000-02-28"),
+        event: "search_click",
+        target: "post:" + postId,
+        count: 2,
+      },
+      {
+        day: new Date("2000-03-01"),
+        event: "search_click",
+        target: "post:" + postId,
+        count: 3,
+      },
+      {
+        day: new Date("2000-03-02"),
+        event: "search_click",
+        target: "post:" + postId,
+        count: 100,
+      },
+    ],
+  });
+
+  try {
+    const response = await stats(
+      req("/api/analytics/stats?start=2000-02-28&end=2000-03-01"),
+    );
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.period).toEqual({ pv: 3, uv: 2 });
+    expect(data.trend).toEqual([
+      { date: "2000-02-28", pv: 1, uv: 1 },
+      { date: "2000-02-29", pv: 0, uv: 0 },
+      { date: "2000-03-01", pv: 2, uv: 2 },
+    ]);
+    expect(data.topPages).toContainEqual(
+      expect.objectContaining({
+        path: "/posts/" + slug,
+        count: 3,
+        title: "Report range fixture",
+      }),
+    );
+    expect(data.referrers).toEqual([{ host: "range.invalid", count: 3 }]);
+    expect(data.interactions.search_click).toBe(5);
+    const overviewResponse = await overview(
+      req("/api/admin/content-stats?start=2000-02-28&end=2000-03-01"),
+    );
+    expect(overviewResponse.status).toBe(200);
+    const { data: contentData } = await overviewResponse.json();
+    expect(contentData.createdTimeline).toHaveLength(12);
+    expect(
+      contentData.createdTimeline.find(
+        (r: { date: string; kind: string }) =>
+          r.date === "2000-02-28" && r.kind === "post",
+      ).count,
+    ).toBe(1);
+    expect(
+      contentData.publishedTimeline.find(
+        (r: { date: string; kind: string }) =>
+          r.date === "2000-03-01" && r.kind === "post",
+      ).count,
+    ).toBe(1);
+    expect(
+      contentData.counts.find((r: { kind: string }) => r.kind === "post").total,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      (await stats(req("/api/analytics/stats?start=2000-02-28"))).status,
+    ).toBe(400);
+    expect(
+      (
+        await overview(
+          req("/api/admin/content-stats?start=2000-03-01&end=2000-02-28"),
+        )
+      ).status,
+    ).toBe(400);
+  } finally {
+    await prisma.pageView.deleteMany({
+      where: { visitorId: { in: [visitor, other] } },
+    });
+    if (postId) {
+      await prisma.interactionDaily.deleteMany({
+        where: { target: "post:" + postId },
+      });
+      await prisma.post.delete({ where: { id: postId } });
+    }
+    await redis.del(...cacheKeys);
+  }
 });

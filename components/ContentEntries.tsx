@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import Image from 'next/image';
+import CdnImage from './CdnImage';
 import { ArrowUpRight } from 'lucide-react';
 import { shanghaiDate } from '@/lib/markdown';
 
@@ -81,8 +81,8 @@ export function FeaturedArticle({
               className="editorial-feature-cover"
               aria-label={'阅读：' + item.title}
             >
-              <Image
-                unoptimized
+              <CdnImage
+                variant="feature"
                 src={item.cover}
                 alt=""
                 width={800}
@@ -127,8 +127,8 @@ export function ArticleRow({ item, headingLevel = 2 }: { item: Summary; headingL
         aria-label={'阅读：' + item.title}
       >
         {item.cover ? (
-          <Image
-            unoptimized
+          <CdnImage
+            variant="thumbnail"
             src={item.cover}
             alt=""
             width={320}

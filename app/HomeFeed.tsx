@@ -1,12 +1,13 @@
-import Link from 'next/link';
-import { ArrowUpRight } from 'lucide-react';
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
+import type { SiteFields } from "@/lib/site-default";
 import {
   ArticleRow,
   FeaturedArticle,
   NoteRow,
   DynamicEntry,
   type Listing,
-} from '@/components/ContentEntries';
+} from "@/components/ContentEntries";
 export default function HomeFeed({
   posts,
   notes,
@@ -14,6 +15,8 @@ export default function HomeFeed({
   postError,
   noteError,
   dynamicError,
+  site,
+  readingEntry,
 }: {
   posts: Listing;
   notes: Listing;
@@ -21,19 +24,17 @@ export default function HomeFeed({
   postError?: boolean;
   noteError?: boolean;
   dynamicError?: boolean;
+  site: SiteFields;
+  readingEntry?: React.ReactNode;
 }) {
   const series = posts.data.find((post) => post.series)?.series;
   return (
     <main className="editorial-page editorial-home">
       <section className="editorial-home-intro" data-sky-entry>
         <div>
-          <span className="editorial-eyebrow">你好，我是若木</span>
-          <h1>写代码，也记录生活。</h1>
-          <p>
-            记录前端、后端与 AI 应用实践，
-            <br />
-            也留下生活中的思考。
-          </p>
+          <span className="editorial-eyebrow">你好，我是{site.author}</span>
+          <h1>{site.homeTitle}</h1>
+          <p>{site.homeIntro}</p>
           <div className="editorial-home-links">
             <Link href="/subscribe">RSS 订阅 ↗</Link>
             <Link href="/archive">文章归档 ↗</Link>
@@ -43,15 +44,19 @@ export default function HomeFeed({
           <aside className="editorial-series">
             <span className="editorial-eyebrow">阅读系列</span>
             <h2>
-              <Link href={'/series/' + series.slug}>{series.name}</Link>
+              <Link href={"/series/" + series.slug}>{series.name}</Link>
             </h2>
-            <p>{series.description || '按顺序阅读这一组文章。'}</p>
-            <Link href={'/series/' + series.slug} className="editorial-read-link">
+            <p>{series.description || "按顺序阅读这一组文章。"}</p>
+            <Link
+              href={"/series/" + series.slug}
+              className="editorial-read-link"
+            >
               查看系列 <ArrowUpRight size={15} aria-hidden="true" />
             </Link>
           </aside>
         )}
       </section>
+      {readingEntry}
       <section aria-labelledby="recent-posts">
         <div className="editorial-section-head">
           <h2 id="recent-posts">最近写下</h2>
@@ -63,7 +68,11 @@ export default function HomeFeed({
           </p>
         ) : posts.data.length ? (
           <>
-            <FeaturedArticle item={posts.data[0]} showSeries={false} headingLevel={3} />
+            <FeaturedArticle
+              item={posts.data[0]}
+              showSeries={false}
+              headingLevel={3}
+            />
             {posts.data.slice(1).map((post) => (
               <ArticleRow key={post.id} item={post} headingLevel={3} />
             ))}
@@ -72,7 +81,10 @@ export default function HomeFeed({
           <p className="editorial-empty">还没有公开文章</p>
         )}
       </section>
-      <section className="editorial-home-section" aria-labelledby="recent-notes">
+      <section
+        className="editorial-home-section"
+        aria-labelledby="recent-notes"
+      >
         <div className="editorial-section-head">
           <h2 id="recent-notes">最近的笔记</h2>
           <Link href="/notes">全部笔记 ↗</Link>
@@ -82,12 +94,17 @@ export default function HomeFeed({
             笔记暂不可用，请稍后刷新
           </p>
         ) : notes.data.length ? (
-          notes.data.map((note) => <NoteRow key={note.id} item={note} headingLevel={3} />)
+          notes.data.map((note) => (
+            <NoteRow key={note.id} item={note} headingLevel={3} />
+          ))
         ) : (
           <p className="editorial-empty">还没有公开笔记</p>
         )}
       </section>
-      <section className="editorial-home-section" aria-labelledby="recent-dynamics">
+      <section
+        className="editorial-home-section"
+        aria-labelledby="recent-dynamics"
+      >
         <div className="editorial-section-head">
           <h2 id="recent-dynamics">最近动态</h2>
           <Link href="/allStatus">全部动态 ↗</Link>

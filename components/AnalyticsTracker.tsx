@@ -15,13 +15,18 @@ const HEARTBEAT_INTERVAL_MS = 30000;
  * 该 ID 仅代表匿名浏览器（非用户身份），路由变化时不会重新生成。
  * @returns 访客 ID 字符串
  */
-function getOrCreateVisitorId(): string {
-  let visitorId = localStorage.getItem(VISITOR_ID_KEY);
-  if (!visitorId) {
-    visitorId = uuidv4();
-    localStorage.setItem(VISITOR_ID_KEY, visitorId);
+function getOrCreateVisitorId(): string | null {
+  try {
+    let visitorId = localStorage.getItem(VISITOR_ID_KEY);
+    if (!visitorId) {
+      visitorId = uuidv4();
+      localStorage.setItem(VISITOR_ID_KEY, visitorId);
+    }
+    return visitorId;
+  } catch {
+    // 浏览器拒绝存储时停止匿名统计，不影响正文或虚增访客。
+    return null;
   }
-  return visitorId;
 }
 
 /**
@@ -80,6 +85,7 @@ export default function AnalyticsTracker() {
 
   useEffect(() => {
     const visitorId = getOrCreateVisitorId();
+    if (!visitorId) return;
 
     // 路由变化时上报 PV；同一路径（含 StrictMode 重挂载）不重复上报
     if (lastTrackedPathRef.current !== pathname) {

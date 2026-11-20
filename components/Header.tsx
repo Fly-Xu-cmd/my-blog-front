@@ -1,21 +1,25 @@
-'use client';
-import React, { useState } from 'react';
-import Contact from '@/components/Contact';
-import ThemeToggle from '@/components/ThemeToggle';
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
-import { Button, Drawer } from 'antd';
+"use client";
+import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import Contact from "@/components/Contact";
+import ThemeToggle from "@/components/ThemeToggle";
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { Menu, X, Search } from "lucide-react";
+import { Button, Drawer } from "antd";
+import { useSiteConfig } from "./SiteConfig";
+import { markHistoryNavigation } from "@/lib/reading-position";
+const SearchDialog = dynamic(() => import("./SearchDialog"), { ssr: false });
 
 const NAV_ITEMS = [
-  { path: '/', label: '首页', icon: '\ue606' },
-  { path: '/allBlogs', label: '博客', icon: '\ue634' },
-  { path: '/allStatus', label: '动态', icon: '\ue61d' },
-  { path: '/notes', label: '笔记', icon: '\ue612' },
-  { path: '/archive', label: '归档', icon: '\ue61d' },
-  { path: '/subscribe', label: '订阅', icon: '\ue612' },
-  { path: '/about', label: '关于我', icon: '\ue63d' },
+  { path: "/", label: "首页", icon: "\ue606" },
+  { path: "/allBlogs", label: "博客", icon: "\ue634" },
+  { path: "/allStatus", label: "动态", icon: "\ue61d" },
+  { path: "/notes", label: "笔记", icon: "\ue612" },
+  { path: "/archive", label: "归档", icon: "\ue61d" },
+  { path: "/subscribe", label: "订阅", icon: "\ue612" },
+  { path: "/about", label: "关于我", icon: "\ue63d" },
 ];
 
 /**
@@ -23,23 +27,47 @@ const NAV_ITEMS = [
  * 毛玻璃吸顶 + 渐变 active 指示 + 主题切换
  */
 export default function Header() {
+  const site = useSiteConfig();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const isActive = (path: string) => (path === '/' ? pathname === '/' : pathname.startsWith(path));
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const shortcut = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", shortcut);
+    window.addEventListener("popstate", markHistoryNavigation);
+    return () => {
+      window.removeEventListener("keydown", shortcut);
+      window.removeEventListener("popstate", markHistoryNavigation);
+    };
+  }, []);
+  const isActive = (path: string) =>
+    path === "/" ? pathname === "/" : pathname.startsWith(path);
 
   return (
     <header className="sticky top-0 z-[9999] w-full border-b border-gray-200/60 bg-white/75 backdrop-blur-xl dark:border-white/10 dark:bg-[#05060a]/75">
       <div className="flex justify-between px-5 md:px-9 h-16 items-center max-w-[1160px] mx-auto">
         {/* 标题（头像 + 站点名） */}
-        <Link href="/" className="shrink-0 flex items-center gap-2.5">
+        <Link
+          href="/"
+          className="min-w-0 flex items-center gap-2.5"
+          title={site.name}
+        >
           <Image
-            src="/imgs/head-img.jpg"
-            alt="若木的头像"
+            src={site.avatar}
+            alt={site.author + "的头像"}
+            unoptimized
             width={36}
             height={36}
-            className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-200/60 dark:ring-white/15"
+            className="w-9 h-9 shrink-0 rounded-full object-cover ring-2 ring-gray-200/60 dark:ring-white/15"
           />
-          <span className="text-xl font-semibold text-gray-900 dark:text-white">若木的小世界</span>
+          <span className="max-w-[55vw] lg:max-w-60 truncate text-xl font-semibold text-gray-900 dark:text-white">
+            {site.name}
+          </span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -49,11 +77,11 @@ export default function Header() {
               <li key={item.path} className="h-full flex items-center">
                 <Link
                   href={item.path}
-                  aria-current={isActive(item.path) ? 'page' : undefined}
+                  aria-current={isActive(item.path) ? "page" : undefined}
                   className={`relative flex h-full items-center px-2.5 text-sm font-medium transition-colors ${
                     isActive(item.path)
-                      ? 'text-cyan-600 dark:text-cyan-400'
-                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                      ? "text-cyan-600 dark:text-cyan-400"
+                      : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
                   }`}
                 >
                   {item.label}
@@ -68,6 +96,15 @@ export default function Header() {
 
         {/* 右侧：主题切换 + 联系方式 + 移动菜单 */}
         <div className="flex items-center gap-2">
+          <Button
+            type="text"
+            shape="circle"
+            icon={<Search size={19} />}
+            aria-label="搜索"
+            aria-haspopup="dialog"
+            title="搜索（Ctrl / ⌘ K）"
+            onClick={() => setSearchOpen(true)}
+          />
           <ThemeToggle />
           <div className="hidden lg:block">
             <Contact />
@@ -90,17 +127,19 @@ export default function Header() {
         title={
           <div className="flex items-center gap-2 py-1">
             <span className="w-1 h-5 bg-gradient-to-b from-cyan-500 to-violet-500 rounded-full" />
-            <span className="text-lg font-bold text-gray-800 dark:text-white">网站导航</span>
+            <span className="text-lg font-bold text-gray-800 dark:text-white">
+              网站导航
+            </span>
           </div>
         }
         placement="right"
         onClose={() => setIsMobileMenuOpen(false)}
         open={isMobileMenuOpen}
         styles={{
-          body: { padding: '12px 0' },
+          body: { padding: "12px 0" },
           header: {
-            borderBottom: '1px solid #f1f5f9',
-            padding: '16px 24px',
+            borderBottom: "1px solid #f1f5f9",
+            padding: "16px 24px",
           },
         }}
         width={280}
@@ -111,15 +150,17 @@ export default function Header() {
               <li key={item.path}>
                 <Link
                   href={item.path}
-                  aria-current={isActive(item.path) ? 'page' : undefined}
+                  aria-current={isActive(item.path) ? "page" : undefined}
                   className={`flex items-center px-4 py-3 rounded-xl transition-all ${
                     isActive(item.path)
-                      ? 'bg-cyan-50 text-cyan-600 font-semibold dark:bg-cyan-400/10 dark:text-cyan-400'
-                      : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5'
+                      ? "bg-cyan-50 text-cyan-600 font-semibold dark:bg-cyan-400/10 dark:text-cyan-400"
+                      : "text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5"
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <i className="iconfont mr-3 text-lg" aria-hidden="true">{item.icon}</i>
+                  <i className="iconfont mr-3 text-lg" aria-hidden="true">
+                    {item.icon}
+                  </i>
                   {item.label}
                 </Link>
               </li>
@@ -133,6 +174,7 @@ export default function Header() {
           </div>
         </div>
       </Drawer>
+      {searchOpen && <SearchDialog onClose={() => setSearchOpen(false)} />}
     </header>
   );
 }

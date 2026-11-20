@@ -29,12 +29,12 @@ export function absoluteUrl(path: string = '/'): string {
 }
 
 /**
- * 构造带站点后缀的页面 title 文本
+ * 构造页面 title 文本，站点后缀由根布局统一添加
  * @param pageName 页面名（如"全部博客"）
- * @returns "页面名 | 若木的小世界" 形式的标题
+ * @returns 页面名
  */
 export function pageTitle(pageName: string): string {
-  return `${pageName} | ${SITE_NAME}`;
+  return pageName; // The root layout appends the current configured site name.
 }
 
 /**
@@ -65,6 +65,7 @@ export function articleOpenGraph(
   description: string,
   url: string,
   cover?: string | null,
+  siteName = SITE_NAME,
 ): Pick<Metadata, 'alternates' | 'openGraph' | 'twitter'> {
   const images = cover ? [{ url: cover }] : [{ url: SITE_OG_IMAGE }];
   return {
@@ -73,7 +74,7 @@ export function articleOpenGraph(
       title,
       description,
       url,
-      siteName: SITE_NAME,
+      siteName,
       type: 'article',
       images,
     },

@@ -4,6 +4,7 @@ import Markdown from "@/components/Markdown";
 import { aboutForPage } from "@/lib/about";
 import { extractDescription } from "@/lib/seo";
 import styles from "./about.module.css";
+import { siteForPage } from '@/lib/site-settings';
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +19,15 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function About() {
   const about = await aboutForPage();
+  const site = await siteForPage();
   return (
     <div className="w-full py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <header className="text-center mb-12">
           <Image
-            src="/imgs/head-img.jpg"
-            alt="若木的头像"
+            src={site.avatar}
+            alt={site.author + '的头像'}
+            unoptimized
             width={112}
             height={112}
             priority

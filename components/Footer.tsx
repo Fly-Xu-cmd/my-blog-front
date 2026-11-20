@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useSiteConfig } from "./SiteConfig";
 
 /** analytics:beat 事件携带的统计数据 */
 interface StatsDetail {
@@ -14,6 +15,7 @@ interface StatsDetail {
  * 展示全站 PV / UV / 当前在线人数及版权信息（初始显示 "-"）。
  */
 export default function Footer() {
+  const site = useSiteConfig();
   const [stats, setStats] = useState<StatsDetail | null>(null);
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function Footer() {
           {stats?.online ?? "-"}
         </p>
         <p className="mt-2 text-xs">
-          © {new Date().getFullYear()} 若木的小世界
+          © {new Date().getFullYear()} {site.name}
         </p>
       </div>
     </footer>
