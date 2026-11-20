@@ -29,6 +29,12 @@ test("private feedback retries a lost response with the same key and cannot be r
     .getByRole("button", { name: "私下发送给作者", exact: true })
     .click();
   await expect(modal.getByRole("alert")).toBeVisible();
+  const retryButton = modal.getByRole("button", {
+    name: "私下发送给作者",
+    exact: true,
+  });
+  await expect(retryButton).toHaveAttribute("aria-busy", "false");
+  await expect(retryButton).toBeEnabled();
   await page.unroute("**/api/feedback", lost);
   page.on("request", (r) => {
     if (r.method() === "POST" && new URL(r.url()).pathname === "/api/feedback")

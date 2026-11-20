@@ -186,7 +186,14 @@ export default function ArticleFeedback({
           <Form.Item name="website" hidden>
             <Input tabIndex={-1} autoComplete="off" />
           </Form.Item>
-          <Button type="primary" htmlType="submit" loading={sending}>
+          <Button
+            type="primary"
+            htmlType="submit"
+            aria-label="私下发送给作者"
+            aria-busy={sending}
+            disabled={sending}
+            loading={sending}
+          >
             私下发送给作者
           </Button>
         </Form>
