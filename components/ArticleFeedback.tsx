@@ -1,17 +1,19 @@
 "use client";
-import { Alert, App, Button, Form, Input, Modal, Select, Space } from "antd";
+import { Alert, App, Button, Form, Input, Modal, Select, Space, Tooltip, Dropdown } from "antd";
+import { FormOutlined, ShareAltOutlined } from "@ant-design/icons";
 import { useEffect, useRef, useState } from "react";
 type Props = {
   resource: "post" | "note";
   contentId: number;
   title: string;
+  description: string;
   path: string;
-  cover?: string | null;
 };
 export default function ArticleFeedback({
   resource,
   contentId,
   title,
+  description,
   path,
 }: Props) {
   const { message } = App.useApp();
@@ -76,7 +78,7 @@ export default function ArticleFeedback({
       await navigator.clipboard.writeText(new URL(path, location.origin).href);
       message.success("文章链接已复制");
     } catch {
-      setError("复制失败，可以从浏览器地址栏复制链接。");
+      message.error("复制失败，请从浏览器地址栏复制链接。");
     }
   };
   const share = async () => {
@@ -84,42 +86,51 @@ export default function ArticleFeedback({
     try {
       await navigator.share({
         title,
+        text: description,
         url: new URL(path, location.origin).href,
       });
     } catch (e) {
       if (!(e instanceof DOMException && e.name === "AbortError"))
-        setError("分享失败，可以复制文章链接。");
+        message.error("分享失败，可以复制文章链接。");
     }
   };
   return (
-    <section className="article-feedback" aria-label="交流与分享">
-      <Space wrap>
-        <Button
-          type="text"
-          size="small"
-          onClick={() => {
-            setError("");
-            setOpen(true);
+    <div className="ml-auto" role="group" aria-label="文章操作">
+      <Space size={2}>
+        <Tooltip title="纠错与反馈">
+          <Button
+            type="text"
+            aria-label="纠错与反馈"
+            icon={<FormOutlined />}
+            onClick={() => {
+              setError("");
+              setOpen(true);
+            }}
+          />
+        </Tooltip>
+        <Dropdown
+          trigger={["click"]}
+          menu={{
+            items: [
+              ...(nativeShare ? [{ key: "native", label: "系统分享" }] : []),
+              { key: "copy", label: "复制链接" },
+            ],
+            onClick: ({ key }) => void (key === "native" ? share() : copy()),
           }}
         >
-          纠错与反馈
-        </Button>
-        <Button type="text" size="small" onClick={copy}>
-          复制链接
-        </Button>
-        {nativeShare && (
-          <Button type="text" size="small" onClick={share}>
-            分享
-          </Button>
-        )}
+          <Button
+            type="text"
+            aria-label="分享文章"
+            aria-haspopup="menu"
+            title="分享文章"
+            className="text-gray-500! dark:text-gray-400!"
+            icon={<ShareAltOutlined />}
+          />
+        </Dropdown>
       </Space>
-      {!open && error && (
-        <p role="status" className="text-xs text-gray-500">
-          {error}
-        </p>
-      )}
       <Modal
         title="纠错与反馈"
+        rootClassName="article-feedback-modal"
         open={open}
         onCancel={() => {
           if (!pending.current) setOpen(false);
@@ -185,6 +196,6 @@ export default function ArticleFeedback({
           </Button>
         </Form>
       </Modal>
-    </section>
+    </div>
   );
 }

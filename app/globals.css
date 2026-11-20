@@ -224,10 +224,6 @@
   text-decoration: underline;
   text-underline-offset: 4px;
 }
-.article-feedback {
-  margin-top: 1.5rem;
-  padding-top: 0.5rem;
-}
 
 /* 让 dark: 变体基于 .dark class（配合主题切换），而非仅系统偏好 */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -272,6 +268,11 @@ html {
    */
   overflow-x: hidden;
   overflow-x: clip;
+}
+
+/* The root keeps its scrollbar gutter while Ant Design locks body scroll. */
+html body:has(.article-feedback-modal .ant-modal-wrap:not([style*='display: none'])) {
+  width: auto;
 }
 
 body {

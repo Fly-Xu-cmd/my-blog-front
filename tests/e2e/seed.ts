@@ -82,6 +82,7 @@ async function main() {
         },
         update: { published: true },
       });
+    const noteBody = 'Note server body\n\n```text\n' + 'wide-code-'.repeat(100) + '\n```';
     await db.note.upsert({
       where: { slug: 'e2e-note' },
       create: {
@@ -89,13 +90,13 @@ async function main() {
         syncId: 'e2e/note',
         hash: 'hash',
         title: 'E2E Note',
-        content: 'Note server body',
+        content: noteBody,
         published: true,
         publishedAt: new Date(),
         excerpt: 'Note summary',
         kind: 'ESSAY',
       },
-      update: { published: true },
+      update: { published: true, content: noteBody },
     });
     await db.dynamic.upsert({
       where: { id: 900001 },

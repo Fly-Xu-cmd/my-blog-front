@@ -85,32 +85,37 @@ test("article hides the pending discussion entry and shares a directly usable ca
       },
     });
   });
-  await page.goto("/posts/e2e-public");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/posts/e2e-public?highlight=example#search-1");
+  await expect(page.locator("article header").getByRole("group", { name: "文章操作" })).toBeVisible();
   await expect(
     page.getByRole("link", { name: "GitHub 讨论 ↗", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "复制链接", exact: true }).click();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "分享文章", exact: true }).click();
+  await page.getByRole("menuitem", { name: "复制链接", exact: true }).click();
   expect(
     await page.evaluate(() => (window as unknown as { copied: string }).copied),
   ).toBe("http://127.0.0.1:3197/posts/e2e-public");
-  await page.getByRole("button", { name: "分享", exact: true }).click();
+  await page.getByRole("button", { name: "分享文章", exact: true }).click();
+  await page.getByRole("menuitem", { name: "系统分享", exact: true }).click();
   expect(
     await page.evaluate(
       () => (window as unknown as { shared: ShareData }).shared,
     ),
   ).toEqual({
     title: "E2E Public",
+    text: expect.any(String),
     url: "http://127.0.0.1:3197/posts/e2e-public",
   });
   await expect(
     page.getByRole("button", { name: "生成分享卡片", exact: true }),
   ).toHaveCount(0);
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+
 });
 test("admin reads private feedback as plain text and marks it resolved", async ({
   page,

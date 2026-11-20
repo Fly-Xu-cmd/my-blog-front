@@ -172,7 +172,6 @@ test("admin overview and analytics show content status, period UV and titled lin
   await expect(
     page.getByText("范围内独立访客（UV）", { exact: true }),
   ).toBeVisible();
-  await page.getByPlaceholder("开始日期").click();
   await page.getByText("近 30 天", { exact: true }).click();
   await expect(
     page.getByText("范围内 UV 整段时间去重", { exact: false }),
@@ -194,10 +193,8 @@ test("admin overview and analytics accept custom dates and calendar shortcuts", 
     if (path !== "/welcome") await page.goto("http://127.0.0.1:8000" + path);
     const start = page.getByPlaceholder("开始日期"),
       end = page.getByPlaceholder("结束日期");
-    await start.click();
     await page.getByText("本周", { exact: true }).click();
     await expect(start).not.toHaveValue("");
-    await start.click();
     await page.getByText("本月", { exact: true }).click();
     await expect(start).toHaveValue(/-01$/);
     await start.fill("2000-02-28");

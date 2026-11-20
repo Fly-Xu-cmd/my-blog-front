@@ -79,5 +79,11 @@ test('admin login, draft CRUD, full-detail failure and publication workflow', as
     .filter({ hasText: 'E2E Note' })
     .getByText('预览与设置', { exact: true })
     .click();
-  await expect(drawer).toContainText('Note server body');
+  await expect(drawer.getByRole('region', { name: 'E2E Note' })).toContainText('Note server body');
+  const settings = drawer.getByRole('complementary', { name: '发布设置' });
+  await expect(settings.getByRole('combobox', { name: '笔记类型' })).toBeVisible();
+  await expect(settings.getByRole('switch', { name: '公开发布' })).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(settings).toBeVisible();
+  expect(await drawer.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });

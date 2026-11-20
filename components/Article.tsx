@@ -2,15 +2,17 @@ import Link from "next/link";
 import Markdown from "./Markdown";
 import ReadingTools from "./ReadingTools";
 import ReadingMemory from "./ReadingMemory";
-import ArticleConversation from "./ArticleConversation";
+import ArticleFeedback from "./ArticleFeedback";
 import { markdownHeadings, shanghaiDate } from "@/lib/markdown";
 import { prisma } from "@/lib/prisma";
 import { createHash } from "node:crypto";
+import { extractDescription } from "@/lib/seo";
 import SearchArrival from "./SearchArrival";
 type ArticleData = {
   id: number;
   title: string | null;
   content: string;
+  excerpt?: string | null;
   publishedAt: Date | null;
   createdAt: Date;
   tags?: string[];
@@ -80,10 +82,19 @@ export default async function Article({
       >
         <header className="border-b border-gray-100 dark:border-white/10 pb-6 mb-8">
           <h1 className="text-3xl font-bold mb-4">{data.title || "动态"}</h1>
-          <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
             <time>{shanghaiDate(data.publishedAt ?? data.createdAt)}</time>
             {data.category?.name}
             <ReadingTools path={url} />
+            {resource !== "dynamic" && (
+              <ArticleFeedback
+                resource={resource}
+                contentId={data.id}
+                title={data.title || "笔记"}
+                description={data.excerpt?.trim() || extractDescription(data.content)}
+                path={url}
+              />
+            )}
           </div>
           {resource !== "dynamic" && (
             <ReadingMemory
@@ -109,15 +120,6 @@ export default async function Article({
         </header>
         <Markdown source={data.content} />
         <SearchArrival />
-        {resource !== "dynamic" && (
-          <ArticleConversation
-            resource={resource}
-            contentId={data.id}
-            title={data.title || "笔记"}
-            path={url}
-            cover={data.cover}
-          />
-        )}
         {((series && position >= 0) || related.length > 0) && (
           <footer className="article-reading-footer mt-7 border-t border-gray-200 dark:border-white/10 pt-4 space-y-3">
             {series && position >= 0 && (
