@@ -53,6 +53,7 @@ export async function GET() {
           "reading-entry-v1",
           "feedback-v1",
           "experience-v1",
+          "reporting-range-v1",
         ],
       },
       { headers },

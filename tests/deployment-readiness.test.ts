@@ -15,6 +15,7 @@ it("returns only capabilities and rejects missing schema without leaking excepti
     expect(ready.headers.get("Cache-Control")).toBe("no-store");
     const data = await ready.json();
     expect(data.capabilities).toContain("series-v1");
+    expect(data.capabilities).toContain("reporting-range-v1");
     expect(query).toHaveBeenCalledTimes(12);
     query.mockRejectedValue(new Error("SQL credentials private-draft"));
     const unavailable = await GET();

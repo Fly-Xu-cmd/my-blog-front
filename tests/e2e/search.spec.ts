@@ -54,6 +54,7 @@ test("Unicode search offsets reach the correct paragraph after emoji and a long 
     await expect(page.getByRole("dialog").locator("mark").first()).toHaveText(
       needle,
     );
+    expect(await page.getByRole("dialog").getByRole("link", {name:/Unicode location fixture/}).evaluate((node) => getComputedStyle(node).color === getComputedStyle(node.closest(".ant-modal-content")!).color)).toBe(true);
     await page
       .getByRole("dialog")
       .getByRole("link", { name: /Unicode location fixture/ })

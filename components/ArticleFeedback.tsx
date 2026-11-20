@@ -7,14 +7,12 @@ type Props = {
   title: string;
   path: string;
   cover?: string | null;
-  githubUrl: string;
 };
 export default function ArticleFeedback({
   resource,
   contentId,
   title,
   path,
-  githubUrl,
 }: Props) {
   const { message } = App.useApp();
   const [open, setOpen] = useState(false),
@@ -106,17 +104,6 @@ export default function ArticleFeedback({
         >
           纠错与反馈
         </Button>
-        {githubUrl && (
-          <Button
-            type="link"
-            size="small"
-            href={githubUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            GitHub 讨论 ↗
-          </Button>
-        )}
         <Button type="text" size="small" onClick={copy}>
           复制链接
         </Button>

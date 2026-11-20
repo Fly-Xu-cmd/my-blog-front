@@ -3,22 +3,17 @@ import { prisma } from "@/lib/prisma";
 import { admin, ApiError, endpoint, json } from "@/lib/api";
 import { shanghaiDayStartUtc } from "@/lib/analytics";
 import { cached } from "@/lib/analytics-cache";
-import { interactionDay } from "@/lib/interactions";
+import { reportRange } from "@/lib/report-range";
 import { contentLinks } from "@/lib/content-links";
 export const GET = endpoint(async (req: Request) => {
   await admin(req);
   const params = new URL(req.url).searchParams,
-    range = params.get("range") ?? "7d",
     kind = params.get("kind") ?? "all";
-  if (
-    !["7d", "30d"].includes(range) ||
-    !["all", "post", "TECH", "ESSAY"].includes(kind)
-  )
+  if (!["all", "post", "TECH", "ESSAY"].includes(kind))
     throw new ApiError(400, "INVALID_RANGE");
-  const days = range === "7d" ? 7 : 30,
-    todayStart = shanghaiDayStartUtc(),
-    start = shanghaiDayStartUtc(days - 1),
-    end = shanghaiDayStartUtc(-1);
+  const { range, start, end, startDate, endDate, dates } = reportRange(params);
+  const todayStart = shanghaiDayStartUtc(),
+    todayEnd = shanghaiDayStartUtc(-1);
   const path = Prisma.sql`CASE WHEN path='/frontend' THEN '/' WHEN path LIKE '/frontend/%' THEN SUBSTRING(path,10) ELSE path END`;
   const filter =
     kind === "all"
@@ -27,10 +22,14 @@ export const GET = endpoint(async (req: Request) => {
         ? Prisma.sql`AND ${path} LIKE '/posts/%'`
         : Prisma.sql`AND EXISTS (SELECT 1 FROM Note n WHERE CONCAT('/notes/',n.slug)=${path} AND n.kind=${kind})`;
   const data = await cached(
-    "stats-v2:" +
+    "stats-v3:" +
       new URL(process.env.DATABASE_URL!).pathname +
       ":" +
       range +
+      ":" +
+      startDate +
+      ":" +
+      endDate +
       ":" +
       kind +
       ":" +
@@ -48,11 +47,11 @@ export const GET = endpoint(async (req: Request) => {
         feedback,
       ] = await Promise.all([
         prisma.pageView.count({
-          where: { createdAt: { gte: todayStart, lt: end } },
+          where: { createdAt: { gte: todayStart, lt: todayEnd } },
         }),
         prisma.$queryRaw<
           { count: bigint }[]
-        >`SELECT COUNT(DISTINCT visitorId) count FROM PageView WHERE createdAt>=${todayStart} AND createdAt<${end}`,
+        >`SELECT COUNT(DISTINCT visitorId) count FROM PageView WHERE createdAt>=${todayStart} AND createdAt<${todayEnd}`,
         prisma.pageView.count({
           where: { createdAt: { gte: start, lt: end } },
         }),
@@ -71,7 +70,10 @@ export const GET = endpoint(async (req: Request) => {
         prisma.interactionDaily.groupBy({
           by: ["event"],
           where: {
-            day: { gte: interactionDay(days - 1), lte: interactionDay() },
+            day: {
+              gte: new Date(startDate + "T00:00:00Z"),
+              lte: new Date(endDate + "T00:00:00Z"),
+            },
           },
           _sum: { count: true },
         }),
@@ -85,14 +87,7 @@ export const GET = endpoint(async (req: Request) => {
       const map = new Map(
         trendRows.map((r) => [r.date, { pv: Number(r.pv), uv: Number(r.uv) }]),
       );
-      const fmt = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Shanghai",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      });
-      const trend = Array.from({ length: days }, (_, i) => {
-        const date = fmt.format(shanghaiDayStartUtc(days - 1 - i));
+      const trend = dates.map((date) => {
         return { date, ...(map.get(date) ?? { pv: 0, uv: 0 }) };
       });
       const interactions = Object.fromEntries(
@@ -114,6 +109,8 @@ export const GET = endpoint(async (req: Request) => {
           count: r._count._all,
         })),
         range,
+        startDate,
+        endDate,
         kind,
         start: start.toISOString(),
         end: end.toISOString(),

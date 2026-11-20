@@ -172,9 +172,44 @@ test("admin overview and analytics show content status, period UV and titled lin
   await expect(
     page.getByText("范围内独立访客（UV）", { exact: true }),
   ).toBeVisible();
+  await page.getByPlaceholder("开始日期").click();
   await page.getByText("近 30 天", { exact: true }).click();
   await expect(
     page.getByText("范围内 UV 整段时间去重", { exact: false }),
   ).toBeVisible();
   expect((await request.get("/api/admin/content-stats")).status()).toBe(401);
+});
+
+test("admin overview and analytics accept custom dates and calendar shortcuts", async ({
+  page,
+}) => {
+  test.skip(!process.env.ADMIN_E2E_DIR, "Requires paired isolated admin");
+  await page.goto("http://127.0.0.1:8000/user/login");
+  await page.getByLabel("用户名").fill("test-admin");
+  await page.getByLabel("密码", { exact: true }).fill("test-only");
+  await page.getByRole("button", { name: /登\s*入/ }).click();
+  await expect(page).toHaveURL(/welcome/);
+  await expect(page).toHaveTitle(/总览/);
+  for (const path of ["/welcome", "/analysis"]) {
+    if (path !== "/welcome") await page.goto("http://127.0.0.1:8000" + path);
+    const start = page.getByPlaceholder("开始日期"),
+      end = page.getByPlaceholder("结束日期");
+    await start.click();
+    await page.getByText("本周", { exact: true }).click();
+    await expect(start).not.toHaveValue("");
+    await start.click();
+    await page.getByText("本月", { exact: true }).click();
+    await expect(start).toHaveValue(/-01$/);
+    await start.fill("2000-02-28");
+    await start.press("Enter");
+    await end.fill("2000-03-01");
+    await end.press("Enter");
+    await expect(
+      page.getByText(
+        path === "/welcome"
+          ? /趋势范围：2000-02-28 至 2000-03-01/
+          : /当前展示 2000\/2\/28 至 2000\/3\/1/,
+      ),
+    ).toBeVisible();
+  }
 });

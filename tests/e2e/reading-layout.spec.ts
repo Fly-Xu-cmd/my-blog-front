@@ -71,8 +71,9 @@ test("removing the featured article preserves the start section boundary and oth
     await expect(section).toContainText("E2E Public");
     await expect(section).not.toContainText("Temporary featured");
     expect(
-      await section.evaluate((n) => getComputedStyle(n).borderTopWidth),
-    ).toBe("1px");
+      await section.locator(".editorial-section-head").evaluate((n) => getComputedStyle(n).borderBottomWidth),
+    ).toBe("2px");
+    expect(await page.locator('section[aria-labelledby="recent-posts"] > .editorial-section-head').evaluate((n) => getComputedStyle(n).borderBottomWidth)).toBe("2px");
   } finally {
     const latest = (
       await (

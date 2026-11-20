@@ -68,7 +68,7 @@ test("private feedback retries a lost response with the same key and cannot be r
     prose,
   );
 });
-test("article keeps the discussion link and shares a directly usable canonical URL", async ({
+test("article hides the pending discussion entry and shares a directly usable canonical URL", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -88,7 +88,7 @@ test("article keeps the discussion link and shares a directly usable canonical U
   await page.goto("/posts/e2e-public");
   await expect(
     page.getByRole("link", { name: "GitHub 讨论 ↗", exact: true }),
-  ).toHaveAttribute("href", /github\.com\/Fly-Xu-cmd\/my-blog-front\/issues/);
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "复制链接", exact: true }).click();
   expect(
     await page.evaluate(() => (window as unknown as { copied: string }).copied),

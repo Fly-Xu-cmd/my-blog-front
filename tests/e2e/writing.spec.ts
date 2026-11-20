@@ -71,7 +71,10 @@ test("browser recovery replays a lost creation response with the same key and hi
     await expect(editor).not.toBeVisible();
     await row.getByText("编辑", { exact: true }).click();
     await editor.getByRole("button", { name: "历史版本" }).click();
-    const history = page.locator(".ant-drawer-content").last();
+    const history = page.getByRole("dialog", {
+      name: "文章历史版本",
+      exact: true,
+    });
     await history
       .getByRole("button", { name: "预览版本 1", exact: true })
       .click();

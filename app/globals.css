@@ -1,11 +1,22 @@
 @import "tailwindcss";
 
 .reading-entry-section {
-  border-top: 1px solid var(--editorial-line);
-  padding-top: 18px;
+  padding-top: 0;
 }
 .reading-entry-section > .editorial-section-head {
   margin-top: 0;
+}
+.reading-entry-section > .editorial-section-head,
+.editorial-home
+  section[aria-labelledby="recent-posts"]
+  > .editorial-section-head {
+  border-bottom: 2px solid var(--editorial-ink);
+  padding-bottom: 6px;
+  margin-bottom: 0;
+}
+.reading-entry-section .editorial-feature,
+.editorial-home section[aria-labelledby="recent-posts"] .editorial-feature {
+  border-top: 0;
 }
 .blog-search-dialog .ant-modal-content {
   padding: 22px 24px 16px;
@@ -70,6 +81,7 @@
 .blog-search-dialog .search-results li > a {
   display: block;
   padding: 12px 10px;
+  color: inherit;
 }
 .blog-search-dialog .search-results li:hover,
 .blog-search-dialog .search-results li.is-active {
