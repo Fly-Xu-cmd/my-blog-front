@@ -1,7 +1,7 @@
 import ReactMarkdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createElement } from "react";
-import { headingId } from "@/lib/markdown";
+import { headingId, characterOffset } from "@/lib/markdown";
 import MermaidBlock from "./MermaidBlock";
 import CdnImage from "./CdnImage";
 const components: Components = {};
@@ -21,14 +21,18 @@ for (const level of [1, 2, 3, 4, 5, 6] as const) {
       children,
     );
 }
-components.pre = ({ node, children }) => {
+components.pre = ({ node, children, ...props }) => {
   const code = node?.children[0];
   const mermaid =
     code &&
     "properties" in code &&
     Array.isArray(code.properties.className) &&
     code.properties.className.includes("language-mermaid");
-  return mermaid ? <div>{children}</div> : <pre>{children}</pre>;
+  return mermaid ? (
+    createElement("div", props, children)
+  ) : (
+    <pre {...props}>{children}</pre>
+  );
 };
 components.code = ({ className, children }) =>
   className === "language-mermaid" ? (
@@ -37,11 +41,36 @@ components.code = ({ className, children }) =>
     <code className={className}>{children}</code>
   );
 export default function Markdown({ source }: { source: string }) {
+  const offset = characterOffset(source);
+  type SearchNode = {
+    tagName?: string;
+    properties?: Record<string, unknown>;
+    children?: SearchNode[];
+    position?: { start: { offset?: number }; end: { offset?: number } };
+  };
+  const searchBlocks = () => (tree: SearchNode) => {
+    const visit = (node: SearchNode) => {
+      if (
+        node.tagName &&
+        /^(p|li|pre|table|blockquote|h[1-6])$/.test(node.tagName)
+      ) {
+        node.properties = {
+          ...node.properties,
+          id: "block-" + offset(node.position?.start.offset),
+          "data-search-start": offset(node.position?.start.offset),
+          "data-search-end": offset(node.position?.end.offset),
+        };
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
+  };
   return (
     <div className="article-content break-words">
       <ReactMarkdown
         skipHtml
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[searchBlocks]}
         components={components}
       >
         {source}

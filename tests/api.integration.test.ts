@@ -353,8 +353,10 @@ describe('failure boundaries', () => {
     });
     const data = await (await stats(request('/api/analytics/stats?range=7d'))).json();
     expect(data.trend).toHaveLength(7);
-    expect(data.topPages).toEqual([{ path: '/posts/a', count: 2 }]);
+    expect(data.topPages).toEqual([{ path: '/posts/a', count: 2, title: '/posts/a', kind: '页面', url: null }]);
     expect(data.referrers).toEqual([{ host: 'recent.example', count: 2 }]);
     expect(data.trend.reduce((sum: number, row: { pv: number }) => sum + row.pv, 0)).toBe(2);
+    expect(data.period).toEqual({ pv: 2, uv: 2 });
+    expect(data.range).toBe('7d');
   });
 });

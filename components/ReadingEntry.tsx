@@ -16,7 +16,7 @@ export default async function ReadingEntry() {
     return null;
   return (
     <section
-      className="editorial-home-section"
+      className="editorial-home-section reading-entry-section"
       aria-labelledby="reading-entry-title"
     >
       <div className="editorial-section-head">
@@ -24,11 +24,16 @@ export default async function ReadingEntry() {
         <span className="editorial-eyebrow">留给第一次来的你</span>
       </div>
       {reading.featured && (
-        <FeaturedArticle
-          item={JSON.parse(JSON.stringify(reading.featured))}
-          headingLevel={3}
-          showSeries={false}
-        />
+        <div
+          data-interaction="featured_click"
+          data-target={"post:" + reading.featured.id}
+        >
+          <FeaturedArticle
+            item={JSON.parse(JSON.stringify(reading.featured))}
+            headingLevel={3}
+            showSeries={false}
+          />
+        </div>
       )}
       <div className="reading-entry-columns">
         {!!reading.starts.length && (
@@ -37,7 +42,13 @@ export default async function ReadingEntry() {
             <ol>
               {reading.starts.map((post) => (
                 <li key={post.id}>
-                  <Link href={"/posts/" + post.slug}>{post.title} ↗</Link>
+                  <Link
+                    href={"/posts/" + post.slug}
+                    data-interaction="start_click"
+                    data-target={"post:" + post.id}
+                  >
+                    {post.title} ↗
+                  </Link>
                 </li>
               ))}
             </ol>
@@ -49,7 +60,13 @@ export default async function ReadingEntry() {
             <ul>
               {reading.series.map((series) => (
                 <li key={series.id}>
-                  <Link href={"/series/" + series.slug}>{series.name} ↗</Link>
+                  <Link
+                    href={"/series/" + series.slug}
+                    data-interaction="series_click"
+                    data-target={"series:" + series.id}
+                  >
+                    {series.name} ↗
+                  </Link>
                   <p>
                     {series.description ||
                       `${series._count.posts} 篇公开文章，按顺序阅读。`}

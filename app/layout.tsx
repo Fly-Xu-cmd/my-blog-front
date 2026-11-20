@@ -8,6 +8,7 @@ import AntdStyleRegistry from "@/components/AntdStyleRegistry";
 import Background from "@/components/Background";
 import Header from "@/components/Header";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import InteractionTracker from "@/components/InteractionTracker";
 import Footer from "@/components/Footer";
 import { SITE_OG_IMAGE, absoluteUrl } from "@/lib/seo";
 import { siteForPage } from "@/lib/site-settings";
@@ -111,6 +112,7 @@ export default async function RootLayout({
             <SiteConfig value={site}>
               <Background />
               <AnalyticsTracker />
+              <InteractionTracker />
               <div className="relative w-full flex flex-col min-h-screen">
                 <Header />
                 <div className="w-full flex flex-1">{children}</div>

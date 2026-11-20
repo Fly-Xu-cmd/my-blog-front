@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
 let submittedMessage = "";
 test("private feedback retries a lost response with the same key and cannot be read anonymously", async ({
   page,
@@ -63,22 +62,43 @@ test("private feedback retries a lost response with the same key and cannot be r
     prose,
   );
 });
-test("article discussion uses the configured public link and sharing exports a readable PNG", async ({
+test("article keeps the discussion link and shares a directly usable canonical URL", async ({
   page,
-}, testInfo) => {
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async (text: string) => {
+          (window as unknown as { copied: string }).copied = text;
+        },
+      },
+    });
+    Object.defineProperty(navigator, "share", {
+      value: async (data: ShareData) => {
+        (window as unknown as { shared: ShareData }).shared = data;
+      },
+    });
+  });
   await page.goto("/posts/e2e-public");
   await expect(
     page.getByRole("link", { name: "GitHub 讨论 ↗", exact: true }),
   ).toHaveAttribute("href", /github\.com\/Fly-Xu-cmd\/my-blog-front\/issues/);
-  const downloading = page.waitForEvent("download");
-  await page.getByRole("button", { name: "生成分享卡片", exact: true }).click();
-  const download = await downloading;
-  await download.saveAs(testInfo.outputPath("share-card.png"));
-  expect(download.suggestedFilename()).toBe("blog-share.png");
-  const buffer = await readFile((await download.path())!);
-  expect(buffer.subarray(1, 4).toString()).toBe("PNG");
-  expect(buffer.readUInt32BE(16)).toBe(1200);
-  expect(buffer.readUInt32BE(20)).toBe(630);
+  await page.getByRole("button", { name: "复制链接", exact: true }).click();
+  expect(
+    await page.evaluate(() => (window as unknown as { copied: string }).copied),
+  ).toBe("http://127.0.0.1:3197/posts/e2e-public");
+  await page.getByRole("button", { name: "分享", exact: true }).click();
+  expect(
+    await page.evaluate(
+      () => (window as unknown as { shared: ShareData }).shared,
+    ),
+  ).toEqual({
+    title: "E2E Public",
+    url: "http://127.0.0.1:3197/posts/e2e-public",
+  });
+  await expect(
+    page.getByRole("button", { name: "生成分享卡片", exact: true }),
+  ).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(
@@ -102,6 +122,10 @@ test("admin reads private feedback as plain text and marks it resolved", async (
     .filter({ hasText: submittedMessage })
     .first();
   await expect(row).toContainText("reader@example.com");
+  await expect(row.getByRole("link", { name: "E2E Public ↗" })).toHaveAttribute(
+    "href",
+    "http://127.0.0.1:3197/posts/e2e-public",
+  );
   expect(await page.evaluate(() => "feedbackAttack" in window)).toBe(false);
   await row.locator(".ant-select").click();
   await page

@@ -74,6 +74,7 @@ it("paginates the combined public set consistently and returns bounded snippets"
   const first = await (await search(marker)).json(),
     second = await (await search(marker, "all", 2)).json();
   expect(first.total).toBe(4);
+  expect(first.groups).toEqual({ post: 2, TECH: 1, ESSAY: 1 });
   expect(second.total).toBe(4);
   expect(first.pages).toBe(2);
   const rows = [...first.data, ...second.data];
@@ -82,6 +83,8 @@ it("paginates the combined public set consistently and returns bounded snippets"
   ).toBe(4);
   for (const row of rows) {
     expect(row).not.toHaveProperty("content");
+    expect(row).not.toHaveProperty("contentWindow");
+    expect(row.matchOffset).toBeGreaterThanOrEqual(0);
     expect(row.snippet.length).toBeLessThanOrEqual(201);
     expect(row.title).not.toContain("PRIVATE");
   }

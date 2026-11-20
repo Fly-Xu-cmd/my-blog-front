@@ -106,9 +106,44 @@ export const GET = endpoint(async (req: Request) => {
       take,
     }),
   ]);
+  const [posts, notes] = await Promise.all([
+    prisma.post.findMany({
+      where: {
+        id: {
+          in: rows.filter((r) => r.resource === "post").map((r) => r.contentId),
+        },
+      },
+      select: { id: true, title: true, slug: true, published: true },
+    }),
+    prisma.note.findMany({
+      where: {
+        id: {
+          in: rows.filter((r) => r.resource === "note").map((r) => r.contentId),
+        },
+      },
+      select: { id: true, title: true, slug: true, published: true },
+    }),
+  ]);
   return json({
     ok: true,
-    data: rows,
+    data: rows.map((row) => {
+      const item = (row.resource === "post" ? posts : notes).find(
+        (item) => item.id === row.contentId,
+      );
+      return {
+        ...row,
+        source: item
+          ? {
+              ...item,
+              url: item.published
+                ? getSiteUrl() +
+                  (row.resource === "post" ? "/posts/" : "/notes/") +
+                  item.slug
+                : null,
+            }
+          : null,
+      };
+    }),
     total,
     current,
     pageSize,

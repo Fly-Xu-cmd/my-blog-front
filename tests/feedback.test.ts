@@ -128,6 +128,12 @@ it("same-key concurrent submissions create one private record and mismatched rep
   const rows = (await inbox.json()).data;
   const row = rows.find((r: { message: string }) => r.message.includes(marker));
   expect(row.contact).toBe("reader@example.com");
+  expect(row.source).toMatchObject({
+    id: publicId,
+    title: "Feedback public",
+    published: true,
+  });
+  expect(row.source.url).toContain("/posts/");
   expect(row).not.toHaveProperty("payloadHash");
   expect(
     (

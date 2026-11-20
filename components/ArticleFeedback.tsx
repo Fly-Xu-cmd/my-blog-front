@@ -1,6 +1,6 @@
 "use client";
 import { Alert, App, Button, Form, Input, Modal, Select, Space } from "antd";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 type Props = {
   resource: "post" | "note";
   contentId: number;
@@ -14,15 +14,15 @@ export default function ArticleFeedback({
   contentId,
   title,
   path,
-  cover,
   githubUrl,
 }: Props) {
   const { message } = App.useApp();
   const [open, setOpen] = useState(false),
     [sending, setSending] = useState(false),
-    [error, setError] = useState(""),
-    [sharing, setSharing] = useState(false);
+    [error, setError] = useState("");
   const [form] = Form.useForm();
+  const [nativeShare, setNativeShare] = useState(false);
+  useEffect(() => setNativeShare(typeof navigator.share === "function"), []);
   const pending = useRef(false),
     key = useRef({ hash: "", id: "" });
   const submit = async (value: {
@@ -82,97 +82,15 @@ export default function ArticleFeedback({
     }
   };
   const share = async () => {
-    if (sharing) return;
-    setSharing(true);
-    setError("");
+    if (!navigator.share) return;
     try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1200;
-      canvas.height = 630;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("分享卡片暂不可用");
-      ctx.fillStyle = "#111821";
-      ctx.fillRect(0, 0, 1200, 630);
-      if (cover) {
-        try {
-          const image = new Image();
-          image.crossOrigin = "anonymous";
-          const loaded = new Promise<void>((resolve, reject) => {
-            image.onload = () => resolve();
-            image.onerror = () => reject(new Error("封面不可用"));
-          });
-          image.src = cover;
-          await Promise.race([
-            loaded,
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error("封面超时")), 3000),
-            ),
-          ]);
-          ctx.save();
-          ctx.globalAlpha = 0.28;
-          const scale = Math.max(1200 / image.width, 630 / image.height);
-          ctx.drawImage(
-            image,
-            (1200 - image.width * scale) / 2,
-            (630 - image.height * scale) / 2,
-            image.width * scale,
-            image.height * scale,
-          );
-          ctx.restore();
-        } catch {
-          /* Card remains usable without cross-origin cover. */
-        }
-      }
-      ctx.fillStyle = "#9ad9e6";
-      ctx.font = "24px sans-serif";
-      ctx.fillText(
-        resource === "post"
-          ? "文章 · 留给下一次需要的自己"
-          : "笔记 · 留给下一次需要的自己",
-        70,
-        90,
-      );
-      ctx.fillStyle = "#f3f6fa";
-      ctx.font = "bold 50px sans-serif";
-      const lines: string[] = [];
-      let line = "";
-      for (const char of title) {
-        if (ctx.measureText(line + char).width > 1060) {
-          lines.push(line);
-          line = char;
-        } else line += char;
-      }
-      if (line) lines.push(line);
-      lines
-        .slice(0, 4)
-        .forEach((text, index) =>
-          ctx.fillText(
-            index === 3 && lines.length > 4 ? text.slice(0, -1) + "…" : text,
-            70,
-            190 + index * 66,
-          ),
-        );
-      ctx.fillStyle = "#b5c2cf";
-      ctx.font = "22px sans-serif";
-      const url = new URL(path, location.origin).href;
-      ctx.fillText(url.length > 90 ? url.slice(0, 87) + "…" : url, 70, 555);
-      const blob = await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob(
-          (value) => (value ? resolve(value) : reject(new Error("生成失败"))),
-          "image/png",
-        ),
-      );
-      const object = URL.createObjectURL(blob),
-        link = document.createElement("a");
-      link.href = object;
-      link.download = "blog-share.png";
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(object), 1000);
-      message.success("分享卡片已生成");
+      await navigator.share({
+        title,
+        url: new URL(path, location.origin).href,
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "分享卡片生成失败，请重试。");
-    } finally {
-      setSharing(false);
+      if (!(e instanceof DOMException && e.name === "AbortError"))
+        setError("分享失败，可以复制文章链接。");
     }
   };
   return (
@@ -202,9 +120,11 @@ export default function ArticleFeedback({
         <Button type="text" size="small" onClick={copy}>
           复制链接
         </Button>
-        <Button type="text" size="small" onClick={share} loading={sharing}>
-          生成分享卡片
-        </Button>
+        {nativeShare && (
+          <Button type="text" size="small" onClick={share}>
+            分享
+          </Button>
+        )}
       </Space>
       {!open && error && (
         <p role="status" className="text-xs text-gray-500">

@@ -119,6 +119,15 @@ test("paired admin saves site identity and a subsequent page receives the new co
       original.name,
     );
     await page.getByLabel("首页标题", { exact: true }).fill("配对后台配置首页");
+    const preview = page.getByRole("region", { name: "前台位置预览画布" });
+    await expect(
+      preview.getByRole("heading", { name: "配对后台配置首页" }),
+    ).toBeVisible();
+    await expect(preview).not.toContainText(original.description);
+    await page.getByText("手机", { exact: true }).click();
+    await expect(
+      preview.getByRole("heading", { name: "配对后台配置首页" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "保存并更新前台" }).click();
     await expect(
       page.getByText("站点配置已保存，前台已更新", { exact: true }),
@@ -144,4 +153,28 @@ test("paired admin saves site identity and a subsequent page receives the new co
       data: { ...original, revision: latest.revision },
     });
   }
+});
+
+test("admin overview and analytics show content status, period UV and titled links", async ({
+  page,
+  request,
+}) => {
+  test.skip(!process.env.ADMIN_E2E_DIR, "Requires paired isolated admin");
+  await page.goto("http://127.0.0.1:8000/user/login");
+  await page.getByLabel("用户名").fill("test-admin");
+  await page.getByLabel("密码", { exact: true }).fill("test-only");
+  await page.getByRole("button", { name: /登\s*入/ }).click();
+  await expect(page).toHaveURL(/welcome/);
+  await expect(page.getByText("已公开文章", { exact: true })).toBeVisible();
+  await expect(page.getByText("最近编辑", { exact: true })).toBeVisible();
+  await page.goto("http://127.0.0.1:8000/analysis");
+  await expect(page.getByText(/UV 按浏览器标识估算/)).toBeVisible();
+  await expect(
+    page.getByText("范围内独立访客（UV）", { exact: true }),
+  ).toBeVisible();
+  await page.getByText("近 30 天", { exact: true }).click();
+  await expect(
+    page.getByText("范围内 UV 整段时间去重", { exact: false }),
+  ).toBeVisible();
+  expect((await request.get("/api/admin/content-stats")).status()).toBe(401);
 });

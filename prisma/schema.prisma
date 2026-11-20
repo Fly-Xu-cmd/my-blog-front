@@ -3,6 +3,14 @@ generator client {
   binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
 }
 
+model InteractionDaily {
+  day DateTime @db.Date
+  event String @db.VarChar(24)
+  target String @db.VarChar(32)
+  count Int @default(0)
+  @@id([day, event, target])
+}
+
 model ReadingEntry {
   id Int @id
   fields Json
