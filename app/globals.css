@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+.reading-entry-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 2rem; padding: 1.25rem 0 2rem; }
+.reading-entry-columns h3 { font-size: .9rem; font-weight: 600; margin-bottom: .75rem; }
+.reading-entry-columns li { margin: .65rem 0; overflow-wrap: anywhere; }
+.reading-entry-columns a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.reading-entry-columns p { font-size: .85rem; opacity: .7; margin-top: .25rem; }
+@media(max-width:640px) { .reading-entry-columns { grid-template-columns:1fr; gap:1rem; } }
+.search-page header h1 { font-size: clamp(1.7rem,3vw,2.5rem); font-weight:600; margin:.5rem 0; }
+.search-controls { max-width:680px; display:flex; flex-direction:column; gap:1rem; margin:2rem 0; align-items:flex-start; }
+.search-count,.search-result-meta { font-size:.8rem; opacity:.7; }
+.search-results { list-style:none; padding:0; }
+.search-results li { padding:1.4rem 0; max-width:800px; }
+.search-result-meta { display:flex; gap:1rem; }
+.search-results h2 { font-size:1.2rem; font-weight:600; margin:.5rem 0; overflow-wrap:anywhere; }
+.search-results p { line-height:1.8; opacity:.85; overflow-wrap:anywhere; }
+.search-results mark { color:inherit; background:rgba(34,211,238,.2); padding:0 .08em; border-radius:2px; }
+.search-results a:hover { text-decoration:underline; text-underline-offset:4px; }
+.search-controls .ant-input-search { width: min(100%,680px); }
+.reading-memory { display:flex; flex-wrap:wrap; gap:.25rem; align-items:center; margin-top:.75rem; }
+.reading-library { list-style:none; padding:0; margin-top:1.5rem; }
+.reading-library li { max-width:800px; padding:1rem 0; }
+.reading-library h2 { font-size:1.2rem; font-weight:600; margin:.5rem 0; overflow-wrap:anywhere; }
+.reading-library p { opacity:.7; line-height:1.8; }
+.reading-library a:hover { text-decoration:underline; text-underline-offset:4px; }
+.article-feedback { margin-top:1.5rem; padding-top:.5rem; }
+
 /* 让 dark: 变体基于 .dark class（配合主题切换），而非仅系统偏好 */
 @custom-variant dark (&:where(.dark, .dark *));
 

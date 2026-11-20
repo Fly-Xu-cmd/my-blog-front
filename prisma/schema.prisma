@@ -3,6 +3,33 @@ generator client {
   binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
 }
 
+model ReadingEntry {
+  id Int @id
+  fields Json
+  revision Int @default(1)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
+}
+
+model Feedback {
+  id Int @id @default(autoincrement())
+  submissionId String @unique @db.VarChar(36)
+  payloadHash String @db.VarChar(64)
+  resource String @db.VarChar(8)
+  contentId Int
+  type String @db.VarChar(16)
+  message String @db.Text
+  contact String? @db.VarChar(160)
+  status String @default("NEW") @db.VarChar(16)
+  createdAt DateTime @default(now()) @db.DateTime(0)
+  @@index([status,createdAt])
+}
+model FeedbackSettings {
+  id Int @id
+  githubUrl String @db.VarChar(512)
+  revision Int @default(1)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
+}
+
 // 1. 数据源改为 MySQL（兼容 MariaDB）
 datasource db {
   provider     = "mysql" // 从 sqlite 改为 mysql
@@ -182,4 +209,11 @@ model PostRevision {
   createdAt DateTime @default(now()) @db.DateTime(0)
 
   @@unique([postId, revision])
+}
+
+model SiteSettings {
+  id        Int      @id
+  fields    Json
+  revision  Int      @default(1)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
 }

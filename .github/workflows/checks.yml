@@ -13,7 +13,7 @@ jobs:
       REDIS_HOST: 127.0.0.1
       REDIS_PORT: '16386'
       REDIS_PASSWORD: local-test-only
-      NEXT_PUBLIC_SITE_URL: https://xylxf.xyz
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3197
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

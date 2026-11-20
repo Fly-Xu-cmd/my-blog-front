@@ -11,7 +11,7 @@ it('returns only capabilities and rejects missing schema without leaking excepti
     const ready = await GET(); expect(ready.status).toBe(200);
     expect(ready.headers.get('Cache-Control')).toBe('no-store');
     const data = await ready.json(); expect(data.capabilities).toContain('series-v1');
-    expect(query).toHaveBeenCalledTimes(7);
+    expect(query).toHaveBeenCalledTimes(11);
     query.mockRejectedValue(new Error('SQL credentials private-draft'));
     const unavailable = await GET(); expect(unavailable.status).toBe(503);
     expect(await unavailable.text()).not.toContain('credentials');
